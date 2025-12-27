@@ -1,0 +1,8 @@
+What's New in Version 1.0.1 (Build 17):
+
+• Enhanced Search Analytics: Improved Daily Usage Heatmap with better mobile design and fixed layout issues
+• Better Data Tracking: Search analytics now properly collect data from all users for more accurate insights
+• Dashboard Improvements: Fixed empty analytics display and improved heatmap visualization
+• Bug Fixes: Fixed Firestore rules and timestamp validation to prevent data loss
+• Mobile Optimization: Fixed overlapping elements and improved responsive design
+

@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+:root {
+  /* Love to Learn Sign — app-aligned palette (from Flutter `app/lib/theme.dart`) */
+  --l2l-bg: #e4e1dd; /* scaffoldBackgroundColor (light) */
+  --l2l-fg: #232f34; /* primary (light) */
+  --l2l-surface: #ffffff; /* surface (light) */
+
+  --l2l-primary: #232f34;
+  --l2l-on-primary: #ffffff;
+
+  --l2l-accent: #f9aa33; /* secondary (light) */
+  --l2l-on-accent: #232f34;
+
+  --l2l-border: #d5d1cc;
+  --l2l-muted: #f3f1ee;
+  --l2l-muted-foreground: #4a5a61;
+}
+
+@theme inline {
+  --color-background: var(--l2l-bg);
+  --color-foreground: var(--l2l-fg);
+  --color-surface: var(--l2l-surface);
+
+  --color-primary: var(--l2l-primary);
+  --color-on-primary: var(--l2l-on-primary);
+
+  --color-accent: var(--l2l-accent);
+  --color-on-accent: var(--l2l-on-accent);
+
+  --color-border: var(--l2l-border);
+  --color-muted: var(--l2l-muted);
+  --color-muted-foreground: var(--l2l-muted-foreground);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark palette aligned with Flutter `AppTheme.dark` */
+    --l2l-bg: #181b1f; /* scaffoldBackgroundColor (dark) */
+    --l2l-fg: #ffffff; /* onSurface (dark) */
+    --l2l-surface: #232f34; /* surface (dark) */
+
+    --l2l-primary: #90a4ae; /* primary (dark) */
+    --l2l-on-primary: #232f34;
+
+    --l2l-accent: #f9aa33; /* secondary (dark) */
+    --l2l-on-accent: #232f34;
+
+    --l2l-border: #2b3137;
+    --l2l-muted: #22262b;
+    --l2l-muted-foreground: #a7b6bd;
+  }
+}
+
+body {
+  background: var(--l2l-bg);
+  color: var(--l2l-fg);
+  font-family: var(--font-sans), system-ui, -apple-system, Segoe UI, Roboto,
+    Helvetica, Arial, sans-serif;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--l2l-accent) 35%, transparent);
+}

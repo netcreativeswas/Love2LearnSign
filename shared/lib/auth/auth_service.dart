@@ -1,0 +1,631 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // On web, instantiating GoogleSignIn triggers google_sign_in_web initialization,
+  // which asserts if the google-signin-client_id meta tag is missing.
+  // We keep it null on web and use Firebase Auth popup instead.
+  late final GoogleSignIn? _googleSignIn = kIsWeb ? null : GoogleSignIn();
+
+  // Get current user
+  User? get currentUser => _auth.currentUser;
+
+  // Auth state stream
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Sign in with email and password
+  Future<UserCredential?> signInWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      // Refresh token to get latest custom claims
+      await credential.user?.getIdToken(true);
+
+      // Load user profile (non-blocking - don't fail login if profile load fails)
+      try {
+        await _loadUserProfile(credential.user!.uid);
+      } catch (e) {
+        // Log error but don't prevent login
+        debugPrint('Warning: Failed to load user profile: $e');
+      }
+
+      return credential;
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
+  }
+
+  // Sign up with email, password, and display name
+  Future<UserCredential?> signUpWithEmailAndPassword(
+    String email,
+    String password,
+    String displayName, {
+    String? country,
+    String? note,
+    required String userType,
+  }) async {
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      // Update display name
+      await credential.user?.updateDisplayName(displayName);
+
+      // SECURITY: Send email verification before creating profile
+      await credential.user?.sendEmailVerification();
+
+      // Create user profile in Firestore (pending approval)
+      // Document ID format: [name]__[UID] (spaces replaced with underscores)
+      final sanitizedName = displayName.trim().replaceAll(' ', '_');
+      final documentId = '${sanitizedName}__${credential.user!.uid}';
+
+      try {
+        await _createUserProfile(
+          credential.user!.uid,
+          documentId,
+          email.trim(),
+          displayName,
+          country: country,
+          note: note,
+          userType: userType,
+          provider: 'email',
+        );
+      } catch (e) {
+        // If Firestore creation fails, log but don't fail the signup
+        // The user is already authenticated, so we should continue
+        debugPrint('Warning: Failed to create user profile in Firestore: $e');
+        // Don't throw - the user is authenticated and can retry profile creation later
+      }
+
+      // Refresh token to get latest custom claims
+      await credential.user?.getIdToken(true);
+
+      return credential;
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
+  }
+
+  // Check if user's email is verified
+  Future<bool> isEmailVerified() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+
+    // Reload user to get latest email verification status
+    await user.reload();
+    return user.emailVerified;
+  }
+
+  // Resend email verification
+  Future<void> resendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    await user.sendEmailVerification();
+  }
+
+  // Create user profile in Firestore
+  // Google Sign-In: AUTO-APPROVE with freeUser role (email already verified by Google)
+  // Email/Password: PENDING until email verification
+  Future<void> _createUserProfile(
+    String uid,
+    String documentId,
+    String email,
+    String displayName, {
+    String? photoUrl,
+    String? country,
+    String? note,
+    String? provider,
+    String? userType,
+  }) async {
+    try {
+      // Distinguish between Google (auto-approved) and Email/Password (pending)
+      final isGoogleSignIn = provider == 'google';
+      
+      final userData = {
+        'uid': uid, // Store original UID for reference
+        'email': email,
+        'displayName': displayName,
+        // Google: auto-assign freeUser role, Email: empty until email verification
+        'roles': isGoogleSignIn ? ['freeUser'] : [],
+        // Google: auto-approved, Email: pending until email verification
+        'status': isGoogleSignIn ? 'approved' : 'pending',
+        // Google: approved immediately, Email: requires email verification
+        'approved': isGoogleSignIn ? true : false,
+        'photoUrl': photoUrl,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // Add country if provided
+      if (country != null && country.isNotEmpty) {
+        userData['country'] = country;
+      }
+
+      // Add note if provided
+      if (note != null && note.isNotEmpty) {
+        userData['note'] = note;
+      }
+
+      // Add provider if provided (e.g., 'google', 'email')
+      if (provider != null && provider.isNotEmpty) {
+        userData['provider'] = provider;
+      }
+      if (userType != null && userType.isNotEmpty) {
+        userData['userType'] = userType;
+      }
+
+      // Create main document with [name]__[UID] format
+      await _firestore.collection('users').doc(documentId).set(userData);
+    } catch (e) {
+      throw Exception('Failed to create user profile: $e');
+    }
+  }
+
+  // Load user profile from Firestore
+  // Documents now use format [name]__[UID], so we search by uid field
+  Future<Map<String, dynamic>?> _loadUserProfile(String uid) async {
+    try {
+      // First try to find by uid field (new format)
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('uid', isEqualTo: uid)
+          .limit(1)
+          .get();
+
+      DocumentSnapshot? doc;
+      if (querySnapshot.docs.isNotEmpty) {
+        doc = querySnapshot.docs.first;
+      } else {
+        // Fallback: try old format (document ID = uid)
+        doc = await _firestore.collection('users').doc(uid).get();
+      }
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) return null;
+
+        // Store in SharedPreferences for quick access
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_email', data['email'] ?? '');
+        await prefs.setString('user_displayName', data['displayName'] ?? '');
+
+        // Support both old format (role: string) and new format (roles: array)
+        List<String> rolesList = [];
+        if (data.containsKey('roles')) {
+          // New format: roles array
+          final roles = data['roles'] as List<dynamic>? ?? [];
+          rolesList = roles.map((r) => r.toString()).toList();
+        } else if (data.containsKey('role')) {
+          // Old format: single role string - migrate to array
+          final oldRole = data['role'] as String?;
+          if (oldRole != null && oldRole.isNotEmpty) {
+            rolesList = [oldRole];
+          }
+        }
+
+        await prefs.setString('user_roles', rolesList.join(','));
+        await prefs.setString('user_status', data['status'] ?? 'approved'); // Default to approved for old users
+        await prefs.setBool('user_approved', data['approved'] ?? true); // Default to approved for old users
+        return data;
+      }
+      // If document doesn't exist, set pending status
+      final prefs = await SharedPreferences.getInstance();
+      final user = _auth.currentUser;
+      if (user != null) {
+        await prefs.setString('user_email', user.email ?? '');
+        await prefs.setString('user_displayName', user.displayName ?? user.email?.split('@')[0] ?? '');
+        await prefs.setString('user_roles', ''); // Empty roles
+        await prefs.setString('user_status', 'pending');
+        await prefs.setBool('user_approved', false);
+      }
+      return null;
+    } catch (e) {
+      // Don't throw - just log and return null
+      debugPrint('Warning: Failed to load user profile from Firestore: $e');
+
+      // If it's a permission error, try to get roles from Custom Claims as fallback
+      if (e.toString().contains('permission-denied') || e.toString().contains('PERMISSION_DENIED')) {
+        try {
+          final user = _auth.currentUser;
+          if (user != null) {
+            // Try to get roles from Custom Claims
+            final roles = await getUserRoles();
+            if (roles.isNotEmpty && roles.contains('admin')) {
+              // User has admin role in Custom Claims, assume approved
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('user_email', user.email ?? '');
+              await prefs.setString('user_displayName', user.displayName ?? user.email?.split('@')[0] ?? '');
+              await prefs.setString('user_roles', roles.join(','));
+              await prefs.setString('user_status', 'approved');
+              await prefs.setBool('user_approved', true);
+              debugPrint('✅ Loaded user data from Custom Claims (admin user)');
+              return {
+                'email': user.email,
+                'displayName': user.displayName ?? user.email?.split('@')[0],
+                'roles': roles,
+                'status': 'approved',
+                'approved': true,
+              };
+            }
+          }
+        } catch (_) {
+          // Ignore errors getting Custom Claims
+        }
+      }
+
+      // Set pending values in SharedPreferences only if we couldn't get Custom Claims
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final user = _auth.currentUser;
+        if (user != null) {
+          await prefs.setString('user_email', user.email ?? '');
+          await prefs.setString('user_displayName', user.displayName ?? user.email?.split('@')[0] ?? '');
+          await prefs.setString('user_roles', ''); // Empty roles
+          await prefs.setString('user_status', 'pending');
+          await prefs.setBool('user_approved', false);
+        }
+      } catch (_) {
+        // Ignore errors setting defaults
+      }
+      return null;
+    }
+  }
+
+  /// Get the current user's profile from Firestore (or cached fallbacks).
+  Future<Map<String, dynamic>?> getUserProfile() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    return _loadUserProfile(user.uid);
+  }
+
+  // Get user roles array from custom claims or Firestore
+  Future<List<String>> getUserRoles() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return [];
+
+      // First, try to get roles from custom claims (JWT token)
+      debugPrint('🔍 getUserRoles: Force refreshing token...');
+      final idTokenResult = await user.getIdTokenResult(true);
+      final customClaims = idTokenResult.claims;
+      debugPrint('🔍 getUserRoles: Custom Claims: $customClaims');
+
+      if (customClaims != null && customClaims.containsKey('roles')) {
+        final roles = customClaims['roles'];
+        debugPrint('🔍 getUserRoles: Found roles in Custom Claims: $roles');
+        if (roles is List) {
+          final rolesList = roles.map((r) => r.toString()).toList();
+          // Cache in SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_roles', rolesList.join(','));
+          return rolesList;
+        }
+      }
+
+      // Fallback to Firestore
+      // Documents now use format [name]__[UID], so we search by uid field
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('uid', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      DocumentSnapshot? doc;
+      if (querySnapshot.docs.isNotEmpty) {
+        doc = querySnapshot.docs.first;
+      } else {
+        // Fallback: try old format (document ID = uid)
+        doc = await _firestore.collection('users').doc(user.uid).get();
+      }
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) return [];
+
+        // Support both old format (role: string) and new format (roles: array)
+        List<String> rolesList = [];
+        if (data.containsKey('roles')) {
+          // New format: roles array
+          final roles = data['roles'] as List<dynamic>? ?? [];
+          rolesList = roles.map((r) => r.toString()).toList();
+        } else if (data.containsKey('role')) {
+          // Old format: single role string - migrate to array
+          final oldRole = data['role'] as String?;
+          if (oldRole != null && oldRole.isNotEmpty) {
+            rolesList = [oldRole];
+            // Migrate to new format
+            try {
+              await doc.reference.update({
+                'roles': [oldRole],
+                'updatedAt': FieldValue.serverTimestamp(),
+              });
+            } catch (e) {
+              debugPrint('Warning: Could not migrate role to roles array: $e');
+            }
+          }
+        }
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_roles', rolesList.join(','));
+        return rolesList;
+      }
+
+      return []; // No roles by default
+    } catch (e) {
+      // Fallback to cached roles
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('user_roles') ?? '';
+      return cached.isEmpty ? [] : cached.split(',');
+    }
+  }
+
+  // Get user status (pending/approved)
+  // Documents now use format [name]__[UID], so we search by uid field
+  Future<String> getUserStatus() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 'guest';
+
+      // Search by uid field (new format)
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('uid', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final data = querySnapshot.docs.first.data() as Map<String, dynamic>?;
+        return data?['status'] ?? 'pending';
+      }
+
+      // Fallback: try old format (document ID = uid)
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        final data = doc.data();
+        return data?['status'] ?? 'pending';
+      }
+      return 'pending';
+    } catch (e) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('user_status') ?? 'pending';
+    }
+  }
+
+  // Check if user is approved
+  // Documents now use format [name]__[UID], so we search by uid field
+  Future<bool> isUserApproved() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+
+      // Search by uid field (new format)
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('uid', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final data = querySnapshot.docs.first.data() as Map<String, dynamic>?;
+        return data?['approved'] ?? false;
+      }
+
+      // Fallback: try old format (document ID = uid)
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        final data = doc.data();
+        return data?['approved'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('user_approved') ?? false;
+    }
+  }
+
+  // Sign out
+  Future<void> signOut() async {
+    await _auth.signOut();
+    await _googleSignIn?.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_email');
+    await prefs.remove('user_displayName');
+    await prefs.remove('user_roles');
+    await prefs.remove('user_status');
+    await prefs.remove('user_approved');
+  }
+
+  // Sign in with Google
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      // WEB: prefer Firebase Auth popup (avoids google_sign_in_web clientId meta requirement)
+      if (kIsWeb) {
+        debugPrint('🔑 Starting Google Sign-In (Web)...');
+        final provider = GoogleAuthProvider()..addScope('email')..addScope('profile');
+        
+        // Add timeout for web popup
+        final userCredential = await _auth.signInWithPopup(provider).timeout(
+          const Duration(minutes: 2),
+          onTimeout: () {
+            debugPrint('❌ Google Sign-In popup timeout');
+            throw Exception('Sign-in timed out. Please try again.');
+          },
+        );
+
+        debugPrint('✅ Google Sign-In popup successful');
+
+        // Refresh token to get latest custom claims
+        await userCredential.user?.getIdToken(true).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            debugPrint('⚠️ Token refresh timeout (non-critical)');
+            return null;
+          },
+        );
+
+        // Load user profile (non-blocking)
+        try {
+          await _loadUserProfile(userCredential.user!.uid);
+        } catch (e) {
+          debugPrint('Warning: Failed to load user profile: $e');
+        }
+
+        return userCredential;
+      }
+
+      // MOBILE: Use google_sign_in plugin
+      final googleSignIn = _googleSignIn;
+      if (googleSignIn == null) {
+        debugPrint('❌ Google Sign-In not available');
+        return null;
+      }
+
+      debugPrint('🔑 Starting Google Sign-In (Mobile)...');
+      
+      // Trigger the authentication flow with timeout
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn().timeout(
+        const Duration(minutes: 2),
+        onTimeout: () {
+          debugPrint('❌ Google Sign-In timeout');
+          return null;
+        },
+      );
+      
+      if (googleUser == null) {
+        debugPrint('❌ Google Sign-In cancelled or timed out');
+        return null; // cancelled or timeout
+      }
+
+      debugPrint('✅ Google account selected: ${googleUser.email}');
+
+      // Obtain the auth details from the request with timeout
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('❌ Google authentication timeout');
+          throw Exception('Authentication timed out. Please try again.');
+        },
+      );
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      debugPrint('🔑 Signing in to Firebase with Google credential...');
+
+      // Once signed in, return the UserCredential with timeout
+      final userCredential = await _auth.signInWithCredential(credential).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('❌ Firebase sign-in timeout');
+          throw Exception('Firebase sign-in timed out. Please check your internet connection.');
+        },
+      );
+
+      debugPrint('✅ Firebase sign-in successful');
+
+      // Refresh token to get latest custom claims with timeout
+      await userCredential.user?.getIdToken(true).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('⚠️ Token refresh timeout (non-critical)');
+          return null;
+        },
+      );
+
+      // Load user profile (non-blocking - don't fail login if profile load fails)
+      try {
+        await _loadUserProfile(userCredential.user!.uid);
+      } catch (e) {
+        // Log error but don't prevent login
+        debugPrint('Warning: Failed to load user profile: $e');
+      }
+
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('❌ FirebaseAuthException during Google Sign-In: ${e.code} - ${e.message}');
+      throw _handleAuthException(e);
+    } on TimeoutException catch (e) {
+      debugPrint('❌ Google Sign-In timeout: $e');
+      throw Exception('Sign-in timed out. Please check your internet connection and try again.');
+    } catch (e) {
+      debugPrint('❌ Unexpected error during Google Sign-In: $e');
+      rethrow;
+    }
+  }
+
+  // Complete Google sign-up after additional info
+  Future<void> completeGoogleSignUp(
+    String uid,
+    String email,
+    String displayName,
+    String? photoUrl,
+    String country,
+    String userType,
+  ) async {
+    try {
+      // Document ID format: [name]__[UID] (spaces replaced with underscores)
+      final sanitizedName = displayName.trim().replaceAll(' ', '_');
+      final documentId = '${sanitizedName}__${uid}';
+
+      await _createUserProfile(
+        uid,
+        documentId,
+        email,
+        displayName,
+        country: country,
+        provider: 'google',
+        photoUrl: photoUrl,
+        userType: userType,
+      );
+
+      // Refresh token to get latest custom claims
+      final user = _auth.currentUser;
+      await user?.getIdToken(true);
+    } catch (e) {
+      throw Exception('Failed to complete Google sign up: $e');
+    }
+  }
+
+  // Handle FirebaseAuthException and return a user-friendly error message
+  Exception _handleAuthException(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+        return Exception('No user found for that email.');
+      case 'wrong-password':
+        return Exception('Wrong password provided for that user.');
+      case 'email-already-in-use':
+        return Exception('The account already exists for that email.');
+      case 'invalid-email':
+        return Exception('The email address is invalid.');
+      case 'user-disabled':
+        return Exception('This user has been disabled.');
+      case 'operation-not-allowed':
+        return Exception('Operation not allowed. Please enable it in the console.');
+      case 'weak-password':
+        return Exception('The password provided is too weak.');
+      default:
+        return Exception('Authentication error: ${e.message}');
+    }
+  }
+}
+

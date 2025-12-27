@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://love-to-learn-sign.web.app"],
+    "method": ["GET", "POST", "PUT", "OPTIONS"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Content-Length", "Authorization"]
+  }
+]

@@ -1,0 +1,132 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user has 'admin' role in custom claims
+    function isAdmin() {
+      return request.auth != null && 
+             request.auth.token.roles is list && 
+             'admin' in request.auth.token.roles;
+    }
+    
+    // Helper function to check ownership
+    function isOwnDocument() {
+      return request.auth != null && 
+             resource != null &&
+             (resource.data.uid == request.auth.uid || resource.id == request.auth.uid);
+    }
+    
+    match /users/{userId} {
+      // Admins can read and write all user documents (includes get and list)
+      allow read, write: if isAdmin();
+
+      // FIX FOR DASHBOARD: 
+      // Allow users to READ (get + list/listen) their own document based on ID or UID field.
+      // This allows real-time snapshots needed by the dashboard.
+      allow read: if request.auth != null && 
+                  (userId == request.auth.uid || resource.data.uid == request.auth.uid);
+
+      // Users can create their own document
+      allow create: if request.auth != null && 
+                     request.resource.data.uid == request.auth.uid;
+
+      // Users can update their own document (but not roles, approved, status)
+      allow update: if request.auth != null && 
+                     resource != null &&
+                     isOwnDocument() &&
+                     !('roles' in request.resource.data.diff(resource.data).affectedKeys()) &&
+                     !('approved' in request.resource.data.diff(resource.data).affectedKeys()) &&
+                     !('status' in request.resource.data.diff(resource.data).affectedKeys());
+
+      allow delete: if false;
+    }
+    
+    // Role change logs - admins only (for security audit trail)
+    match /roleLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Public categories
+    match /categories/{categoryId} {
+      allow read: if true;     // anyone can list/get categories
+      allow write: if false;   // nobody can write
+    }
+
+    // Public words (if you have a top-level `words` collection)
+    match /words/{wordId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Dictionary collection: public read, editor/admin write only
+    match /bangla_dictionary_eng_bnsl/{docEngBnslId} {
+      allow read: if true;
+
+      // Only users with editor or admin role can create/update
+      allow create, update: if request.auth != null &&
+                      (request.auth.token.roles is list && 
+                       ('editor' in request.auth.token.roles || 'admin' in request.auth.token.roles));
+      // Force destructive deletes through Cloud Functions (admin-only) to ensure Storage cleanup.
+      allow delete: if false;
+    }
+    
+    // This block to fix the splash intro fetch
+    match /meta/intro {
+      allow read: if true;    // public read for this single doc
+      allow write: if false;  // no client writes
+    }
+
+    // Search analytics: allow authenticated clients to create entries, admins to read.
+    match /searchAnalytics/{entryId} {
+      function isReasonableTimestamp(ts) {
+        // Accept serverTimestamp() (evaluates as request.time) AND client timestamps close to now.
+        // This avoids accidental "no data" when writes use a slightly different timestamp representation.
+        return ts is timestamp &&
+               ts <= request.time &&
+               ts >= request.time - duration.value(10, 'm');
+      }
+      function isValidSearchEntry() {
+        return request.resource.data.keys().hasOnly([
+          'query',
+          'query_lower',
+          'timestamp',
+          'found',
+          'resultCount',
+          'sessionId',
+          'category'
+        ]) &&
+        request.resource.data.query is string &&
+        request.resource.data.query_lower is string &&
+        request.resource.data.found is bool &&
+        request.resource.data.resultCount is int &&
+        request.resource.data.sessionId is string &&
+        request.resource.data.category is string &&
+        request.resource.data.query.size() >= 2 &&
+        request.resource.data.query.size() <= 80 &&
+        request.resource.data.query_lower.size() >= 2 &&
+        request.resource.data.query_lower.size() <= 80 &&
+        request.resource.data.sessionId.size() >= 8 &&
+        request.resource.data.sessionId.size() <= 80 &&
+        request.resource.data.category.size() >= 1 &&
+        request.resource.data.category.size() <= 80 &&
+        request.resource.data.resultCount >= 0 &&
+        request.resource.data.resultCount <= 5000 &&
+        (
+          request.resource.data.timestamp == request.time ||
+          isReasonableTimestamp(request.resource.data.timestamp)
+        );
+      }
+
+      // Allow anonymous analytics logging (guest users) while keeping strict schema validation.
+      allow create: if isValidSearchEntry();
+      allow get, list, delete: if isAdmin();
+      allow update: if false;
+    }
+    
+    // Catch-all: lock down everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

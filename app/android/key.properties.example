@@ -1,0 +1,14 @@
+# DO NOT COMMIT real values.
+# Copy this file to `key.properties` locally and fill in your own values.
+#
+# Tip: prefer an absolute path to the keystore stored OUTSIDE the repo.
+#
+# Example:
+# storeFile=/Users/you/secrets/l2l/key.jks
+
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=CHANGE_ME
+storeFile=/ABSOLUTE/PATH/TO/key.jks
+
+

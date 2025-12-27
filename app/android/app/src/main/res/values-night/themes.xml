@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.lovetolearnsign" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryVariant">@color/colorPrimary</item>
+        <item name="colorOnPrimary">@color/colorOnPrimary</item>
+
+        <!-- Backgrounds -->
+        <item name="android:windowBackground">@color/colorBackgroundSecondary</item>
+        <item name="colorBackground">@color/colorBackgroundSecondary</item>
+
+        <!-- Surfaces -->
+        <item name="colorSurface">@color/colorSurface</item>
+        <item name="colorOnSurface">@color/colorOnSurface</item>
+
+        <!-- Secondary/Accent color -->
+        <item name="colorSecondary">@color/colorAccent</item>
+        <item name="colorOnSecondary">@color/colorOnSurface2</item>
+
+        <!-- Surface 2 (for custom components) -->
+        <item name="surface2Color">@color/colorSurface2</item>
+        <item name="onSurface2Color">@color/colorOnSurface2</item>
+
+        <!-- Toolbar, navigation bar, etc. -->
+        <item name="android:navigationBarColor">@color/colorPrimary</item>
+        <item name="android:statusBarColor">@color/colorPrimary</item>
+    </style>
+</resources>

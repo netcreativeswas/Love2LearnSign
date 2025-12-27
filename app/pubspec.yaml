@@ -1,0 +1,147 @@
+name: love_to_learn_sign
+description: "A new Flutter project."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.0.1+18
+
+environment:
+  sdk: ">=3.5.4 <4.0.0"
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+  l2l_shared:
+    path: ../shared
+  timezone: ^0.10.1
+  flutter_timezone: ^4.1.1
+  app_links: ^6.4.0
+  android_intent_plus: ^6.0.0
+  audioplayers: ^6.5.0
+  cloud_firestore: ^5.6.11
+  connectivity_plus: ^5.0.2
+  cupertino_icons: ^1.0.8
+  device_info_plus: ^11.5.0
+  overlay_support: ^2.1.0
+  file_picker: ^10.2.0
+  firebase_auth: ^5.6.0
+  firebase_core: ^3.15.1
+  cloud_functions: ^5.6.0
+  firebase_messaging: ^15.2.9
+  firebase_storage: ^12.4.7
+  google_sign_in: ^6.2.1
+  font_awesome_flutter: ^10.8.0
+  flutter_cache_manager: ^3.3.1
+  flutter_iconly: ^1.0.2
+  flutter_local_notifications: ^19.3.0
+  google_fonts: ^6.2.1
+  http: ^1.4.0
+  line_icons: ^2.0.3
+  lottie: ^3.3.1
+  permission_handler: ^12.0.1
+  share_plus: ^11.0.0
+  shared_preferences: ^2.2.2
+  url_launcher: ^6.3.1
+  video_player: ^2.8.2
+  uuid: ^4.4.2
+  package_info_plus: ^8.0.0
+  flutter_localizations:
+    sdk: flutter
+  provider: ^6.0.5
+  google_mobile_ads: ^6.0.0
+  in_app_purchase: ^3.2.0
+  firebase_app_check: ^0.3.2+9
+  webview_flutter: ^4.8.0
+
+  intl: any
+  path_provider: any
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.14.4
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^6.0.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/Animation - 1748970298316.json
+    - assets/1749221648708-smiley Level 1.json
+    - assets/1749223022410-smiley Level 2.json
+    - assets/1749221436432-smiley Level 3.json
+    - assets/1749222529915-smiley Level 4.json
+    - assets/1748970298316-smiley Level 5.json
+    - assets/icons/whatsapp.png
+    - assets/icons/imo.png
+    - assets/icons/messenger.png
+    - assets/icons/instagram.png
+    - assets/icons/icons-click-here.png
+    - assets/donation_banner_clear_966x499.png
+    - assets/bslDic-videoThumbnail-250px.png
+    - assets/sounds/goodresult.mp3
+    - assets/sounds/windows-error-sound.mp3
+    - assets/sounds/card-flip.mp3
+    - assets/sounds/success-chime.mp3
+    - assets/sounds/click.mp3
+    - assets/sounds/page-turn.mp3
+    - assets/sounds/get-token.mp3
+    - assets/sounds/level-up.mp3
+    - assets/videoLoadingPlaceholder.webp
+    - assets/icons/Net-creative-logo-orange-square-350px.png
+    - assets/icons/Net-creative-logo-white-noshadow.png
+    - assets/icons/l2l-logo-foreground.png
+    - assets/icons/l2l-logo-foreground-square.png
+    - assets/icons/L2L-sign-buy-me-a-coffee.png
+    - assets/icons/L2L-sign-ko-fi-white.png
+    - assets/icons/l2l-video-splashScreen-white.png
+    - assets/icons/l2l-video-splashScreen-black.png
+    - assets/onBoardingVideo/l2l-screenSplash-video.mp4
+    - assets/icons/l2l-video-horizontal_black.png
+
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path_ios: assets/icons/l2l-logo-foreground-square.png
+  image_path_android: assets/icons/l2l-logo-foreground-square.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/icons/l2l-logo-foreground.png
+  adaptive_icon_monochrome: assets/icons/l2l-logo-foreground.png
+
+gen-l10n:
+  arb-dir: lib/l10n/arb
+  template-arb-file: app_en.arb
+  output-localization-file: app_localizations.dart
+  output-class: AppLocalizations
+  nullable-getter: false
+  synthetic-package: false

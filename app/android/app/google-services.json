@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "844270366247",
+    "project_id": "love-to-learn-sign",
+    "storage_bucket": "love-to-learn-sign.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:844270366247:android:b33ee841482663e3436802",
+        "android_client_info": {
+          "package_name": "com.lovetolearnsign.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "844270366247-3loc5ndbqqrt8g0p6mlvom9525i2vi76.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lovetolearnsign.app",
+            "certificate_hash": "706746a8d0b836576f4f9f6a0c0491fdb48382c8"
+          }
+        },
+        {
+          "client_id": "844270366247-knhsnif6g38akufkgejvjv3gbc0c7g69.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lovetolearnsign.app",
+            "certificate_hash": "77fe8937453c80b33278e862b086881c9a8679a5"
+          }
+        },
+        {
+          "client_id": "844270366247-fu13vd0j54sis3il2tnba7e078is11c9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD4d2xBh0PxShDMi4gdIq3kV0aFeIkXrhA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "844270366247-fu13vd0j54sis3il2tnba7e078is11c9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

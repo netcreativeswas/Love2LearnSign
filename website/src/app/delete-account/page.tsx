@@ -1,0 +1,135 @@
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
+import { PageShell } from "@/components/PageShell";
+import { SectionCard } from "@/components/SectionCard";
+import { siteConfig } from "@/lib/site-config";
+
+export const metadata = {
+  title: "Delete account",
+};
+
+export default function DeleteAccountPage() {
+  return (
+    <div className="min-h-dvh bg-background text-foreground">
+      <SiteHeader />
+
+      <PageShell
+        title="Delete your account"
+        lede={`This page explains how to request deletion of your ${siteConfig.appName} account (by ${siteConfig.developerName}) and what data is deleted or kept.`}
+      >
+        <div className="grid gap-6">
+          <SectionCard title="Request account deletion (steps)">
+            <ol className="list-inside list-decimal space-y-2 text-muted-foreground">
+              <li>
+                Send an email to{" "}
+                <a
+                  className="font-semibold text-foreground hover:underline"
+                  href={`mailto:${siteConfig.supportEmail}?subject=${encodeURIComponent(
+                    `Delete my ${siteConfig.appName} account`,
+                  )}`}
+                >
+                  {siteConfig.supportEmail}
+                </a>
+                .
+              </li>
+              <li>
+                Use the subject:{" "}
+                <span className="font-semibold text-foreground">
+                  Delete my {siteConfig.appName} account
+                </span>
+                .
+              </li>
+              <li>
+                In the email body, include the email address you used to create
+                your {siteConfig.appName} account.
+              </li>
+            </ol>
+            <p className="mt-4 text-muted-foreground">
+              We typically process account deletion requests within{" "}
+              <span className="font-semibold text-foreground">
+                7 business days
+              </span>{" "}
+              after verifying the request.
+            </p>
+          </SectionCard>
+
+          <SectionCard title="What data is deleted">
+            <ul className="list-inside list-disc text-muted-foreground">
+              <li>
+                Your authentication account (Firebase Authentication) associated
+                with your email address
+              </li>
+              <li>
+                Your user profile stored in our database (e.g., display name,
+                country, hearing status, app preferences, account status/approval)
+              </li>
+              <li>
+                Usage counters linked to your account (e.g., video view counters,
+                game session counters)
+              </li>
+              <li>
+                Subscription access flags/roles stored in our systems (premium
+                entitlement status)
+              </li>
+            </ul>
+          </SectionCard>
+
+          <SectionCard title="What data may be kept (and why)">
+            <ul className="list-inside list-disc text-muted-foreground">
+              <li>
+                <span className="font-semibold text-foreground">
+                  Store purchase records
+                </span>{" "}
+                are processed and retained by Google Play (and/or Apple App Store)
+                under their own policies. We do not control those records.
+              </li>
+              <li>
+                <span className="font-semibold text-foreground">
+                  Accounting / legal records
+                </span>{" "}
+                may be retained for the period required by applicable laws (for
+                example, records related to subscription transactions).
+              </li>
+              <li>
+                <span className="font-semibold text-foreground">
+                  Anonymous dictionary search analytics
+                </span>{" "}
+                are stored without personal identifiers (no email/user ID). Because
+                they are not linked to your identity, they cannot be selectively
+                deleted per user and may be kept in aggregate.
+              </li>
+            </ul>
+          </SectionCard>
+
+          <SectionCard title="Optional: delete some data without deleting your account">
+            <p className="text-muted-foreground">
+              If you only want to remove certain data:
+            </p>
+            <ul className="mt-2 list-inside list-disc text-muted-foreground">
+              <li>
+                You can clear locally stored data (such as favorites, history, and
+                cached videos) from within the app, or by clearing the app’s storage
+                / uninstalling the app.
+              </li>
+              <li>
+                You can also email{" "}
+                <a
+                  className="font-semibold text-foreground hover:underline"
+                  href={`mailto:${siteConfig.supportEmail}`}
+                >
+                  {siteConfig.supportEmail}
+                </a>{" "}
+                to request deletion of specific account-linked data without deleting
+                your entire account (when technically possible).
+              </li>
+            </ul>
+          </SectionCard>
+        </div>
+      </PageShell>
+
+      <SiteFooter />
+    </div>
+  );
+}
+
+

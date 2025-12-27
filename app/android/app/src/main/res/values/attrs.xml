@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Garder ce stub attrs.xml tant que vous ne migrez pas entièrement vers un thème Material3 récent -->
+<!--	Plus tard, si vous ajoutez ou mettez à jour la dépendance com.google.android.material:material (et utilisez un thème Theme.Material3…), vous pourrez retirer ce fichier attrs.xml-->
+<resources>
+  <!-- satisfy plugins looking for ?attr/colorBackground -->
+  <attr name="colorBackground" format="reference|color" />
+  <attr name="surface2Color" format="reference|color" />
+  <attr name="onSurface2Color" format="reference|color" />
+</resources>

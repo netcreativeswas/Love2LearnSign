@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Watch Sign Language Video</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Basic social preview (fallback; dynamic per-word would require SSR) -->
+  <meta property="og:site_name" content="Love to Learn Sign" />
+  <meta property="og:title" content="Bangla Sign Language – Word" />
+  <meta property="og:type" content="video.other" />
+  <meta property="og:image" content="/word/assets/BnSL%20headline-light.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- Performance hints -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+
+  <!-- Canonical link will be set dynamically -->
+  <link id="canonical-link" rel="canonical" href="" />
+
+  <!-- Firebase JS SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --color-primary: #232F34;
+      --color-on-primary: #FFFFFF;
+      --color-secondary: #F9AA33;
+      --color-surface: #FFFFFF;
+      --color-on-surface: #232F34;
+      --bg: #E4E1DD;
+      --shadow: 0 2px 8px rgba(0,0,0,0.12);
+      --radius: 5px;
+    }
+    /* Reset & base */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+                   Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--color-on-surface);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Header banner */
+    header {
+      background: var(--color-primary);
+      color: var(--color-on-primary);
+      padding: 14px 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    header .header-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    header .header-left img {
+      height: 100px;
+      width: auto;
+      display: block;
+    }
+    header .header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    @media (max-width: 600px) {
+      header .header-row {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      header .header-right {
+        align-items: center;
+      }
+    }
+    header p {
+      margin-bottom: 8px;
+      font-size: 1rem;
+      opacity: 0.95;
+    }
+    header .badges {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header .badges img {
+      height: 42px;
+      margin: 0;
+      vertical-align: middle;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+    }
+    header .badges .playStore img { height: 58px; }
+
+    /* Main layout */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 16px;
+      overflow-y: auto;
+    }
+
+
+    /* Word title */
+    .word-title {
+      font-size: 2rem;
+      text-align: center;
+      color: var(--color-primary);
+      font-weight: 700;
+    }
+    .word-title .bengali {
+      display: block;
+      font-size: 1.5rem;
+      color: var(--color-on-surface);
+      opacity: 0.85;
+      margin-top: 4px;
+    }
+
+    /* Video container */
+    .video-container {
+      background: var(--color-surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+
+      /* 3:4 portrait frame, responsive */
+      aspect-ratio: 3 / 4;
+      width: min(90vw, 420px);
+      max-width: 800px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin: 6px 0;
+    }
+    .video-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      margin: 6px 0;
+    }
+
+    /* Error text */
+    .error {
+      color: #FF5757;
+      font-size: 1.1rem;
+      text-align: center;
+    }
+
+    /* Variant selector styling */
+    #variant-container label { color: var(--color-primary); font-weight: 600; }
+    #variant-select {
+      background: var(--color-surface);
+      color: var(--color-on-surface);
+      border: 1px solid rgba(35,47,52,0.15);
+      border-radius: 4px;
+      padding: 8px 10px;
+      box-shadow: var(--shadow);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER BANNER -->
+  <header>
+    <div class="header-row">
+      <div class="header-left">
+        <img src="/word/assets/l2l-sign-logo-white.png" alt="Love to Learn Sign" />
+      </div>
+      <div class="header-right">
+        <p>For a better experience, download our app:</p>
+        <div class="badges">
+          <!-- Google Play -->
+          <a class="playStore" href="https://play.google.com/store/apps/details?id=YOUR_ANDROID_PACKAGE" target="_blank">
+            <img
+              src="https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png"
+              alt="Get it on Google Play"
+            />
+          </a>
+
+          <!-- App Store (switches for light/dark) -->
+          <a href="https://apps.apple.com/app/idYOUR_APPSTORE_ID" target="_blank" aria-label="Download on the App Store">
+            <picture>
+              <source
+                srcset="/word/assets/Download_on_the_App_Store_Badge_US-UK_RGB_wht_092917.svg"
+                media="(prefers-color-scheme: dark)"
+              />
+              <img
+                src="/word/assets/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg"
+                alt="Download on the App Store"
+              />
+            </picture>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main>
+
+    <!-- 2) Word title -->
+    <h1 class="word-title" id="word-title" aria-label="Word title" aria-live="polite">
+      <span id="english-word">Loading word…</span>
+      <span id="bengali-word" class="bengali"></span>
+    </h1>
+
+    <!-- Variant selector (shown only when multiple variants are available) -->
+    <div id="variant-container" style="display:none; width:min(80vw, 400px)">
+      <label for="variant-select" style="display:block; margin:6px 0" aria-label="Variant chooser">Choose variant</label>
+      <select id="variant-select" aria-label="Variant selector" style="width:100%; padding:8px; border-radius:8px"></select>
+    </div>
+
+    <!-- 3) Video player -->
+    <div class="video-container">
+      <video
+        id="player"
+        controls
+        autoplay
+        muted
+        playsinline
+        preload="metadata"
+        controlsList="nodownload"
+        disablepictureinpicture
+        aria-label="Sign language video player"
+      ></video>
+    </div>
+
+    <!-- 4) Error fallback -->
+    <p id="error-msg" class="error"></p>
+
+  </main>
+
+  <!-- FIREBASE & DATA SCRIPT -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD2iaGZTa28Qino57AS7E1bzNTJct7vLD4",
+      authDomain: "love-to-learn-sign.firebaseapp.com",
+      projectId: "love-to-learn-sign",
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Extract docId robustly from URL (/word/:docId)
+    const pathRemainder = window.location.pathname.split("/word/")[1] || "";
+    const docId = pathRemainder.split("/")[0].split("?")[0];
+
+    // Set canonical link early
+    const canonical = document.getElementById('canonical-link');
+    if (canonical) {
+      canonical.setAttribute('href', `${window.location.origin}/word/${docId}`);
+    }
+
+    function setText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text || "";
+    }
+
+    function applyVariantToPlayer(variant) {
+      const player = document.getElementById("player");
+      const videoUrl = variant && (variant.videoUrl || variant.url) ? (variant.videoUrl || variant.url) : null;
+      const poster = variant && (variant.videoThumbnailSmall || variant.videoThumbnail)
+        ? (variant.videoThumbnailSmall || variant.videoThumbnail) : null;
+      if (!videoUrl) return false;
+      if (poster) {
+        player.setAttribute("poster", poster);
+      } else {
+        player.removeAttribute("poster");
+      }
+      // Enforce autoplay on mobile browsers
+      player.muted = true;
+      player.autoplay = true;
+      player.playsInline = true;
+      player.src = videoUrl;
+      try { player.load(); } catch (_) {}
+      const p = player.play();
+      if (p && typeof p.catch === 'function') { p.catch(() => {}); }
+      return true;
+    }
+
+    db.collection("bangla_dictionary_eng_bnsl").doc(docId).get()
+      .then(doc => {
+        if (!doc.exists) throw new Error("Not found");
+        const data = doc.data() || {};
+
+        const english = data.english || "";
+        const bengali = data.bengali || "";
+        setText("english-word", english);
+        setText("bengali-word", bengali);
+
+        // Dynamic title for UX/SEO
+        if (english || bengali) {
+          document.title = `${english}${english && bengali ? ' – ' : ''}${bengali} | Love to Learn Sign`;
+        }
+
+        const variants = Array.isArray(data.variants) ? data.variants : [];
+        if (!variants.length || !applyVariantToPlayer(variants[0])) {
+          throw new Error("No video configured");
+        }
+
+        // Variant selector when multiple variants exist
+        if (variants.length > 1) {
+          const container = document.getElementById('variant-container');
+          const select = document.getElementById('variant-select');
+          container.style.display = 'block';
+          // Populate options
+          select.innerHTML = '';
+          variants.forEach((v, idx) => {
+            const opt = document.createElement('option');
+            const label = (v && v.label) ? v.label : `Version ${idx + 1}`;
+            opt.value = String(idx);
+            opt.textContent = label;
+            select.appendChild(opt);
+          });
+          select.value = '0';
+          select.addEventListener('change', () => {
+            const i = parseInt(select.value, 10);
+            const chosen = variants[i];
+            applyVariantToPlayer(chosen);
+          });
+        }
+      })
+      .catch(err => {
+        setText("error-msg", err && err.message ? err.message : "Something went wrong");
+      });
+  </script>
+
+</body>
+</html>
