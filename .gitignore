@@ -64,4 +64,7 @@ Thumbs.db
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+**/firebase_options.dart
+**/google-services.json
+**/GoogleService-Info.plist
 
