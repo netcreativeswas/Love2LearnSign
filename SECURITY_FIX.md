@@ -12,12 +12,12 @@
 
 ### 1. Régénérer la clé API compromise
 
-La clé API `AIzaSyD2iaGZTa28Qino57AS7E1bzNTJct7vLD4` a été exposée publiquement et doit être régénérée.
+Une clé API (commençant par `AIza…`) a été exposée publiquement et doit être régénérée.
 
 **Étapes :**
 1. Va sur https://console.cloud.google.com/apis/credentials
 2. Sélectionne le projet "Love to Learn Sign" (ID: `love-to-learn-sign`)
-3. Trouve la clé API `AIzaSyD2iaGZTa28Qino57AS7E1bzNTJct7vLD4`
+3. Trouve la clé API concernée (elle commence généralement par `AIza…`)
 4. Clique sur "Edit" puis "Regenerate Key"
 5. **Copie la nouvelle clé** (tu ne la reverras plus)
 
@@ -26,7 +26,7 @@ La clé API `AIzaSyD2iaGZTa28Qino57AS7E1bzNTJct7vLD4` a été exposée publiquem
 Après avoir régénéré la clé, mets à jour :
 
 - `dashboard/lib/firebase_options.dart` (fichier local, pas dans Git)
-  - Remplace toutes les occurrences de `AIzaSyD2iaGZTa28Qino57AS7E1bzNTJct7vLD4` par la nouvelle clé
+  - Remplace l’ancienne clé `AIza…` par la nouvelle (localement, sans la publier)
 
 ### 3. Configurer les restrictions de clé API (recommandé)
 

@@ -71,3 +71,7 @@ ui-debug.log
 **/google-services.json
 **/GoogleService-Info.plist
 
+# Flutter web build outputs (dashboard)
+dashboard/public/**
+dashboard/dictionary_web_build/**
+
