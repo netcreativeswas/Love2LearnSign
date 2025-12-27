@@ -43,6 +43,9 @@ node_modules/
 .next/
 out/
 dist/
+**/build/
+**/public/**/*.dart.js
+**/public/**/main.dart.js
 
 # Environment variables
 .env
