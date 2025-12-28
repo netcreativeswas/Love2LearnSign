@@ -33,6 +33,9 @@ export function ImageSlider() {
   const isAnimatingRef = useRef(false);
   const settledTrackIndexRef = useRef(CLONES); // ✅ remember last "settled" index (after transition)
 
+  // ✅ NEW: disable card depth transitions only during snap correction
+  const [depthTransition, setDepthTransition] = useState(true);
+
   // ⬇️ Shrink item width so 5 cards fit inside max-w-5xl and you actually SEE 5
   const ITEM_W = 186;
   const GAP = 16;
@@ -43,7 +46,6 @@ export function ImageSlider() {
   const VIEWPORT_W = ITEM_W * VISIBLE + GAP * (VISIBLE - 1); // 5 cards + 4 gaps
 
   const goToPrevious = () => {
-    // ✅ removed click-blocking guard
     isAnimatingRef.current = true;
     setDirection("right");
     setEnableTransition(true);
@@ -51,7 +53,6 @@ export function ImageSlider() {
   };
 
   const goToNext = () => {
-    // ✅ removed click-blocking guard
     isAnimatingRef.current = true;
     setDirection("left");
     setEnableTransition(true);
@@ -73,9 +74,17 @@ export function ImageSlider() {
     // if we are outside the "real" region, snap without transition
     if (trackIndex !== normalized) {
       setEnableTransition(false);
+
+      // ✅ IMPORTANT: also disable depth transitions so the snap is invisible
+      setDepthTransition(false);
+
       setTrackIndex(normalized);
       settledTrackIndexRef.current = normalized;
-      requestAnimationFrame(() => setEnableTransition(true));
+
+      requestAnimationFrame(() => {
+        setEnableTransition(true);
+        setDepthTransition(true);
+      });
       return;
     }
 
@@ -143,14 +152,15 @@ export function ImageSlider() {
                 const delta = vIndex - trackIndex;
                 const depth = getDepthStyle(delta);
 
-                // ⬇️ Preload visible range (center + 2 on each side) so the “last entering” slide
-                // is NOT delayed the first time, and keeps carousel feeling truly infinite.
                 const inView = Math.abs(delta) <= 2;
 
                 return (
                   <div
                     key={vIndex}
-                    className="flex-shrink-0 transition-[transform,opacity] duration-[800ms]"
+                    className={`flex-shrink-0 ${depthTransition
+                        ? "transition-[transform,opacity] duration-[800ms]"
+                        : ""
+                      }`}
                     style={depth}
                   >
                     <button
