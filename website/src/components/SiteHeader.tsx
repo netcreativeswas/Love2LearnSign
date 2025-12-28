@@ -73,7 +73,7 @@ export function SiteHeader() {
 
       {/* Mobile Menu Modal */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 sm:hidden flex items-center justify-center">
+        <div className="fixed inset-0 z-50 sm:hidden flex items-center justify-center min-h-screen">
           {/* Backdrop with blur */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
