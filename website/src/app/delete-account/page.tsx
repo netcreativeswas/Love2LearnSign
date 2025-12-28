@@ -159,4 +159,12 @@ function DeleteAccountPageContent() {
   );
 }
 
+export default function DeleteAccountPage() {
+  return (
+    <TranslationProvider locale={locale}>
+      <DeleteAccountPageContent />
+    </TranslationProvider>
+  );
+}
+
 
