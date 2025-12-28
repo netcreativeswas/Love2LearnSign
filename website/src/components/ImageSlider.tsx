@@ -61,11 +61,12 @@ export function ImageSlider() {
               return (
                 <div
                   key={`${index}-${offset}`}
-                  className="flex-shrink-0 transition-all duration-500 ease-in-out"
+                  className="flex-shrink-0 transition-all duration-700 ease-out"
                   style={{
                     transform: `scale(${scale})`,
                     opacity: opacity,
                     zIndex: zIndex,
+                    willChange: 'transform, opacity',
                   }}
                 >
                   <button
