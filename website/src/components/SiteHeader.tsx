@@ -73,15 +73,15 @@ export function SiteHeader() {
 
       {/* Mobile Menu Modal */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 sm:hidden">
+        <div className="fixed inset-0 z-50 sm:hidden flex items-center justify-center">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setMobileMenuOpen(false)}
           />
           
-          {/* Modal */}
-          <div className="absolute right-0 top-0 h-full w-64 bg-surface border-l border-border shadow-lg">
+          {/* Modal - Centered */}
+          <div className="relative bg-surface border border-border rounded-2xl shadow-lg w-[90%] max-w-sm">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="text-lg font-semibold text-foreground">Menu</div>
               <button
