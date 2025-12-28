@@ -55,21 +55,21 @@ export function ImageSlider() {
   const handleTransitionEnd = () => {
     isAnimatingRef.current = false;
 
-    // ✅ update ACTIVE slide *after* movement
     setCurrentIndex((prev) =>
       direction === "left"
         ? (prev + 1) % n
         : (prev - 1 + n) % n
     );
 
-    // loop correction (unchanged)
-    if (trackIndex >= n + CLONES) {
+    // ✅ TRUE infinite loop correction (no visible clone animation)
+    if (trackIndex === n + CLONES) {
       setEnableTransition(false);
       setTrackIndex(CLONES);
       requestAnimationFrame(() => setEnableTransition(true));
+      return;
     }
 
-    if (trackIndex <= CLONES - 1) {
+    if (trackIndex === CLONES - 1) {
       setEnableTransition(false);
       setTrackIndex(n + CLONES - 1);
       requestAnimationFrame(() => setEnableTransition(true));
@@ -139,7 +139,8 @@ export function ImageSlider() {
                     <button
                       onClick={() =>
                         delta === 0
-                          ? (setLightboxIndex(realIndex), setLightboxOpen(true))
+                          ? (setLightboxIndex(realIndex),
+                            setLightboxOpen(true))
                           : realIndex > currentIndex
                             ? goToNext()
                             : goToPrevious()
@@ -160,7 +161,7 @@ export function ImageSlider() {
               })}
             </div>
 
-            {/* Buttons untouched */}
+            {/* Navigation buttons untouched */}
             <button
               onClick={goToPrevious}
               className="absolute left-3 top-1/2 -translate-y-1/2 z-40 h-11 w-11 rounded-full bg-accent text-accent-foreground shadow"
