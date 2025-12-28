@@ -57,15 +57,21 @@ export function ImageSlider() {
               const scale = isActive ? 1 : 0.8;
               const opacity = isActive ? 1 : 0.65;
               const zIndex = isActive ? 10 : 5 - Math.abs(offset);
+              
+              // Calculate translateX for carousel rotation effect
+              const translateX = offset * 280; // Distance between slides
+              const rotateY = offset * 15; // 3D rotation effect
 
               return (
                 <div
                   key={`${index}-${offset}`}
-                  className="flex-shrink-0 transition-all duration-300 ease-in-out"
+                  className="flex-shrink-0 transition-all duration-500 ease-in-out"
                   style={{
-                    transform: `scale(${scale})`,
+                    transform: `translateX(${translateX}px) scale(${scale}) rotateY(${rotateY}deg)`,
                     opacity: opacity,
                     zIndex: zIndex,
+                    transformStyle: 'preserve-3d',
+                    perspective: '1000px',
                   }}
                 >
                   <button
