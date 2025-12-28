@@ -13,7 +13,7 @@ const SLIDE_WIDTH = 225;
 const SLIDE_GAP = 16;
 const STEP = SLIDE_WIDTH + SLIDE_GAP;
 
-// 5 visibles + buffers
+// ⚠️ VERSION QUI ÉTAIT SMOOTH
 const OFFSETS = [-3, -2, -1, 0, 1, 2, 3];
 
 export function ImageSlider() {
@@ -46,13 +46,6 @@ export function ImageSlider() {
               const isActive = offset === 0;
               const isVisible = Math.abs(offset) <= 2;
 
-              const zIndex =
-                offset === 0
-                  ? 10
-                  : Math.abs(offset) <= 2
-                    ? 6 - Math.abs(offset)
-                    : 4; // 👈 buffer jamais derrière
-
               return (
                 <div
                   key={`${currentIndex}-${offset}`}
@@ -64,7 +57,7 @@ export function ImageSlider() {
                       scale(${isActive ? 1 : isVisible ? 0.85 : 0.7})
                     `,
                     opacity: isVisible ? 1 : 0,
-                    zIndex,
+                    zIndex: isActive ? 10 : 6 - Math.abs(offset),
                     pointerEvents: isVisible ? "auto" : "none",
                     willChange: "transform, opacity",
                   }}
@@ -91,59 +84,67 @@ export function ImageSlider() {
             })}
           </div>
 
-          {/* PREV */}
+          {/* ✅ PREV — ROND, COLOR SCHEME */}
           <button
             onClick={() => goTo(-1)}
             aria-label="Previous image"
             className="
               absolute left-4 top-1/2 z-30
               -translate-y-1/2
-              h-11 w-11 rounded-full
+              w-11 h-11 rounded-full
               bg-surface text-foreground
               flex items-center justify-center
               shadow-md
-              transition-all duration-200
+              transition-colors
               hover:bg-accent hover:text-accent-foreground
-              active:scale-95
-              focus:outline-none focus:ring-2 focus:ring-accent/50
+              focus:outline-none
+              focus:ring-2 focus:ring-accent/40
             "
           >
             <svg
-              viewBox="0 0 24 24"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"
-              className="h-5 w-5"
+              viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
 
-          {/* NEXT */}
+          {/* ✅ NEXT — ROND, COLOR SCHEME */}
           <button
             onClick={() => goTo(1)}
             aria-label="Next image"
             className="
               absolute right-4 top-1/2 z-30
               -translate-y-1/2
-              h-11 w-11 rounded-full
+              w-11 h-11 rounded-full
               bg-surface text-foreground
               flex items-center justify-center
               shadow-md
-              transition-all duration-200
+              transition-colors
               hover:bg-accent hover:text-accent-foreground
-              active:scale-95
-              focus:outline-none focus:ring-2 focus:ring-accent/50
+              focus:outline-none
+              focus:ring-2 focus:ring-accent/40
             "
           >
             <svg
-              viewBox="0 0 24 24"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"
-              className="h-5 w-5"
+              viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </button>
 
