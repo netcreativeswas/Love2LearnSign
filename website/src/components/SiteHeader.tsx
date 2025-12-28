@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -11,15 +12,87 @@ import { Locale, getLocaleFromPath, getLocalizedPath } from "@/lib/i18n";
 
 function SiteHeaderContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const { t } = useTranslations();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [mobileMenuOpen]);
 
   const nav = [
     { href: getLocalizedPath("/", locale), label: t("common.home") },
     { href: getLocalizedPath("/contact", locale), label: t("common.contact") },
     { href: getLocalizedPath("/donate", locale), label: t("common.donate") },
   ] as const;
+
+  const modalContent = mobileMenuOpen && mounted ? (
+    <div className="fixed inset-0 z-[9999] sm:hidden flex items-center justify-center min-h-screen">
+      {/* Backdrop with blur - covers entire page */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-md"
+        onClick={() => setMobileMenuOpen(false)}
+      />
+      
+      {/* Modal - Centered */}
+      <div className="relative bg-surface border border-border rounded-2xl shadow-2xl w-[90%] max-w-sm z-10">
+        {/* Close button X in top right corner */}
+        <button
+          onClick={() => setMobileMenuOpen(false)}
+          className="absolute -top-3 -right-3 rounded-full bg-surface border border-border p-2 text-foreground/90 transition-colors hover:bg-muted hover:text-foreground shadow-lg"
+          aria-label="Close menu"
+        >
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+        
+        <div className="p-6">
+          <div className="mb-6">
+            <div className="text-xl font-semibold text-foreground text-center">{t("common.menu")}</div>
+          </div>
+          
+          <nav className="flex flex-col gap-2">
+            {nav.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-lg px-4 py-3 text-base font-medium text-foreground/90 transition-colors hover:bg-muted hover:text-foreground text-center"
+              >
+                {item.label}
+              </Link>
+            ))}
+            <div className="mt-2 pt-2 border-t border-border flex justify-center">
+              <LanguageSwitcher />
+            </div>
+          </nav>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/70 bg-surface/70 backdrop-blur">
@@ -78,61 +151,10 @@ function SiteHeaderContent() {
         </button>
       </div>
 
-      {/* Mobile Menu Modal */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[9999] sm:hidden flex items-center justify-center min-h-screen">
-          {/* Backdrop with blur - covers entire page */}
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-md"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          
-          {/* Modal - Centered */}
-          <div className="relative bg-surface border border-border rounded-2xl shadow-2xl w-[90%] max-w-sm z-10">
-            {/* Close button X in top right corner */}
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="absolute -top-3 -right-3 rounded-full bg-surface border border-border p-2 text-foreground/90 transition-colors hover:bg-muted hover:text-foreground shadow-lg"
-              aria-label="Close menu"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-            
-            <div className="p-6">
-              <div className="mb-6">
-                <div className="text-xl font-semibold text-foreground text-center">{t("common.menu")}</div>
-              </div>
-              
-              <nav className="flex flex-col gap-2">
-                {nav.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="rounded-lg px-4 py-3 text-base font-medium text-foreground/90 transition-colors hover:bg-muted hover:text-foreground text-center"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-                <div className="mt-2 pt-2 border-t border-border flex justify-center">
-                  <LanguageSwitcher />
-                </div>
-              </nav>
-            </div>
-          </div>
-        </div>
+      {/* Mobile Menu Modal - Rendered via Portal to body */}
+      {mounted && typeof document !== "undefined" && createPortal(
+        modalContent,
+        document.body
       )}
     </header>
   );
