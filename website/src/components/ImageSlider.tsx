@@ -38,6 +38,10 @@ export function ImageSlider() {
   const STEP = ITEM_W + GAP;
   const CENTER_OFFSET = CLONES * STEP;
 
+  // ✅ Center the 5-card viewport between the buttons
+  const VISIBLE = 5;
+  const VIEWPORT_W = ITEM_W * VISIBLE + GAP * (VISIBLE - 1); // 5 cards + 4 gaps
+
   const goToPrevious = () => {
     if (isAnimatingRef.current) return;
     isAnimatingRef.current = true;
@@ -114,7 +118,11 @@ export function ImageSlider() {
         </h2>
 
         <div className="relative">
-          <div className="relative overflow-hidden">
+          {/* ✅ Centered viewport (only change here) */}
+          <div
+            className="relative overflow-hidden mx-auto w-full"
+            style={{ maxWidth: VIEWPORT_W }}
+          >
             <div
               className="flex items-center gap-4 will-change-transform"
               style={{
