@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Lightbox } from "./Lightbox";
 
@@ -16,6 +16,9 @@ export function ImageSlider() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  /* ===============================
+     CLONES (loop propre)
+  =============================== */
   const CLONES = 2;
   const n = images.length;
 
@@ -28,41 +31,49 @@ export function ImageSlider() {
   const [trackIndex, setTrackIndex] = useState(CLONES);
   const [enableTransition, setEnableTransition] = useState(true);
   const [direction, setDirection] = useState<Dir>("left");
+  const animating = useRef(false);
 
-  const isAnimatingRef = useRef(false);
-
+  /* ===============================
+     DIMENSIONS
+  =============================== */
   const ITEM_W = 225;
   const GAP = 16;
   const STEP = ITEM_W + GAP;
   const CENTER_OFFSET = CLONES * STEP;
 
-  const goToPrevious = () => {
-    if (isAnimatingRef.current) return;
-    isAnimatingRef.current = true;
+  /* ===============================
+     NAVIGATION
+  =============================== */
+  const goPrev = () => {
+    if (animating.current) return;
+    animating.current = true;
     setDirection("right");
     setEnableTransition(true);
-    setTrackIndex((t) => t - 1);
+    setTrackIndex((i) => i - 1);
   };
 
-  const goToNext = () => {
-    if (isAnimatingRef.current) return;
-    isAnimatingRef.current = true;
+  const goNext = () => {
+    if (animating.current) return;
+    animating.current = true;
     setDirection("left");
     setEnableTransition(true);
-    setTrackIndex((t) => t + 1);
+    setTrackIndex((i) => i + 1);
   };
 
-  const handleTransitionEnd = () => {
-    isAnimatingRef.current = false;
+  /* ===============================
+     TRANSITION END
+  =============================== */
+  const onTransitionEnd = () => {
+    animating.current = false;
 
-    // ✅ update ACTIVE slide *after* movement
+    // update active AFTER movement
     setCurrentIndex((prev) =>
       direction === "left"
         ? (prev + 1) % n
         : (prev - 1 + n) % n
     );
 
-    // loop correction (unchanged)
+    // loop correction (invisible)
     if (trackIndex >= n + CLONES) {
       setEnableTransition(false);
       setTrackIndex(CLONES);
@@ -76,36 +87,52 @@ export function ImageSlider() {
     }
   };
 
+  /* ===============================
+     POSITION
+  =============================== */
   const translateX = -(trackIndex * STEP) + CENTER_OFFSET;
 
+  /* ===============================
+     DEPTH (STRICT 5 SLIDES)
+  =============================== */
   const getDepthStyle = (delta: number) => {
     const a = Math.abs(delta);
-    if (a > 2)
-      return {
-        opacity: 0,
-        transform: "scale(0.75)",
-        zIndex: 0,
-        pointerEvents: "none" as const,
-      };
-    if (a === 0)
+
+    // ❌ OUT — removed from render completely
+    if (a > 2) {
+      return { display: "none" };
+    }
+
+    if (a === 0) {
       return {
         opacity: 1,
         transform: "scale(1)",
         zIndex: 30,
+        pointerEvents: "auto" as const,
       };
-    if (a === 1)
+    }
+
+    if (a === 1) {
       return {
         opacity: 0.85,
         transform: "scale(0.88)",
         zIndex: 20,
+        pointerEvents: "auto" as const,
       };
+    }
+
+    // a === 2
     return {
       opacity: 0.65,
       transform: "scale(0.82)",
       zIndex: 10,
+      pointerEvents: "auto" as const,
     };
   };
 
+  /* ===============================
+     RENDER
+  =============================== */
   return (
     <>
       <section className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
@@ -115,6 +142,7 @@ export function ImageSlider() {
 
         <div className="relative">
           <div className="relative overflow-hidden">
+            {/* TRACK */}
             <div
               className="flex items-center gap-4 will-change-transform"
               style={{
@@ -123,7 +151,7 @@ export function ImageSlider() {
                   ? "transform 800ms cubic-bezier(0.25,0.46,0.45,0.94)"
                   : "none",
               }}
-              onTransitionEnd={handleTransitionEnd}
+              onTransitionEnd={onTransitionEnd}
             >
               {slides.map((img, vIndex) => {
                 const realIndex = (vIndex - CLONES + n) % n;
@@ -133,16 +161,21 @@ export function ImageSlider() {
                 return (
                   <div
                     key={vIndex}
-                    className="flex-shrink-0 transition-[transform,opacity] duration-[800ms]"
-                    style={depth}
+                    className="flex-shrink-0 transition-[transform,opacity] duration-[800ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
+                    style={{
+                      ...depth,
+                      willChange: "transform, opacity",
+                      backfaceVisibility: "hidden",
+                    }}
                   >
                     <button
                       onClick={() =>
                         delta === 0
-                          ? (setLightboxIndex(realIndex), setLightboxOpen(true))
-                          : realIndex > currentIndex
-                            ? goToNext()
-                            : goToPrevious()
+                          ? (setLightboxIndex(realIndex),
+                            setLightboxOpen(true))
+                          : delta > 0
+                            ? goNext()
+                            : goPrev()
                       }
                     >
                       <div className="relative h-[400px] w-[225px]">
@@ -160,17 +193,20 @@ export function ImageSlider() {
               })}
             </div>
 
-            {/* Buttons untouched */}
+            {/* PREV */}
             <button
-              onClick={goToPrevious}
+              onClick={goPrev}
               className="absolute left-3 top-1/2 -translate-y-1/2 z-40 h-11 w-11 rounded-full bg-accent text-accent-foreground shadow"
+              aria-label="Previous"
             >
               ‹
             </button>
 
+            {/* NEXT */}
             <button
-              onClick={goToNext}
+              onClick={goNext}
               className="absolute right-3 top-1/2 -translate-y-1/2 z-40 h-11 w-11 rounded-full bg-accent text-accent-foreground shadow"
+              aria-label="Next"
             >
               ›
             </button>
@@ -178,6 +214,7 @@ export function ImageSlider() {
         </div>
       </section>
 
+      {/* LIGHTBOX */}
       {lightboxOpen && (
         <Lightbox
           images={images}
