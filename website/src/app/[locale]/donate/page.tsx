@@ -368,8 +368,8 @@ function BankLine({
   );
 }
 
-export default function DonatePage({ params }: { params: { locale: Locale } }) {
-  const locale = params.locale;
+export default async function DonatePage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
 
   return (
     <TranslationProvider locale={locale}>

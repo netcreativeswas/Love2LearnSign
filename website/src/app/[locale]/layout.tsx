@@ -22,9 +22,10 @@ export function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
-  const locale = params.locale || defaultLocale;
+  const { locale } = await params;
+  const resolvedLocale = locale || defaultLocale;
   
   return {
     metadataBase: new URL(siteConfig.url),
@@ -33,7 +34,7 @@ export async function generateMetadata({
       template: `%s · ${siteConfig.appName}`,
     },
     alternates: {
-      canonical: locale === defaultLocale ? "/" : `/${locale}`,
+      canonical: resolvedLocale === defaultLocale ? "/" : `/${resolvedLocale}`,
       languages: {
         en: "/",
         bn: "/bn",
@@ -41,22 +42,22 @@ export async function generateMetadata({
     },
     openGraph: {
       type: "website",
-      locale: locale === "en" ? "en_US" : "bn_BD",
-      alternateLocale: locale === "en" ? "bn_BD" : "en_US",
-      url: locale === defaultLocale ? siteConfig.url : `${siteConfig.url}/${locale}`,
+      locale: resolvedLocale === "en" ? "en_US" : "bn_BD",
+      alternateLocale: resolvedLocale === "en" ? "bn_BD" : "en_US",
+      url: resolvedLocale === defaultLocale ? siteConfig.url : `${siteConfig.url}/${resolvedLocale}`,
       siteName: siteConfig.appName,
     },
   };
 }
 
-export default function LocaleLayout({
+export default async function LocaleLayout({
   children,
   params,
 }: {
   children: React.ReactNode;
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
-  const { locale } = params;
+  const { locale } = await params;
 
   if (!locales.includes(locale)) {
     notFound();

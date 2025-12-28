@@ -11,9 +11,9 @@ import { Locale, getTranslations, getLocalizedPath } from "@/lib/i18n";
 export async function generateMetadata({
   params,
 }: {
-  params: { locale: Locale };
+  params: Promise<{ locale: Locale }>;
 }) {
-  const locale = params.locale;
+  const { locale } = await params;
   const translations = getTranslations(locale);
 
   return genMeta({
@@ -118,8 +118,8 @@ function ContactPageContent({ locale }: { locale: Locale }) {
   );
 }
 
-export default function ContactPage({ params }: { params: { locale: Locale } }) {
-  const locale = params.locale;
+export default async function ContactPage({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
 
   return (
     <TranslationProvider locale={locale}>
