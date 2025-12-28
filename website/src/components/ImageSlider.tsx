@@ -65,22 +65,24 @@ export function ImageSlider() {
               let translateX = 0;
               if (direction === 'left' && offset < 0) {
                 // Moving left: previous slides move left
-                translateX = offset * 50;
+                translateX = offset * 100;
               } else if (direction === 'right' && offset > 0) {
                 // Moving right: next slides move right
-                translateX = offset * 50;
+                translateX = offset * 100;
               }
 
               return (
                 <div
                   key={`${currentIndex}-${index}-${offset}`}
-                  className="flex-shrink-0 transition-all duration-1000 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  className="flex-shrink-0 transition-all duration-[800ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
                   style={{
                     transform: `translateX(${translateX}px) scale(${scale})`,
                     opacity: opacity,
                     zIndex: zIndex,
                     willChange: 'transform, opacity',
                     backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                    transformStyle: 'preserve-3d',
                   }}
                 >
                   <button
