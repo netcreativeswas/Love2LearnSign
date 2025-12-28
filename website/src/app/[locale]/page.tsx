@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 
@@ -5,25 +7,11 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ImageSlider } from "@/components/ImageSlider";
 import { siteConfig } from "@/lib/site-config";
-import { generateMetadata as genMeta } from "@/lib/metadata";
 import { StructuredData } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { Locale, getTranslations, getLocalizedPath } from "@/lib/i18n";
+import { Locale, getLocalizedPath, locales, defaultLocale } from "@/lib/i18n";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: Locale }>;
-}) {
-  const { locale } = await params;
-  const translations = getTranslations(locale);
-
-  return genMeta({
-    title: `${translations.home.title} - ${translations.common.appName}`,
-    description: translations.home.description,
-    path: locale === "en" ? "/" : `/${locale}`,
-  });
-}
+// Metadata is handled in the root layout
 
 function HomeContent({ locale }: { locale: Locale }) {
   const { t } = useTranslations();
@@ -174,12 +162,13 @@ function HomeContent({ locale }: { locale: Locale }) {
   );
 }
 
-export default async function Home({ params }: { params: Promise<{ locale: Locale }> }) {
+export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
+  const resolvedLocale = (locales.includes(locale as Locale) ? locale : defaultLocale) as Locale;
 
   return (
-    <TranslationProvider locale={locale}>
-      <HomeContent locale={locale} />
+    <TranslationProvider locale={resolvedLocale}>
+      <HomeContent locale={resolvedLocale} />
     </TranslationProvider>
   );
 }

@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 import { siteConfig } from "@/lib/site-config";
 import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { Locale, getLocaleFromPath, getLocalizedPath } from "@/lib/i18n";
+import { Locale, getLocaleFromPath, getLocalizedPath, locales, defaultLocale } from "@/lib/i18n";
 
 const STRIPE_CUSTOM_LINK = "https://donate.stripe.com/7sY9ANgkheEv2r40n38N208";
 const STRIPE_LINKS: Record<number, string> = {
@@ -368,12 +368,13 @@ function BankLine({
   );
 }
 
-export default async function DonatePage({ params }: { params: Promise<{ locale: Locale }> }) {
+export default async function DonatePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
+  const resolvedLocale = (locales.includes(locale as Locale) ? locale : defaultLocale) as Locale;
 
   return (
-    <TranslationProvider locale={locale}>
-      <DonatePageContent locale={locale} />
+    <TranslationProvider locale={resolvedLocale}>
+      <DonatePageContent locale={resolvedLocale} />
     </TranslationProvider>
   );
 }

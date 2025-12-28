@@ -1,22 +1,17 @@
+"use client";
+
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { PageShell } from "@/components/PageShell";
 import { SectionCard } from "@/components/SectionCard";
 import { siteConfig } from "@/lib/site-config";
-import { generateMetadata as genMeta } from "@/lib/metadata";
 import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { defaultLocale, getTranslations, getLocalizedPath } from "@/lib/i18n";
+import { defaultLocale, getLocalizedPath } from "@/lib/i18n";
 
 const locale = defaultLocale;
-const translations = getTranslations(locale);
 
-export const metadata = genMeta({
-  title: `${translations.deleteAccount.title} - ${translations.common.appName}`,
-  description: translations.deleteAccount.description,
-  path: "/delete-account",
-});
-
+// Metadata is handled in the root layout
 function DeleteAccountPageContent() {
   const { t } = useTranslations();
   return (

@@ -1,27 +1,15 @@
+"use client";
+
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { PageShell } from "@/components/PageShell";
 import { SectionCard } from "@/components/SectionCard";
 import { siteConfig } from "@/lib/site-config";
-import { generateMetadata as genMeta } from "@/lib/metadata";
 import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { Locale, getTranslations, getLocalizedPath } from "@/lib/i18n";
+import { Locale, getTranslations, getLocalizedPath, locales, defaultLocale } from "@/lib/i18n";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: Locale }>;
-}) {
-  const { locale } = await params;
-  const translations = getTranslations(locale);
-
-  return genMeta({
-    title: `${translations.contact.title} - ${translations.common.appName}`,
-    description: translations.contact.description,
-    path: locale === "en" ? "/contact" : `/${locale}/contact`,
-  });
-}
+// Metadata is handled in the root layout
 
 function ContactPageContent({ locale }: { locale: Locale }) {
   const { t } = useTranslations();
@@ -118,12 +106,13 @@ function ContactPageContent({ locale }: { locale: Locale }) {
   );
 }
 
-export default async function ContactPage({ params }: { params: Promise<{ locale: Locale }> }) {
+export default async function ContactPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
+  const resolvedLocale = (locales.includes(locale as Locale) ? locale : defaultLocale) as Locale;
 
   return (
-    <TranslationProvider locale={locale}>
-      <ContactPageContent locale={locale} />
+    <TranslationProvider locale={resolvedLocale}>
+      <ContactPageContent locale={resolvedLocale} />
     </TranslationProvider>
   );
 }

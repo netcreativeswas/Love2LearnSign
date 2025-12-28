@@ -1,18 +1,21 @@
 import { generateMetadata as genMeta } from "@/lib/metadata";
 import { Locale, getTranslations } from "@/lib/i18n";
 
+import { locales, defaultLocale } from "@/lib/i18n";
+
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ locale: Locale }>;
+  params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const translations = getTranslations(locale);
+  const resolvedLocale = (locales.includes(locale as Locale) ? locale : defaultLocale) as Locale;
+  const translations = getTranslations(resolvedLocale);
 
   return genMeta({
     title: `${translations.donate.title} - ${translations.common.appName}`,
     description: translations.donate.description,
-    path: locale === "en" ? "/donate" : `/${locale}/donate`,
+    path: resolvedLocale === "en" ? "/donate" : `/${resolvedLocale}/donate`,
   });
 }
 

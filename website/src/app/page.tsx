@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 
@@ -5,20 +7,13 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ImageSlider } from "@/components/ImageSlider";
 import { siteConfig } from "@/lib/site-config";
-import { generateMetadata as genMeta } from "@/lib/metadata";
 import { StructuredData } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { defaultLocale, getTranslations } from "@/lib/i18n";
+import { defaultLocale } from "@/lib/i18n";
 
 const locale = defaultLocale;
-const translations = getTranslations(locale);
 
-export const metadata = genMeta({
-  title: `${translations.home.title} - ${translations.common.appName}`,
-  description: translations.home.description,
-  path: "/",
-});
-
+// Metadata is handled in the root layout
 function HomeContent() {
   const { t } = useTranslations();
   return (

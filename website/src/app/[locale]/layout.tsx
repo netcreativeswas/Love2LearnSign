@@ -1,6 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
-import { Locale, locales, defaultLocale } from "@/lib/i18n";
+import { Locale, locales, defaultLocale, getTranslations } from "@/lib/i18n";
 import { siteConfig } from "@/lib/site-config";
 import type { Metadata } from "next";
 import "../globals.css";
@@ -22,17 +22,21 @@ export function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ locale: Locale }>;
+  params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const resolvedLocale = locale || defaultLocale;
+  const resolvedLocale = (locales.includes(locale as Locale) ? locale : defaultLocale) as Locale;
+  const translations = getTranslations(resolvedLocale);
   
   return {
     metadataBase: new URL(siteConfig.url),
     title: {
-      default: siteConfig.appName,
-      template: `%s · ${siteConfig.appName}`,
+      default: translations.common.appName,
+      template: `%s · ${translations.common.appName}`,
     },
+    description: resolvedLocale === "en" 
+      ? translations.home.description 
+      : translations.home.description,
     alternates: {
       canonical: resolvedLocale === defaultLocale ? "/" : `/${resolvedLocale}`,
       languages: {
@@ -45,7 +49,14 @@ export async function generateMetadata({
       locale: resolvedLocale === "en" ? "en_US" : "bn_BD",
       alternateLocale: resolvedLocale === "en" ? "bn_BD" : "en_US",
       url: resolvedLocale === defaultLocale ? siteConfig.url : `${siteConfig.url}/${resolvedLocale}`,
-      siteName: siteConfig.appName,
+      siteName: translations.common.appName,
+      title: translations.common.appName,
+      description: translations.home.description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: translations.common.appName,
+      description: translations.home.description,
     },
   };
 }
@@ -55,16 +66,17 @@ export default async function LocaleLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: Locale }>;
+  params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const resolvedLocale = locale as Locale;
 
-  if (!locales.includes(locale)) {
+  if (!locales.includes(resolvedLocale)) {
     notFound();
   }
 
   return (
-    <html lang={locale}>
+    <html lang={resolvedLocale}>
       <head>
         <link rel="manifest" href="/manifest.json" />
       </head>
