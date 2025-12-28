@@ -27,7 +27,7 @@ export function SiteHeader() {
           />
           <div className="hidden sm:block">
             <div className="text-lg font-semibold leading-6 text-foreground">
-              love2landsign
+              Love To Learn Sign
             </div>
           </div>
         </Link>

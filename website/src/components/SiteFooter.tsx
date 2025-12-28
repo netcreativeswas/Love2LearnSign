@@ -8,9 +8,9 @@ export function SiteFooter() {
     <footer className="mt-auto border-t border-border/70 bg-surface">
       <div className="mx-auto max-w-5xl px-4 py-10">
         {/* Top row */}
-        <div className="mb-8 grid gap-8 sm:grid-cols-2">
-          {/* Left side - Logo and description */}
-          <div className="flex flex-col gap-3">
+        <div className="mb-8 grid gap-8 sm:grid-cols-[40%_60%]">
+          {/* Left side - Logo and description (centered) */}
+          <div className="flex flex-col items-center gap-3 text-center">
             <div className="flex items-center gap-3">
               <Image
                 src="/brand/logo.png"

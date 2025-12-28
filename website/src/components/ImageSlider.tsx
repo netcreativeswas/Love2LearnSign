@@ -31,6 +31,18 @@ export function ImageSlider() {
     setLightboxOpen(false);
   };
 
+  // Get visible slides (current, previous, next)
+  const getVisibleSlides = () => {
+    const visible = [];
+    for (let i = -2; i <= 2; i++) {
+      let index = currentIndex + i;
+      if (index < 0) index = images.length + index;
+      if (index >= images.length) index = index - images.length;
+      visible.push({ index, offset: i });
+    }
+    return visible;
+  };
+
   return (
     <>
       <section className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
@@ -38,27 +50,64 @@ export function ImageSlider() {
           App Interface Preview
         </h2>
         <div className="relative">
-          {/* Main image */}
-          <div className="relative mx-auto aspect-[9/16] max-w-sm overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
-            <button
-              onClick={() => openLightbox(currentIndex)}
-              className="relative h-full w-full"
-              aria-label="Open image in lightbox"
-            >
-              <Image
-                src={images[currentIndex].src}
-                alt={images[currentIndex].alt}
-                fill
-                className="object-contain"
-                sizes="(max-width: 640px) 100vw, 384px"
-              />
-            </button>
+          {/* Carousel container */}
+          <div className="flex items-center justify-center gap-4 overflow-hidden">
+            {getVisibleSlides().map(({ index, offset }) => {
+              const isActive = offset === 0;
+              const scale = isActive ? 1 : 0.8;
+              const opacity = isActive ? 1 : 0.65;
+              const zIndex = isActive ? 10 : 5 - Math.abs(offset);
+
+              return (
+                <div
+                  key={`${index}-${offset}`}
+                  className="flex-shrink-0 transition-all duration-300 ease-in-out"
+                  style={{
+                    transform: `scale(${scale})`,
+                    opacity: opacity,
+                    zIndex: zIndex,
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      if (offset !== 0) {
+                        if (offset < 0) {
+                          // Clicked on previous slide
+                          setCurrentIndex(index);
+                        } else {
+                          // Clicked on next slide
+                          setCurrentIndex(index);
+                        }
+                      } else {
+                        openLightbox(index);
+                      }
+                    }}
+                    className="relative block"
+                    aria-label={
+                      isActive
+                        ? "Open image in lightbox"
+                        : `Go to image ${index + 1}`
+                    }
+                  >
+                    <div className="relative aspect-[9/16] max-h-[400px] w-auto">
+                      <Image
+                        src={images[index].src}
+                        alt={images[index].alt}
+                        fill
+                        className="object-contain"
+                        sizes="(max-width: 640px) 200px, 250px"
+                      />
+                    </div>
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           {/* Navigation arrows */}
           <button
             onClick={goToPrevious}
-            className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-surface/90 p-2 shadow-lg transition-colors hover:bg-surface"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 rounded-full bg-surface/90 p-2 shadow-lg transition-colors hover:bg-surface"
             aria-label="Previous image"
           >
             <svg
@@ -77,7 +126,7 @@ export function ImageSlider() {
           </button>
           <button
             onClick={goToNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-surface/90 p-2 shadow-lg transition-colors hover:bg-surface"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 rounded-full bg-surface/90 p-2 shadow-lg transition-colors hover:bg-surface"
             aria-label="Next image"
           >
             <svg

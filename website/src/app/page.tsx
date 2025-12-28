@@ -21,14 +21,13 @@ export default function Home() {
             </div>
 
             <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Learn Bengali Sign Language with a clean dictionary, quizzes, and
-              flashcards.
+              Learn Bangladesh Language
             </h1>
 
             <p className="max-w-prose text-lg leading-8 text-muted-foreground">
-              {siteConfig.appName} helps you build vocabulary with short videos,
-              favorites, spaced repetition, and fun quizzes. Available in
-              English and Bengali.
+              Discover Bengali Sign Language through short videos and a simple learning flow.
+              Practice with a dictionary, flashcards, quizzes, favorites, and spaced repetition to build vocabulary step by step.
+              Available in English and Bengali.
             </p>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
