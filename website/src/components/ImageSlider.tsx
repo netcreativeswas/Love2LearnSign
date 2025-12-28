@@ -13,12 +13,15 @@ export function ImageSlider() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [direction, setDirection] = useState<'left' | 'right' | null>(null);
 
   const goToPrevious = () => {
+    setDirection('right');
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
   };
 
   const goToNext = () => {
+    setDirection('left');
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
@@ -57,13 +60,23 @@ export function ImageSlider() {
               const scale = isActive ? 1 : 0.8;
               const opacity = isActive ? 1 : 0.65;
               const zIndex = isActive ? 10 : 5 - Math.abs(offset);
+              
+              // Calculate translateX based on direction and offset
+              let translateX = 0;
+              if (direction === 'left' && offset < 0) {
+                // Moving left: previous slides move left
+                translateX = offset * 50;
+              } else if (direction === 'right' && offset > 0) {
+                // Moving right: next slides move right
+                translateX = offset * 50;
+              }
 
               return (
                 <div
                   key={`${currentIndex}-${index}-${offset}`}
                   className="flex-shrink-0 transition-all duration-1000 ease-[cubic-bezier(0.4,0,0.2,1)]"
                   style={{
-                    transform: `scale(${scale})`,
+                    transform: `translateX(${translateX}px) scale(${scale})`,
                     opacity: opacity,
                     zIndex: zIndex,
                     willChange: 'transform, opacity',
@@ -75,9 +88,11 @@ export function ImageSlider() {
                       if (offset !== 0) {
                         if (offset < 0) {
                           // Clicked on previous slide
+                          setDirection('right');
                           setCurrentIndex(index);
                         } else {
                           // Clicked on next slide
+                          setDirection('left');
                           setCurrentIndex(index);
                         }
                       } else {
@@ -151,7 +166,11 @@ export function ImageSlider() {
             {images.map((_, index) => (
               <button
                 key={index}
-                onClick={() => setCurrentIndex(index)}
+                onClick={() => {
+                  const newDirection = index > currentIndex ? 'left' : 'right';
+                  setDirection(newDirection);
+                  setCurrentIndex(index);
+                }}
                 className={`h-2 rounded-full transition-all ${
                   index === currentIndex
                     ? "w-8 bg-accent"
