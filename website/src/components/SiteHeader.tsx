@@ -74,49 +74,53 @@ export function SiteHeader() {
       {/* Mobile Menu Modal */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 sm:hidden flex items-center justify-center">
-          {/* Backdrop */}
+          {/* Backdrop with blur */}
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
           />
           
           {/* Modal - Centered */}
-          <div className="relative bg-surface border border-border rounded-2xl shadow-lg w-[90%] max-w-sm">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <div className="text-lg font-semibold text-foreground">Menu</div>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-lg p-2 text-foreground/90 transition-colors hover:bg-muted"
-                aria-label="Close menu"
+          <div className="relative bg-surface border border-border rounded-2xl shadow-2xl w-[90%] max-w-sm">
+            {/* Close button X in top right corner */}
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="absolute -top-3 -right-3 rounded-full bg-surface border border-border p-2 text-foreground/90 transition-colors hover:bg-muted hover:text-foreground shadow-lg"
+              aria-label="Close menu"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
             
-            <nav className="flex flex-col p-4">
-              {nav.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-lg px-4 py-3 text-base font-medium text-foreground/90 transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            <div className="p-6">
+              <div className="mb-6">
+                <div className="text-xl font-semibold text-foreground">Menu</div>
+              </div>
+              
+              <nav className="flex flex-col gap-2">
+                {nav.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-foreground/90 transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
           </div>
         </div>
       )}
