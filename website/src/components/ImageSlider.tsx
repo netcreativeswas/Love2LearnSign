@@ -31,6 +31,7 @@ export function ImageSlider() {
   const [direction, setDirection] = useState<Dir>("left");
 
   const isAnimatingRef = useRef(false);
+  const settledTrackIndexRef = useRef(CLONES); // ✅ remember last "settled" index (after transition)
 
   // ⬇️ Shrink item width so 5 cards fit inside max-w-5xl and you actually SEE 5
   const ITEM_W = 186;
@@ -42,7 +43,7 @@ export function ImageSlider() {
   const VIEWPORT_W = ITEM_W * VISIBLE + GAP * (VISIBLE - 1); // 5 cards + 4 gaps
 
   const goToPrevious = () => {
-    if (isAnimatingRef.current) return;
+    // ✅ removed click-blocking guard
     isAnimatingRef.current = true;
     setDirection("right");
     setEnableTransition(true);
@@ -50,7 +51,7 @@ export function ImageSlider() {
   };
 
   const goToNext = () => {
-    if (isAnimatingRef.current) return;
+    // ✅ removed click-blocking guard
     isAnimatingRef.current = true;
     setDirection("left");
     setEnableTransition(true);
@@ -60,23 +61,26 @@ export function ImageSlider() {
   const handleTransitionEnd = () => {
     isAnimatingRef.current = false;
 
-    // ✅ update ACTIVE slide *after* movement
-    setCurrentIndex((prev) =>
-      direction === "left" ? (prev + 1) % n : (prev - 1 + n) % n
-    );
-
-    // loop correction (same behavior, now with enough clones for 5-visible)
-    if (trackIndex >= n + CLONES) {
-      setEnableTransition(false);
-      setTrackIndex(CLONES);
-      requestAnimationFrame(() => setEnableTransition(true));
+    // ✅ update ACTIVE slide based on how many steps were actually moved
+    const moved = trackIndex - settledTrackIndexRef.current; // + = next, - = prev
+    if (moved !== 0) {
+      setCurrentIndex((prev) => ((prev + (moved % n)) % n + n) % n);
     }
 
-    if (trackIndex <= CLONES - 1) {
+    // ✅ robust loop correction even if user clicked multiple times quickly
+    const normalized = CLONES + ((((trackIndex - CLONES) % n) + n) % n);
+
+    // if we are outside the "real" region, snap without transition
+    if (trackIndex !== normalized) {
       setEnableTransition(false);
-      setTrackIndex(n + CLONES - 1);
+      setTrackIndex(normalized);
+      settledTrackIndexRef.current = normalized;
       requestAnimationFrame(() => setEnableTransition(true));
+      return;
     }
+
+    // update last settled position
+    settledTrackIndexRef.current = trackIndex;
   };
 
   // ✅ Correct centering: center the ACTIVE item in the viewport
