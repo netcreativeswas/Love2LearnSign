@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Lightbox } from "./Lightbox";
 
@@ -16,7 +16,8 @@ export function ImageSlider() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  const CLONES = 2;
+  // ⬇️ Increased clones so 5-visible (±2) always has enough buffer for a seamless "infinite" loop
+  const CLONES = 3;
   const n = images.length;
 
   const slides = useMemo(() => {
@@ -31,7 +32,8 @@ export function ImageSlider() {
 
   const isAnimatingRef = useRef(false);
 
-  const ITEM_W = 225;
+  // ⬇️ Shrink item width so 5 cards fit inside max-w-5xl and you actually SEE 5
+  const ITEM_W = 186;
   const GAP = 16;
   const STEP = ITEM_W + GAP;
   const CENTER_OFFSET = CLONES * STEP;
@@ -55,21 +57,19 @@ export function ImageSlider() {
   const handleTransitionEnd = () => {
     isAnimatingRef.current = false;
 
+    // ✅ update ACTIVE slide *after* movement
     setCurrentIndex((prev) =>
-      direction === "left"
-        ? (prev + 1) % n
-        : (prev - 1 + n) % n
+      direction === "left" ? (prev + 1) % n : (prev - 1 + n) % n
     );
 
-    // ✅ TRUE infinite loop correction (no visible clone animation)
-    if (trackIndex === n + CLONES) {
+    // loop correction (same behavior, now with enough clones for 5-visible)
+    if (trackIndex >= n + CLONES) {
       setEnableTransition(false);
       setTrackIndex(CLONES);
       requestAnimationFrame(() => setEnableTransition(true));
-      return;
     }
 
-    if (trackIndex === CLONES - 1) {
+    if (trackIndex <= CLONES - 1) {
       setEnableTransition(false);
       setTrackIndex(n + CLONES - 1);
       requestAnimationFrame(() => setEnableTransition(true));
@@ -108,7 +108,7 @@ export function ImageSlider() {
 
   return (
     <>
-      <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+      <section className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
         <h2 className="mb-8 text-center text-2xl font-semibold sm:text-3xl">
           App Interface Preview
         </h2>
@@ -130,6 +130,10 @@ export function ImageSlider() {
                 const delta = vIndex - trackIndex;
                 const depth = getDepthStyle(delta);
 
+                // ⬇️ Preload visible range (center + 2 on each side) so the “last entering” slide
+                // is NOT delayed the first time, and keeps carousel feeling truly infinite.
+                const inView = Math.abs(delta) <= 2;
+
                 return (
                   <div
                     key={vIndex}
@@ -139,20 +143,19 @@ export function ImageSlider() {
                     <button
                       onClick={() =>
                         delta === 0
-                          ? (setLightboxIndex(realIndex),
-                            setLightboxOpen(true))
+                          ? (setLightboxIndex(realIndex), setLightboxOpen(true))
                           : realIndex > currentIndex
                             ? goToNext()
                             : goToPrevious()
                       }
                     >
-                      <div className="relative h-[400px] w-[225px]">
+                      <div className="relative h-[400px] w-[186px]">
                         <Image
                           src={img.src}
                           alt={img.alt}
                           fill
                           className="object-contain"
-                          priority={delta === 0}
+                          priority={inView}
                         />
                       </div>
                     </button>
@@ -161,7 +164,7 @@ export function ImageSlider() {
               })}
             </div>
 
-            {/* Navigation buttons untouched */}
+            {/* Buttons untouched */}
             <button
               onClick={goToPrevious}
               className="absolute left-3 top-1/2 -translate-y-1/2 z-40 h-11 w-11 rounded-full bg-accent text-accent-foreground shadow"
