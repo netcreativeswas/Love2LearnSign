@@ -40,7 +40,6 @@ export default function DonatePage() {
   const [isCustomSelected, setIsCustomSelected] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
   const [isMonthly, setIsMonthly] = useState(false);
-  const [showBankDetails, setShowBankDetails] = useState(false);
   const [bankTab, setBankTab] = useState<"euro" | "us">("euro");
 
   const handleDonate = () => {
@@ -63,7 +62,6 @@ export default function DonatePage() {
         }
       }
     } else if (selectedMethod === "Bank Transfer") {
-      setShowBankDetails(true);
       return;
     }
 
@@ -99,7 +97,7 @@ export default function DonatePage() {
               src="/donation_banner_clear_966x499.png"
               alt="Donation"
               fill
-              className="object-cover"
+              className="object-contain"
               sizes="(max-width: 768px) 100vw, 80vw"
             />
           </div>
@@ -221,7 +219,7 @@ export default function DonatePage() {
           )}
 
           {/* Bank Transfer Details */}
-          {showBankDetails && (
+          {selectedMethod === "Bank Transfer" && (
             <SectionCard title="Bank Transfer Instructions">
               <div className="mb-4 flex gap-2 border-b border-border">
                 <button
@@ -301,30 +299,25 @@ export default function DonatePage() {
               <p className="mt-4 text-sm text-muted-foreground">
                 Please mention &quot;Donation&quot; in the transfer reference.
               </p>
-
-              <button
-                onClick={() => setShowBankDetails(false)}
-                className="mt-4 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                Close
-              </button>
             </SectionCard>
           )}
 
-          {/* Donate Button */}
-          <div className="flex justify-center">
-            <button
-              onClick={handleDonate}
-              disabled={requiresAmount || !selectedMethod}
-              className={`rounded-xl px-8 py-3 text-base font-semibold transition-colors ${
-                requiresAmount || !selectedMethod
-                  ? "cursor-not-allowed bg-muted text-muted-foreground"
-                  : "bg-accent text-on-accent hover:bg-accent/90"
-              }`}
-            >
-              Donate
-            </button>
-          </div>
+          {/* Donate Button (hidden for Bank Transfer) */}
+          {selectedMethod !== "Bank Transfer" && (
+            <div className="flex justify-center">
+              <button
+                onClick={handleDonate}
+                disabled={requiresAmount || !selectedMethod}
+                className={`rounded-xl px-8 py-3 text-base font-semibold transition-colors ${
+                  requiresAmount || !selectedMethod
+                    ? "cursor-not-allowed bg-muted text-muted-foreground"
+                    : "bg-accent text-on-accent hover:bg-accent/90"
+                }`}
+              >
+                Donate
+              </button>
+            </div>
+          )}
         </div>
       </PageShell>
 
