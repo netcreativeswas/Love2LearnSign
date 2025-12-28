@@ -6,7 +6,7 @@ import { Lightbox } from "./Lightbox";
 
 const images = Array.from({ length: 11 }, (_, i) => ({
   src: `/slider-appUX/love2learnSign-app-UX-${String(i + 1).padStart(2, "0")}.png`,
-  alt: `Love to Learn Sign UX ${i + 1}`,
+  alt: `Love to Learn Sign mobile app interface screenshot ${i + 1} - Bangla Sign Language learning features`,
 }));
 
 type Dir = "left" | "right";
@@ -158,8 +158,8 @@ export function ImageSlider() {
                   <div
                     key={vIndex}
                     className={`flex-shrink-0 ${depthTransition
-                        ? "transition-[transform,opacity] duration-[800ms]"
-                        : ""
+                      ? "transition-[transform,opacity] duration-[800ms]"
+                      : ""
                       }`}
                     style={depth}
                   >

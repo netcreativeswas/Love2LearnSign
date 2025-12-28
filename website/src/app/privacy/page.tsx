@@ -3,14 +3,34 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { PageShell } from "@/components/PageShell";
 import { SectionCard } from "@/components/SectionCard";
 import { siteConfig } from "@/lib/site-config";
+import { generateMetadata as genMeta } from "@/lib/metadata";
+import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 
-export const metadata = {
-  title: "Privacy Policy",
-};
+export const metadata = genMeta({
+  title: "Privacy Policy - Love to Learn Sign",
+  description:
+    "Privacy Policy for Love to Learn Sign. Learn how we collect, use, and protect your information when you use our Bangla Sign Language learning app.",
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      <BreadcrumbList
+        items={[
+          { name: "Home", url: siteConfig.url },
+          { name: "Privacy Policy", url: `${siteConfig.url}/privacy` },
+        ]}
+      />
+      <StructuredData
+        type="WebPage"
+        data={{
+          name: "Privacy Policy",
+          description:
+            "Privacy Policy for Love to Learn Sign. Learn how we collect, use, and protect your information.",
+          url: `${siteConfig.url}/privacy`,
+        }}
+      />
       <SiteHeader />
 
       <PageShell

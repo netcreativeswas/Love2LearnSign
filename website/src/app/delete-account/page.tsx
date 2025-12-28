@@ -3,14 +3,34 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { PageShell } from "@/components/PageShell";
 import { SectionCard } from "@/components/SectionCard";
 import { siteConfig } from "@/lib/site-config";
+import { generateMetadata as genMeta } from "@/lib/metadata";
+import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 
-export const metadata = {
-  title: "Delete account",
-};
+export const metadata = genMeta({
+  title: "Delete Account - Love to Learn Sign",
+  description:
+    "Learn how to delete your Love to Learn Sign account and what data is deleted or kept. Step-by-step instructions for account deletion.",
+  path: "/delete-account",
+});
 
 export default function DeleteAccountPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      <BreadcrumbList
+        items={[
+          { name: "Home", url: siteConfig.url },
+          { name: "Delete Account", url: `${siteConfig.url}/delete-account` },
+        ]}
+      />
+      <StructuredData
+        type="WebPage"
+        data={{
+          name: "Delete Account",
+          description:
+            "Learn how to delete your Love to Learn Sign account and what data is deleted or kept.",
+          url: `${siteConfig.url}/delete-account`,
+        }}
+      />
       <SiteHeader />
 
       <PageShell

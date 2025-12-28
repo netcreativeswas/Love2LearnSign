@@ -1,0 +1,22 @@
+{
+  "name": "Love to Learn Sign",
+  "short_name": "Love to Learn Sign",
+  "description": "Learn Bangla Sign Language with a modern dictionary, interactive quizzes, and spaced repetition flashcards.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0175C2",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/brand/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "lifestyle"],
+  "lang": "en-US",
+  "dir": "ltr"
+}
+

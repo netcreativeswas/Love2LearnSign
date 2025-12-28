@@ -3,14 +3,34 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { PageShell } from "@/components/PageShell";
 import { SectionCard } from "@/components/SectionCard";
 import { siteConfig } from "@/lib/site-config";
+import { generateMetadata as genMeta } from "@/lib/metadata";
+import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 
-export const metadata = {
-  title: "Contact",
-};
+export const metadata = genMeta({
+  title: "Contact Us - Love to Learn Sign",
+  description:
+    "Need help with the Love to Learn Sign app, subscriptions, or your account? Reach out to us by email. We're here to help you learn Bangla Sign Language.",
+  path: "/contact",
+});
 
 export default function ContactPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      <BreadcrumbList
+        items={[
+          { name: "Home", url: siteConfig.url },
+          { name: "Contact", url: `${siteConfig.url}/contact` },
+        ]}
+      />
+      <StructuredData
+        type="WebPage"
+        data={{
+          name: "Contact Us",
+          description:
+            "Contact Love to Learn Sign for support, questions, or feedback about the Bangla Sign Language learning app.",
+          url: `${siteConfig.url}/contact`,
+        }}
+      />
       <SiteHeader />
 
       <PageShell

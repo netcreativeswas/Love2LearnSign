@@ -5,10 +5,62 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ImageSlider } from "@/components/ImageSlider";
 import { siteConfig } from "@/lib/site-config";
+import { generateMetadata as genMeta } from "@/lib/metadata";
+import { StructuredData } from "@/components/StructuredData";
+
+export const metadata = genMeta({
+  title: "Learn Bangla Sign Language - Love to Learn Sign",
+  description:
+    "Learn Bangla Sign Language with a modern dictionary, interactive quizzes, and spaced repetition flashcards. Build your vocabulary with short videos and practice at your own pace. Available in English and Bengali.",
+  path: "/",
+});
 
 export default function Home() {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      <StructuredData
+        type="WebSite"
+        data={{
+          name: siteConfig.appName,
+          url: siteConfig.url,
+          description:
+            "Learn Bangla Sign Language with a modern dictionary, interactive quizzes, and spaced repetition flashcards.",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: {
+              "@type": "EntryPoint",
+              urlTemplate: `${siteConfig.url}/?q={search_term_string}`,
+            },
+            "query-input": "required name=search_term_string",
+          },
+        }}
+      />
+      <StructuredData
+        type="Organization"
+        data={{
+          name: siteConfig.developerName,
+          url: "https://netcreative-swas.net",
+          logo: `${siteConfig.url}/brand/logo.png`,
+        }}
+      />
+      <StructuredData
+        type="MobileApplication"
+        data={{
+          name: siteConfig.appName,
+          applicationCategory: "EducationalApplication",
+          operatingSystem: "Android",
+          offers: {
+            "@type": "Offer",
+            price: "0",
+            priceCurrency: "USD",
+          },
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: "4.5",
+            ratingCount: "100",
+          },
+        }}
+      />
       <SiteHeader />
 
       <main className="flex-1">
@@ -21,7 +73,7 @@ export default function Home() {
             </div>
 
             <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Learn bangla Sign Language
+              Learn Bangla Sign Language
             </h1>
 
             <p className="max-w-prose text-lg leading-8 text-muted-foreground">

@@ -6,6 +6,8 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { PageShell } from "@/components/PageShell";
 import { SectionCard } from "@/components/SectionCard";
 import Image from "next/image";
+import { siteConfig } from "@/lib/site-config";
+import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 
 const STRIPE_CUSTOM_LINK = "https://donate.stripe.com/7sY9ANgkheEv2r40n38N208";
 const STRIPE_LINKS: Record<number, string> = {
@@ -84,6 +86,21 @@ export default function DonatePage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      <BreadcrumbList
+        items={[
+          { name: "Home", url: siteConfig.url },
+          { name: "Donate", url: `${siteConfig.url}/donate` },
+        ]}
+      />
+      <StructuredData
+        type="WebPage"
+        data={{
+          name: "Donate - Support Love to Learn Sign",
+          description:
+            "Support Love to Learn Sign development. Your donation helps improve the app and extend the dictionary to other sign languages.",
+          url: `${siteConfig.url}/donate`,
+        }}
+      />
       <SiteHeader />
 
       <PageShell
@@ -95,7 +112,7 @@ export default function DonatePage() {
           <div className="relative h-48 w-full overflow-hidden rounded-3xl border border-border bg-surface sm:h-64">
             <Image
               src="/donation_banner_clear_966x499.png"
-              alt="Donation"
+              alt="Support Love to Learn Sign - Help us improve Bangla Sign Language learning app"
               fill
               className="object-contain"
               sizes="(max-width: 768px) 100vw, 80vw"
