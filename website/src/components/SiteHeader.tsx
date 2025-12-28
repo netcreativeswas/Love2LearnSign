@@ -5,9 +5,7 @@ import { siteConfig } from "@/lib/site-config";
 
 const nav = [
   { href: "/", label: "Home" },
-  { href: "/privacy", label: "Privacy" },
-  { href: "/delete-account", label: "Delete account" },
-  { href: "/contact", label: "Contact" },
+  { href: "/contact", label: "Contact Us" },
 ] as const;
 
 export function SiteHeader() {
@@ -22,17 +20,14 @@ export function SiteHeader() {
           <Image
             src="/brand/logo.png"
             alt={`${siteConfig.appName} logo`}
-            width={36}
-            height={36}
+            width={50}
+            height={50}
             priority
             className="rounded-full object-cover"
           />
           <div className="hidden sm:block">
-            <div className="text-sm font-semibold leading-5 text-foreground">
-              {siteConfig.appName}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {siteConfig.developerName}
+            <div className="text-lg font-semibold leading-6 text-foreground">
+              love2landsign
             </div>
           </div>
         </Link>

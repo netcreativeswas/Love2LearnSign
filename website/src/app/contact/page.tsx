@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <SiteHeader />
 
       <PageShell
@@ -53,6 +53,41 @@ export default function ContactPage() {
                 </a>
               </li>
             </ul>
+          </SectionCard>
+
+          <SectionCard title="About">
+            <p className="text-muted-foreground">
+              This application was developed by{" "}
+              <a
+                href="https://netcreative-swas.net"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-foreground hover:underline"
+              >
+                NetCreative
+              </a>
+              , a web development agency based in France. We specialize in
+              creating modern, user-friendly websites and mobile applications
+              that deliver exceptional user experiences.
+            </p>
+            <p className="mt-4 text-muted-foreground">
+              Our team combines technical expertise with creative design to build
+              digital solutions that meet the unique needs of our clients. From
+              responsive web applications to native mobile apps, we are committed
+              to delivering high-quality products that make a difference.
+            </p>
+            <p className="mt-4 text-muted-foreground">
+              For more information about our services, visit{" "}
+              <a
+                href="https://netcreative-swas.net"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-foreground hover:underline"
+              >
+                netcreative-swas.net
+              </a>
+              .
+            </p>
           </SectionCard>
         </div>
       </PageShell>

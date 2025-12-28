@@ -3,14 +3,16 @@ import Link from "next/link";
 
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { ImageSlider } from "@/components/ImageSlider";
 import { siteConfig } from "@/lib/site-config";
 
 export default function Home() {
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <SiteHeader />
 
-      <main className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
+      <main className="flex-1">
+        <div className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
         <div className="grid items-center gap-10 lg:grid-cols-2">
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm text-muted-foreground">
@@ -19,7 +21,7 @@ export default function Home() {
             </div>
 
             <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Learn sign language with a clean dictionary, quizzes, and
+              Learn Bengali Sign Language with a clean dictionary, quizzes, and
               flashcards.
             </h1>
 
@@ -34,24 +36,21 @@ export default function Home() {
                 href={siteConfig.playStoreUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-12 items-center justify-center rounded-xl bg-accent px-5 text-sm font-semibold text-on-accent shadow-sm transition-colors hover:bg-accent/90"
+                className="inline-flex items-center justify-center transition-opacity hover:opacity-90"
               >
-                Get it on Google Play
+                <Image
+                  src="/icons/google-play-download.png"
+                  alt="Get it on Google Play"
+                  width={180}
+                  height={60}
+                  className="h-auto w-auto"
+                />
               </a>
               <Link
                 href="/contact"
                 className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
               >
                 Contact support
-              </Link>
-            </div>
-
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-              <Link className="hover:underline" href="/privacy">
-                Privacy Policy
-              </Link>
-              <Link className="hover:underline" href="/delete-account">
-                Delete account
               </Link>
             </div>
           </div>
@@ -104,6 +103,9 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+
+        <ImageSlider />
         </div>
       </main>
 

@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function DeleteAccountPage() {
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <SiteHeader />
 
       <PageShell
