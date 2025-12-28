@@ -12,11 +12,11 @@ const images = Array.from({ length: 11 }, (_, i) => ({
 type Dir = "left" | "right";
 
 export function ImageSlider() {
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // Patch : On utilise 3 clones pour une sécurité visuelle totale sur 5 slides visibles
-  const CLONES = 3;
+  const CLONES = 2;
   const n = images.length;
 
   const slides = useMemo(() => {
@@ -26,7 +26,6 @@ export function ImageSlider() {
   }, [n]);
 
   const [trackIndex, setTrackIndex] = useState(CLONES);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [enableTransition, setEnableTransition] = useState(true);
   const [direction, setDirection] = useState<Dir>("left");
 
@@ -35,9 +34,7 @@ export function ImageSlider() {
   const ITEM_W = 225;
   const GAP = 16;
   const STEP = ITEM_W + GAP;
-
-  // Le décalage pour centrer la slide active
-  const CENTER_OFFSET = 0;
+  const CENTER_OFFSET = CLONES * STEP;
 
   const goToPrevious = () => {
     if (isAnimatingRef.current) return;
@@ -58,37 +55,35 @@ export function ImageSlider() {
   const handleTransitionEnd = () => {
     isAnimatingRef.current = false;
 
-    // Mise à jour de l'index réel pour la logique métier (ex: Lightbox)
-    setCurrentIndex(((trackIndex - CLONES) % n + n) % n);
+    // ✅ update ACTIVE slide *after* movement
+    setCurrentIndex((prev) =>
+      direction === "left"
+        ? (prev + 1) % n
+        : (prev - 1 + n) % n
+    );
 
-    // Correction de la boucle infinie (Téléportation silencieuse)
+    // loop correction (unchanged)
     if (trackIndex >= n + CLONES) {
       setEnableTransition(false);
       setTrackIndex(CLONES);
-    } else if (trackIndex <= CLONES - 1) {
+      requestAnimationFrame(() => setEnableTransition(true));
+    }
+
+    if (trackIndex <= CLONES - 1) {
       setEnableTransition(false);
       setTrackIndex(n + CLONES - 1);
+      requestAnimationFrame(() => setEnableTransition(true));
     }
   };
 
-  // Réactiver la transition après la téléportation
-  useEffect(() => {
-    if (!enableTransition) {
-      requestAnimationFrame(() => {
-        setEnableTransition(true);
-      });
-    }
-  }, [enableTransition]);
-
-  // Calcul du décalage pour que la slide active (trackIndex) soit au milieu du conteneur
-  const translateX = -(trackIndex * STEP);
+  const translateX = -(trackIndex * STEP) + CENTER_OFFSET;
 
   const getDepthStyle = (delta: number) => {
     const a = Math.abs(delta);
     if (a > 2)
       return {
         opacity: 0,
-        transform: "scale(0.7)",
+        transform: "scale(0.75)",
         zIndex: 0,
         pointerEvents: "none" as const,
       };
@@ -100,93 +95,86 @@ export function ImageSlider() {
       };
     if (a === 1)
       return {
-        opacity: 0.8,
-        transform: "scale(0.85)",
+        opacity: 0.85,
+        transform: "scale(0.88)",
         zIndex: 20,
       };
-    // delta === 2
     return {
-      opacity: 0.4,
-      transform: "scale(0.75)",
+      opacity: 0.65,
+      transform: "scale(0.82)",
       zIndex: 10,
     };
   };
 
   return (
     <>
-      <section className="mx-auto max-w-7xl px-4 py-12 overflow-hidden">
-        <h2 className="mb-12 text-center text-2xl font-semibold sm:text-3xl">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+        <h2 className="mb-8 text-center text-2xl font-semibold sm:text-3xl">
           App Interface Preview
         </h2>
 
-        <div className="relative flex justify-center">
-          <div
-            className="flex items-center will-change-transform"
-            style={{
-              transform: `translate3d(${translateX}px, 0, 0)`,
-              transition: enableTransition
-                ? "transform 700ms cubic-bezier(0.22, 1, 0.36, 1)"
-                : "none",
-              paddingLeft: `calc(50% - ${ITEM_W / 2}px)`, // Pour centrer parfaitement
-            }}
-            onTransitionEnd={handleTransitionEnd}
-          >
-            {slides.map((img, vIndex) => {
-              const delta = vIndex - trackIndex;
-              const depth = getDepthStyle(delta);
-              const realIndex = ((vIndex - CLONES) % n + n) % n;
+        <div className="relative">
+          <div className="relative overflow-hidden">
+            <div
+              className="flex items-center gap-4 will-change-transform"
+              style={{
+                transform: `translate3d(${translateX}px,0,0)`,
+                transition: enableTransition
+                  ? "transform 800ms cubic-bezier(0.25,0.46,0.45,0.94)"
+                  : "none",
+              }}
+              onTransitionEnd={handleTransitionEnd}
+            >
+              {slides.map((img, vIndex) => {
+                const realIndex = (vIndex - CLONES + n) % n;
+                const delta = vIndex - trackIndex;
+                const depth = getDepthStyle(delta);
 
-              return (
-                <div
-                  key={vIndex}
-                  className="flex-shrink-0 transition-all duration-700 ease-out"
-                  style={{
-                    width: ITEM_W,
-                    marginRight: GAP,
-                    ...depth
-                  }}
-                >
-                  <button
-                    className="w-full"
-                    onClick={() => {
-                      if (delta === 0) {
-                        setLightboxIndex(realIndex);
-                        setLightboxOpen(true);
-                      } else {
-                        delta > 0 ? goToNext() : goToPrevious();
-                      }
-                    }}
+                return (
+                  <div
+                    key={vIndex}
+                    className="flex-shrink-0 transition-[transform,opacity] duration-[800ms]"
+                    style={depth}
                   >
-                    <div className="relative h-[450px] w-full">
-                      <Image
-                        src={img.src}
-                        alt={img.alt}
-                        fill
-                        className="object-contain"
-                        priority={delta === 0}
-                        sizes="225px"
-                      />
-                    </div>
-                  </button>
-                </div>
-              );
-            })}
+                    <button
+                      onClick={() =>
+                        delta === 0
+                          ? (setLightboxIndex(realIndex), setLightboxOpen(true))
+                          : realIndex > currentIndex
+                            ? goToNext()
+                            : goToPrevious()
+                      }
+                    >
+                      <div className="relative h-[400px] w-[225px]">
+                        <Image
+                          src={img.src}
+                          alt={img.alt}
+                          fill
+                          className="object-contain"
+                          priority={delta === 0}
+                        />
+                      </div>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Buttons untouched */}
+            <button
+              onClick={goToPrevious}
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-40 h-11 w-11 rounded-full bg-accent text-accent-foreground shadow"
+            >
+              ‹
+            </button>
+
+            <button
+              onClick={goToNext}
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-40 h-11 w-11 rounded-full bg-accent text-accent-foreground shadow"
+            >
+              ›
+            </button>
           </div>
-
-          {/* Contrôles */}
-          <button
-            onClick={goToPrevious}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-full bg-white/80 backdrop-blur shadow-lg flex items-center justify-center text-2xl hover:bg-white transition-colors"
-          >
-            ‹
-          </button>
-
-          <button
-            onClick={goToNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-full bg-white/80 backdrop-blur shadow-lg flex items-center justify-center text-2xl hover:bg-white transition-colors"
-          >
-            ›
-          </button>
         </div>
       </section>
 
