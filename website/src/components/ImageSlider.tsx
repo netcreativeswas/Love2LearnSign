@@ -89,13 +89,13 @@ export function ImageSlider() {
                         : `Go to image ${index + 1}`
                     }
                   >
-                    <div className="relative aspect-[9/16] max-h-[400px] w-auto">
+                    <div className="relative aspect-[9/16] h-[400px] w-[225px]">
                       <Image
                         src={images[index].src}
                         alt={images[index].alt}
                         fill
                         className="object-contain"
-                        sizes="(max-width: 640px) 200px, 250px"
+                        sizes="225px"
                       />
                     </div>
                   </button>

@@ -21,11 +21,11 @@ export default function Home() {
             </div>
 
             <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Learn Bangladesh Language
+              Learn bangla Sign Language
             </h1>
 
             <p className="max-w-prose text-lg leading-8 text-muted-foreground">
-              Discover Bengali Sign Language through short videos and a simple learning flow.
+              Discover Bangla Sign Language through short videos and a simple learning flow.
               Practice with a dictionary, flashcards, quizzes, favorites, and spaced repetition to build vocabulary step by step.
               Available in English and Bengali.
             </p>

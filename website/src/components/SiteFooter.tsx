@@ -6,11 +6,11 @@ import { siteConfig } from "@/lib/site-config";
 export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-border/70 bg-surface">
-      <div className="mx-auto max-w-5xl px-4 py-10">
+      <div className="mx-auto max-w-5xl px-4 py-6">
         {/* Top row */}
-        <div className="mb-8 grid gap-8 sm:grid-cols-[40%_60%]">
+        <div className="mb-6 grid gap-6 sm:grid-cols-[40%_60%]">
           {/* Left side - Logo and description (centered) */}
-          <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex flex-col items-center gap-2 text-center">
             <div className="flex items-center gap-3">
               <Image
                 src="/brand/logo.png"
@@ -30,8 +30,8 @@ export function SiteFooter() {
             </p>
           </div>
 
-          {/* Right side - Support */}
-          <div className="flex flex-col justify-start">
+          {/* Right side - Support (centered) */}
+          <div className="flex flex-col items-center justify-start text-center">
             <div className="text-sm font-semibold text-foreground">Support</div>
             <div className="mt-2 text-sm text-muted-foreground">
               <a
@@ -45,7 +45,7 @@ export function SiteFooter() {
         </div>
 
         {/* Bottom row - Centered links */}
-        <div className="flex flex-col items-center gap-4 border-t border-border/50 pt-8">
+        <div className="flex flex-col items-center gap-3 border-t border-border/50 pt-4">
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
             <Link
               className="text-foreground/90 hover:underline"
