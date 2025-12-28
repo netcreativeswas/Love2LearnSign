@@ -80,15 +80,15 @@ function SiteHeaderContent() {
 
       {/* Mobile Menu Modal */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 sm:hidden flex items-center justify-center min-h-screen">
-          {/* Backdrop with blur */}
+        <div className="fixed inset-0 z-[9999] sm:hidden flex items-center justify-center min-h-screen">
+          {/* Backdrop with blur - covers entire page */}
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50 backdrop-blur-md"
             onClick={() => setMobileMenuOpen(false)}
           />
           
           {/* Modal - Centered */}
-          <div className="relative bg-surface border border-border rounded-2xl shadow-2xl w-[90%] max-w-sm">
+          <div className="relative bg-surface border border-border rounded-2xl shadow-2xl w-[90%] max-w-sm z-10">
             {/* Close button X in top right corner */}
             <button
               onClick={() => setMobileMenuOpen(false)}
@@ -112,7 +112,7 @@ function SiteHeaderContent() {
             
             <div className="p-6">
               <div className="mb-6">
-                <div className="text-xl font-semibold text-foreground">{t("common.menu")}</div>
+                <div className="text-xl font-semibold text-foreground text-center">{t("common.menu")}</div>
               </div>
               
               <nav className="flex flex-col gap-2">
@@ -121,12 +121,12 @@ function SiteHeaderContent() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="rounded-lg px-4 py-3 text-base font-medium text-foreground/90 transition-colors hover:bg-muted hover:text-foreground"
+                    className="rounded-lg px-4 py-3 text-base font-medium text-foreground/90 transition-colors hover:bg-muted hover:text-foreground text-center"
                   >
                     {item.label}
                   </Link>
                 ))}
-                <div className="mt-2 pt-2 border-t border-border">
+                <div className="mt-2 pt-2 border-t border-border flex justify-center">
                   <LanguageSwitcher />
                 </div>
               </nav>
