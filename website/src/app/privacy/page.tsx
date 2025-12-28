@@ -305,4 +305,12 @@ function PrivacyPageContent() {
   );
 }
 
+export default function PrivacyPage() {
+  return (
+    <TranslationProvider locale={locale}>
+      <PrivacyPageContent />
+    </TranslationProvider>
+  );
+}
+
 
