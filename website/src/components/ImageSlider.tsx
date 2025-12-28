@@ -36,7 +36,6 @@ export function ImageSlider() {
   const ITEM_W = 186;
   const GAP = 16;
   const STEP = ITEM_W + GAP;
-  const CENTER_OFFSET = CLONES * STEP;
 
   // ✅ Center the 5-card viewport between the buttons
   const VISIBLE = 5;
@@ -80,7 +79,9 @@ export function ImageSlider() {
     }
   };
 
-  const translateX = -(trackIndex * STEP) + CENTER_OFFSET;
+  // ✅ Correct centering: center the ACTIVE item in the viewport
+  const CENTERING_OFFSET = (VIEWPORT_W - ITEM_W) / 2;
+  const translateX = -trackIndex * STEP + CENTERING_OFFSET;
 
   const getDepthStyle = (delta: number) => {
     const a = Math.abs(delta);
@@ -118,7 +119,7 @@ export function ImageSlider() {
         </h2>
 
         <div className="relative">
-          {/* ✅ Centered viewport (only change here) */}
+          {/* ✅ Centered viewport */}
           <div
             className="relative overflow-hidden mx-auto w-full"
             style={{ maxWidth: VIEWPORT_W }}
