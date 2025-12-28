@@ -13,27 +13,23 @@ const SLIDE_WIDTH = 225;
 const SLIDE_GAP = 16;
 const STEP = SLIDE_WIDTH + SLIDE_GAP;
 
+// offsets visibles + buffer entrée/sortie
+const OFFSETS = [-3, -2, -1, 0, 1, 2, 3];
+
 export function ImageSlider() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  const goToPrevious = () => {
-    setCurrentIndex((i) => (i - 1 + images.length) % images.length);
+  const goTo = (dir: -1 | 1) => {
+    setCurrentIndex((i) => (i + dir + images.length) % images.length);
   };
 
-  const goToNext = () => {
-    setCurrentIndex((i) => (i + 1) % images.length);
-  };
-
-  const getOffset = (index: number) => {
-    let diff = index - currentIndex;
-
-    // wrap intelligent
-    if (diff > images.length / 2) diff -= images.length;
-    if (diff < -images.length / 2) diff += images.length;
-
-    return diff;
+  const getIndex = (offset: number) => {
+    let index = currentIndex + offset;
+    if (index < 0) index += images.length;
+    if (index >= images.length) index -= images.length;
+    return index;
   };
 
   return (
@@ -45,22 +41,28 @@ export function ImageSlider() {
 
         <div className="relative overflow-hidden">
           <div className="relative h-[420px]">
-            {images.map((img, index) => {
-              const offset = getOffset(index);
+            {OFFSETS.map((offset) => {
+              const index = getIndex(offset);
               const isActive = offset === 0;
+              const isVisible = Math.abs(offset) <= 2;
 
               return (
                 <div
-                  key={index}
-                  className="absolute left-1/2 top-0 transition-[transform,opacity] duration-700 ease-out"
+                  key={`${currentIndex}-${offset}`}
+                  className="absolute left-1/2 top-0 transition-[transform,opacity] duration-700 ease-[cubic-bezier(0.25,0.8,0.25,1)]"
                   style={{
                     transform: `
                       translateX(${offset * STEP}px)
                       translateX(-50%)
-                      scale(${isActive ? 1 : 0.8})
+                      scale(${isActive ? 1 : isVisible ? 0.85 : 0.7})
                     `,
-                    opacity: isActive ? 1 : 0.5,
-                    zIndex: isActive ? 10 : 5 - Math.abs(offset),
+                    opacity: isVisible ? 1 : 0,
+                    zIndex: isActive
+                      ? 10
+                      : isVisible
+                        ? 6 - Math.abs(offset)
+                        : 1,
+                    pointerEvents: isVisible ? "auto" : "none",
                     willChange: "transform, opacity",
                   }}
                 >
@@ -73,8 +75,8 @@ export function ImageSlider() {
                   >
                     <div className="relative h-[400px] w-[225px]">
                       <Image
-                        src={img.src}
-                        alt={img.alt}
+                        src={images[index].src}
+                        alt={images[index].alt}
                         fill
                         className="object-contain"
                         priority={isActive}
@@ -88,14 +90,14 @@ export function ImageSlider() {
 
           {/* Arrows */}
           <button
-            onClick={goToPrevious}
+            onClick={() => goTo(-1)}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-20 rounded-full bg-white/90 p-2 shadow"
           >
             ‹
           </button>
 
           <button
-            onClick={goToNext}
+            onClick={() => goTo(1)}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-20 rounded-full bg-white/90 p-2 shadow"
           >
             ›
