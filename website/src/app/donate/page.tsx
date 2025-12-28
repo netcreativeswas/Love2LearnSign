@@ -335,6 +335,16 @@ function BankLine({
   value: string;
   onCopy: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await onCopy();
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
+  };
+
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex-1">
@@ -344,10 +354,14 @@ function BankLine({
         <div className="mt-1 text-sm font-medium text-foreground">{value}</div>
       </div>
       <button
-        onClick={onCopy}
-        className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+        onClick={handleCopy}
+        className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+          copied
+            ? "border-accent bg-accent text-on-accent"
+            : "border-border bg-surface text-foreground hover:bg-muted"
+        }`}
       >
-        Copy
+        {copied ? "Copied!" : "Copy"}
       </button>
     </div>
   );
