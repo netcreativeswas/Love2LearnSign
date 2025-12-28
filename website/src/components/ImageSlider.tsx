@@ -60,13 +60,14 @@ export function ImageSlider() {
 
               return (
                 <div
-                  key={`${index}-${offset}`}
-                  className="flex-shrink-0 transition-all duration-700 ease-out"
+                  key={`${currentIndex}-${index}-${offset}`}
+                  className="flex-shrink-0 transition-all duration-1000 ease-[cubic-bezier(0.4,0,0.2,1)]"
                   style={{
                     transform: `scale(${scale})`,
                     opacity: opacity,
                     zIndex: zIndex,
                     willChange: 'transform, opacity',
+                    backfaceVisibility: 'hidden',
                   }}
                 >
                   <button
