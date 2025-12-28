@@ -8,7 +8,7 @@ export function SiteFooter() {
     <footer className="mt-auto border-t border-border/70 bg-surface">
       <div className="mx-auto max-w-5xl px-4 py-6">
         {/* Top row */}
-        <div className="mb-6 grid gap-6 sm:grid-cols-[40%_60%]">
+        <div className="mb-6 grid gap-6 sm:grid-cols-[30%_70%]">
           {/* Left side - Logo and description (centered) */}
           <div className="flex flex-col items-center gap-2 text-center">
             <div className="flex items-center gap-3">
@@ -30,16 +30,24 @@ export function SiteFooter() {
             </p>
           </div>
 
-          {/* Right side - Support (centered) */}
-          <div className="flex flex-col items-center justify-start text-center">
-            <div className="text-sm font-semibold text-foreground">Support</div>
-            <div className="mt-2 text-sm text-muted-foreground">
-              <a
-                className="font-medium text-foreground hover:underline"
-                href={`mailto:${siteConfig.supportEmail}`}
+          {/* Right side - Support and Donate (centered container, align-start content) */}
+          <div className="flex items-center justify-center">
+            <div className="flex flex-col items-start gap-2">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-semibold text-foreground">Support:</span>
+                <a
+                  className="font-medium text-foreground hover:underline"
+                  href={`mailto:${siteConfig.supportEmail}`}
+                >
+                  {siteConfig.supportEmail}
+                </a>
+              </div>
+              <Link
+                href="/donate"
+                className="text-sm font-medium text-foreground hover:underline"
               >
-                {siteConfig.supportEmail}
-              </a>
+                Donate
+              </Link>
             </div>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { siteConfig } from "@/lib/site-config";
 const nav = [
   { href: "/", label: "Home" },
   { href: "/contact", label: "Contact Us" },
+  { href: "/donate", label: "Donate" },
 ] as const;
 
 export function SiteHeader() {
