@@ -6,25 +6,32 @@ import { siteConfig } from "@/lib/site-config";
 import { generateMetadata as genMeta } from "@/lib/metadata";
 import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { defaultLocale, getTranslations, getLocalizedPath } from "@/lib/i18n";
+import { Locale, getTranslations, getLocalizedPath } from "@/lib/i18n";
 
-const locale = defaultLocale;
-const translations = getTranslations(locale);
+export async function generateMetadata({
+  params,
+}: {
+  params: { locale: Locale };
+}) {
+  const locale = params.locale;
+  const translations = getTranslations(locale);
 
-export const metadata = genMeta({
-  title: `${translations.deleteAccount.title} - ${translations.common.appName}`,
-  description: translations.deleteAccount.description,
-  path: "/delete-account",
-});
+  return genMeta({
+    title: `${translations.deleteAccount.title} - ${translations.common.appName}`,
+    description: translations.deleteAccount.description,
+    path: locale === "en" ? "/delete-account" : `/${locale}/delete-account`,
+  });
+}
 
-function DeleteAccountPageContent() {
+function DeleteAccountPageContent({ locale }: { locale: Locale }) {
   const { t } = useTranslations();
+
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <BreadcrumbList
         items={[
           { name: t("common.home"), url: siteConfig.url },
-          { name: t("deleteAccount.title"), url: `${siteConfig.url}/delete-account` },
+          { name: t("deleteAccount.title"), url: `${siteConfig.url}${getLocalizedPath("/delete-account", locale)}` },
         ]}
       />
       <StructuredData
@@ -32,7 +39,7 @@ function DeleteAccountPageContent() {
         data={{
           name: t("deleteAccount.title"),
           description: t("deleteAccount.description"),
-          url: `${siteConfig.url}/delete-account`,
+          url: `${siteConfig.url}${getLocalizedPath("/delete-account", locale)}`,
         }}
       />
       <SiteHeader />
@@ -80,7 +87,7 @@ function DeleteAccountPageContent() {
             </p>
           </SectionCard>
 
-          <SectionCard title="What data is deleted">
+          <SectionCard title={t("deleteAccount.whatDeleted")}>
             <ul className="list-inside list-disc text-muted-foreground">
               <li>
                 Your authentication account (Firebase Authentication) associated
@@ -105,51 +112,36 @@ function DeleteAccountPageContent() {
             <ul className="list-inside list-disc text-muted-foreground">
               <li>
                 <span className="font-semibold text-foreground">
-                  Store purchase records
+                  Dictionary search analytics:
                 </span>{" "}
-                are processed and retained by Google Play (and/or Apple App Store)
-                under their own policies. We do not control those records.
+                Anonymous search queries (sanitized text, timestamps, categories,
+                result counts) are retained for app improvement purposes. These
+                records are not linked to your account and cannot identify you.
               </li>
               <li>
                 <span className="font-semibold text-foreground">
-                  Accounting / legal records
+                  Aggregated usage statistics:
                 </span>{" "}
-                may be retained for the period required by applicable laws (for
-                example, records related to subscription transactions).
-              </li>
-              <li>
-                <span className="font-semibold text-foreground">
-                  Anonymous dictionary search analytics
-                </span>{" "}
-                are stored without personal identifiers (no email/user ID). Because
-                they are not linked to your identity, they cannot be selectively
-                deleted per user and may be kept in aggregate.
+                General app usage metrics (e.g., total video views, quiz
+                completions) may be retained in aggregated form for analytics
+                purposes, but these do not contain personally identifiable
+                information.
               </li>
             </ul>
           </SectionCard>
 
           <SectionCard title={t("deleteAccount.optionalTitle")}>
             <p className="text-muted-foreground">
-              If you only want to remove certain data:
+              If you want to remove specific data without deleting your entire
+              account, you can contact us at{" "}
+              <a
+                className="font-semibold text-foreground hover:underline"
+                href={`mailto:${siteConfig.supportEmail}`}
+              >
+                {siteConfig.supportEmail}
+              </a>{" "}
+              and specify what data you&apos;d like removed.
             </p>
-            <ul className="mt-2 list-inside list-disc text-muted-foreground">
-              <li>
-                You can clear locally stored data (such as favorites, history, and
-                cached videos) from within the app, or by clearing the app’s storage
-                / uninstalling the app.
-              </li>
-              <li>
-                You can also email{" "}
-                <a
-                  className="font-semibold text-foreground hover:underline"
-                  href={`mailto:${siteConfig.supportEmail}`}
-                >
-                  {siteConfig.supportEmail}
-                </a>{" "}
-                to request deletion of specific account-linked data without deleting
-                your entire account (when technically possible).
-              </li>
-            </ul>
           </SectionCard>
         </div>
       </PageShell>
@@ -159,4 +151,13 @@ function DeleteAccountPageContent() {
   );
 }
 
+export default function DeleteAccountPage({ params }: { params: { locale: Locale } }) {
+  const locale = params.locale;
+
+  return (
+    <TranslationProvider locale={locale}>
+      <DeleteAccountPageContent locale={locale} />
+    </TranslationProvider>
+  );
+}
 

@@ -2,16 +2,23 @@
 
 import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Lightbox } from "./Lightbox";
-
-const images = Array.from({ length: 11 }, (_, i) => ({
-  src: `/slider-appUX/love2learnSign-app-UX-${String(i + 1).padStart(2, "0")}.png`,
-  alt: `Love to Learn Sign mobile app interface screenshot ${i + 1} - Bangla Sign Language learning features`,
-}));
+import { TranslationProvider, useTranslations } from "./TranslationProvider";
+import { Locale, getLocaleFromPath, t as translate } from "@/lib/i18n";
 
 type Dir = "left" | "right";
 
-export function ImageSlider() {
+function ImageSliderContent() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+  const { t } = useTranslations();
+
+  const images = Array.from({ length: 11 }, (_, i) => ({
+    src: `/slider-appUX/love2learnSign-app-UX-${String(i + 1).padStart(2, "0")}.png`,
+    alt: t("imageSlider.alt", { number: String(i + 1) }),
+  }));
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -128,7 +135,7 @@ export function ImageSlider() {
     <>
       <section className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
         <h2 className="mb-8 text-center text-2xl font-semibold sm:text-3xl">
-          App Interface Preview
+          {t("home.sliderTitle")}
         </h2>
 
         <div className="relative">
@@ -214,5 +221,16 @@ export function ImageSlider() {
         />
       )}
     </>
+  );
+}
+
+export function ImageSlider() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+
+  return (
+    <TranslationProvider locale={locale}>
+      <ImageSliderContent />
+    </TranslationProvider>
   );
 }

@@ -5,41 +5,45 @@ import { SectionCard } from "@/components/SectionCard";
 import { siteConfig } from "@/lib/site-config";
 import { generateMetadata as genMeta } from "@/lib/metadata";
 import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
+import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
+import { defaultLocale, getTranslations, getLocalizedPath } from "@/lib/i18n";
+
+const locale = defaultLocale;
+const translations = getTranslations(locale);
 
 export const metadata = genMeta({
-  title: "Privacy Policy - Love to Learn Sign",
-  description:
-    "Privacy Policy for Love to Learn Sign. Learn how we collect, use, and protect your information when you use our Bangla Sign Language learning app.",
+  title: `${translations.privacy.title} - ${translations.common.appName}`,
+  description: translations.privacy.description,
   path: "/privacy",
 });
 
-export default function PrivacyPage() {
+function PrivacyPageContent() {
+  const { t } = useTranslations();
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <BreadcrumbList
         items={[
-          { name: "Home", url: siteConfig.url },
-          { name: "Privacy Policy", url: `${siteConfig.url}/privacy` },
+          { name: t("common.home"), url: siteConfig.url },
+          { name: t("privacy.title"), url: `${siteConfig.url}/privacy` },
         ]}
       />
       <StructuredData
         type="WebPage"
         data={{
-          name: "Privacy Policy",
-          description:
-            "Privacy Policy for Love to Learn Sign. Learn how we collect, use, and protect your information.",
+          name: t("privacy.title"),
+          description: t("privacy.description"),
           url: `${siteConfig.url}/privacy`,
         }}
       />
       <SiteHeader />
 
       <PageShell
-        title="Privacy Policy"
+        title={t("privacy.title")}
         lede={`This page describes how ${siteConfig.appName} collects, uses, and protects your information.`}
       >
         <div className="grid gap-6">
-          <SectionCard title="Last updated">
-            <p className="text-muted-foreground">27 December 2025</p>
+          <SectionCard title={t("privacy.lastUpdated")}>
+            <p className="text-muted-foreground">{t("privacy.lastUpdatedDate")}</p>
           </SectionCard>
 
           <SectionCard title="1. Introduction">

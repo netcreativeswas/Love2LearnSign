@@ -1,9 +1,16 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-
+import { usePathname } from "next/navigation";
 import { siteConfig } from "@/lib/site-config";
+import { TranslationProvider, useTranslations } from "./TranslationProvider";
+import { Locale, getLocaleFromPath, getLocalizedPath } from "@/lib/i18n";
 
-export function SiteFooter() {
+function SiteFooterContent() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+  const { t } = useTranslations();
   return (
     <footer className="mt-auto border-t border-border/70 bg-surface">
       <div className="mx-auto max-w-5xl px-4 py-6">
@@ -20,13 +27,11 @@ export function SiteFooter() {
                 className="rounded-full object-cover"
               />
               <div className="text-lg font-semibold text-foreground">
-                Love to Learn Sign
+                {t("common.appName")}
               </div>
             </div>
             <p className="max-w-md text-sm leading-6 text-muted-foreground">
-              Learn Bengali Sign Language with a modern dictionary, interactive
-              quizzes, and spaced repetition flashcards. Build your vocabulary
-              with short videos and practice at your own pace.
+              {t("footer.description")}
             </p>
           </div>
 
@@ -34,7 +39,7 @@ export function SiteFooter() {
           <div className="flex items-center justify-center">
             <div className="flex flex-col items-start gap-2">
               <div className="flex items-center gap-2 text-sm">
-                <span className="font-semibold text-foreground">Support:</span>
+                <span className="font-semibold text-foreground">{t("common.support")}:</span>
                 <a
                   className="font-medium text-foreground hover:underline"
                   href={`mailto:${siteConfig.supportEmail}`}
@@ -43,10 +48,10 @@ export function SiteFooter() {
                 </a>
               </div>
               <Link
-                href="/donate"
+                href={getLocalizedPath("/donate", locale)}
                 className="text-sm font-medium text-foreground hover:underline"
               >
-                Donate
+                {t("common.donate")}
               </Link>
             </div>
           </div>
@@ -57,21 +62,21 @@ export function SiteFooter() {
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
             <Link
               className="text-foreground/90 hover:underline"
-              href="/privacy"
+              href={getLocalizedPath("/privacy", locale)}
             >
-              Privacy
+              {t("common.privacy")}
             </Link>
             <Link
               className="text-foreground/90 hover:underline"
-              href="/delete-account"
+              href={getLocalizedPath("/delete-account", locale)}
             >
-              Delete Account
+              {t("common.deleteAccount")}
             </Link>
             <Link
               className="text-foreground/90 hover:underline"
-              href="/contact"
+              href={getLocalizedPath("/contact", locale)}
             >
-              Contact
+              {t("common.contact")}
             </Link>
             <a
               className="text-foreground/90 hover:underline"
@@ -79,11 +84,11 @@ export function SiteFooter() {
               target="_blank"
               rel="noreferrer"
             >
-              Google Play
+              {t("common.googlePlay")}
             </a>
           </div>
           <div className="text-xs text-muted-foreground">
-            Made by{" "}
+            {t("common.madeBy")}{" "}
             <a
               href="https://netcreative-swas.net"
               target="_blank"
@@ -96,6 +101,17 @@ export function SiteFooter() {
         </div>
       </div>
     </footer>
+  );
+}
+
+export function SiteFooter() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+
+  return (
+    <TranslationProvider locale={locale}>
+      <SiteFooterContent />
+    </TranslationProvider>
   );
 }
 

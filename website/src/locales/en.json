@@ -1,0 +1,129 @@
+{
+  "common": {
+    "appName": "Love to Learn Sign",
+    "home": "Home",
+    "contact": "Contact Us",
+    "donate": "Donate",
+    "privacy": "Privacy",
+    "deleteAccount": "Delete Account",
+    "menu": "Menu",
+    "close": "Close",
+    "support": "Support",
+    "madeBy": "Made by",
+    "googlePlay": "Google Play"
+  },
+  "home": {
+    "title": "Learn Bangla Sign Language",
+    "tagline": "Learn. Practice. Remember.",
+    "description": "Discover Bangla Sign Language through short videos and a simple learning flow. Practice with a dictionary, flashcards, quizzes, favorites, and spaced repetition to build vocabulary step by step. Available in English and Bengali.",
+    "ctaContact": "Contact support",
+    "getOnGooglePlay": "Get it on Google Play",
+    "features": {
+      "dictionary": {
+        "title": "Dictionary",
+        "description": "Find signs fast and save favorites."
+      },
+      "quizzes": {
+        "title": "Quizzes",
+        "description": "Practice with timed, category-based quizzes."
+      },
+      "flashcards": {
+        "title": "Flashcards",
+        "description": "Spaced repetition to remember words."
+      },
+      "offline": {
+        "title": "Offline",
+        "description": "Cached videos for smoother playback."
+      }
+    },
+    "sliderTitle": "App Interface Preview"
+  },
+  "contact": {
+    "title": "Contact",
+    "description": "Need help with the app, subscriptions, or your account? Reach out to us by email.",
+    "emailSupport": {
+      "title": "Email support",
+      "text": "For {appName} support, email {email}.",
+      "note": "Please include the email address you use in the app and a short description of the issue."
+    },
+    "quickLinks": {
+      "title": "Quick links",
+      "googlePlay": "Google Play listing",
+      "privacy": "Privacy Policy",
+      "deleteAccount": "Delete account instructions"
+    },
+    "about": {
+      "title": "About",
+      "text1": "This application was developed by {netcreative}, a web development agency based in France. We specialize in creating modern, user-friendly websites and mobile applications that deliver exceptional user experiences.",
+      "text2": "Our team combines technical expertise with creative design to build digital solutions that meet the unique needs of our clients. From responsive web applications to native mobile apps, we are committed to delivering high-quality products that make a difference.",
+      "text3": "For more information about our services, visit {website}."
+    }
+  },
+  "donate": {
+    "title": "Donate",
+    "description": "Thank you for considering a donation. Your support helps improve the app and extend the dictionary to other sign languages.",
+    "about": {
+      "title": "About your donation",
+      "text": "Thank you for considering a donation. I created this app to help deaf people in Bangladesh develop their language skills and to help those who cannot sign and are isolated from the Deaf community by giving them the opportunity to learn proper sign language to communicate. Your donation will help me improve the app. I plan to extend this dictionary to other sign languages, mainly in Asia. If you have ideas or suggestions, please contact me at {email}."
+    },
+    "disclaimer": {
+      "title": "Disclaimer",
+      "text": "My company Netcreatif is based in France and no donation will actually be going to a Bangladeshi bank account and is not subject to tax in Bangladesh."
+    },
+    "paymentMethod": {
+      "title": "Payment method"
+    },
+    "selectAmount": {
+      "title": "Select amount",
+      "custom": "Custom",
+      "monthly": "Make this donation monthly"
+    },
+    "bankTransfer": {
+      "title": "Bank Transfer Instructions",
+      "euroAccount": "Euro Account",
+      "usAccount": "US Account",
+      "accountHolder": "Account holder",
+      "iban": "IBAN",
+      "bicSwift": "BIC/SWIFT",
+      "name": "Name",
+      "accountNumber": "Account number",
+      "accountType": "Account type",
+      "routingNumber": "Routing number",
+      "note": "Please mention \"Donation\" in the transfer reference.",
+      "copy": "Copy",
+      "copied": "Copied!"
+    },
+    "donateButton": "Donate"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "description": "Privacy Policy for Love to Learn Sign. Learn how we collect, use, and protect your information when you use our Bangla Sign Language learning app.",
+    "lastUpdated": "Last updated",
+    "lastUpdatedDate": "27 December 2025"
+  },
+  "deleteAccount": {
+    "title": "Delete Account",
+    "description": "Learn how to delete your Love to Learn Sign account and what data is deleted or kept. Step-by-step instructions for account deletion.",
+    "pageTitle": "Delete your account",
+    "descriptionText": "This page explains how to request deletion of your {appName} account (by {developerName}) and what data is deleted or kept.",
+    "requestTitle": "Request account deletion (steps)",
+    "whatDeleted": "What data is deleted",
+    "whatKept": "What data may be kept (and why)",
+    "optionalTitle": "Optional: delete some data without deleting your account"
+  },
+  "notFound": {
+    "title": "404",
+    "heading": "Page Not Found",
+    "description": "Sorry, we couldn't find the page you're looking for.",
+    "goHome": "Go Home",
+    "contactSupport": "Contact Support",
+    "popularPages": "Popular Pages"
+  },
+  "footer": {
+    "description": "Learn Bengali Sign Language with a modern dictionary, interactive quizzes, and spaced repetition flashcards. Build your vocabulary with short videos and practice at your own pace."
+  },
+  "imageSlider": {
+    "alt": "Love to Learn Sign mobile app interface screenshot {number} - Bangla Sign Language learning features"
+  }
+}
+

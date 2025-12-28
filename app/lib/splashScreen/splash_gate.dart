@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:love_to_learn_sign/home_page.dart'; // remplace par ta page d’accueil
 import 'package:love_to_learn_sign/splashScreen/onboarding_video_screen.dart';
+import 'package:l2l_shared/debug/agent_logger.dart';
 
 /// Feature flag: keep the onboarding code but disable showing it at install-time.
 /// Set to `true` to re-enable the onboarding video screen.
@@ -19,6 +20,17 @@ class _SplashGateState extends State<SplashGate> {
   @override
   void initState() {
     super.initState();
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H3',
+      'location': 'app/splashScreen/splash_gate.dart:initState',
+      'message': 'SplashGate initState',
+      'data': {'kEnableOnboardingIntro': kEnableOnboardingIntro},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
     // Auto-route after a 3s delay (replaces the manual Next button)
     Future.delayed(const Duration(seconds: 3), _route);
   }
@@ -28,6 +40,21 @@ class _SplashGateState extends State<SplashGate> {
     final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
     
     print('🔍 SplashGate: hasSeenIntro = $hasSeenIntro');
+
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H3',
+      'location': 'app/splashScreen/splash_gate.dart:_route',
+      'message': 'SplashGate route decision',
+      'data': {
+        'hasSeenIntro': hasSeenIntro,
+        'kEnableOnboardingIntro': kEnableOnboardingIntro,
+      },
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
 
     // Petit délai pour afficher le splash Flutter (200–600ms)
     await Future.delayed(const Duration(milliseconds: 400));
@@ -43,17 +70,50 @@ class _SplashGateState extends State<SplashGate> {
         print('🔍 SplashGate: Onboarding disabled (already marked as seen)');
       }
       if (!mounted) return;
+      // #region agent log
+      AgentLogger.log({
+        'sessionId': 'debug-session',
+        'runId': 'white-screen-pre',
+        'hypothesisId': 'H3',
+        'location': 'app/splashScreen/splash_gate.dart:_route',
+        'message': 'Navigating to /home (onboarding disabled)',
+        'data': {},
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      // #endregion
       Navigator.of(context).pushReplacementNamed('/home');
       return;
     }
 
     if (!hasSeenIntro) {
       print('🔍 SplashGate: Navigating to OnboardingVideoScreen');
+      // #region agent log
+      AgentLogger.log({
+        'sessionId': 'debug-session',
+        'runId': 'white-screen-pre',
+        'hypothesisId': 'H4',
+        'location': 'app/splashScreen/splash_gate.dart:_route',
+        'message': 'Navigating to OnboardingVideoScreen',
+        'data': {},
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      // #endregion
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const OnboardingVideoScreen()),
       );
     } else {
       print('🔍 SplashGate: Navigating to HomePage (intro already seen)');
+      // #region agent log
+      AgentLogger.log({
+        'sessionId': 'debug-session',
+        'runId': 'white-screen-pre',
+        'hypothesisId': 'H3',
+        'location': 'app/splashScreen/splash_gate.dart:_route',
+        'message': 'Navigating to /home (intro already seen)',
+        'data': {},
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      // #endregion
       Navigator.of(context).pushReplacementNamed('/home');
     }
   }

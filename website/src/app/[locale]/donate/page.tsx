@@ -21,13 +21,14 @@ const STRIPE_LINKS: Record<number, string> = {
 };
 
 const STRIPE_MONTHLY_LINKS: Record<number, string> = {
-  2: "https://donate.stripe.com/28EaER0lj53Vd5I7Pv8N204",
-  5: "https://donate.stripe.com/4gM00dd850NF4zc3zf8N205",
-  10: "https://donate.stripe.com/6oU8wJaZX2VNfdQc5L8N206",
-  20: "https://donate.stripe.com/3cI14hfgdbsj0iW6Lr8N207",
+  2: "https://buy.stripe.com/7sY9ANgkheEv2r40n38N208",
+  5: "https://buy.stripe.com/7sY9ANgkheEv2r40n38N208",
+  10: "https://buy.stripe.com/7sY9ANgkheEv2r40n38N208",
+  20: "https://buy.stripe.com/7sY9ANgkheEv2r40n38N208",
 };
 
-const PRESET_AMOUNTS = [2, 5, 10, 20];
+const PRESET_AMOUNTS = [2, 5, 10, 20] as const;
+
 const PAYMENT_METHODS = [
   "Buy me a coffee",
   "Ko-Fi.com",
@@ -37,9 +38,7 @@ const PAYMENT_METHODS = [
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
-function DonatePageContent() {
-  const pathname = usePathname();
-  const locale = getLocaleFromPath(pathname);
+function DonatePageContent({ locale }: { locale: Locale }) {
   const { t } = useTranslations();
   
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(
@@ -82,7 +81,6 @@ function DonatePageContent() {
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      // You could add a toast notification here
     } catch (err) {
       console.error("Failed to copy:", err);
     }
@@ -96,7 +94,7 @@ function DonatePageContent() {
       <BreadcrumbList
         items={[
           { name: t("common.home"), url: siteConfig.url },
-          { name: t("donate.title"), url: `${siteConfig.url}/donate` },
+          { name: t("donate.title"), url: `${siteConfig.url}${getLocalizedPath("/donate", locale)}` },
         ]}
       />
       <StructuredData
@@ -104,7 +102,7 @@ function DonatePageContent() {
         data={{
           name: t("donate.title"),
           description: t("donate.description"),
-          url: `${siteConfig.url}/donate`,
+          url: `${siteConfig.url}${getLocalizedPath("/donate", locale)}`,
         }}
       />
       <SiteHeader />
@@ -114,7 +112,6 @@ function DonatePageContent() {
         lede={t("donate.description")}
       >
         <div className="grid gap-6">
-          {/* Donation Banner Image */}
           <div className="relative h-48 w-full overflow-hidden rounded-3xl border border-border bg-surface sm:h-64">
             <Image
               src="/donation_banner_clear_966x499.png"
@@ -125,21 +122,18 @@ function DonatePageContent() {
             />
           </div>
 
-          {/* Description */}
           <SectionCard title={t("donate.about.title")}>
             <p className="text-muted-foreground">
               {t("donate.about.text", { email: siteConfig.supportEmail })}
             </p>
           </SectionCard>
 
-          {/* Disclaimer */}
           <SectionCard title={t("donate.disclaimer.title")}>
             <p className="text-muted-foreground">
               {t("donate.disclaimer.text")}
             </p>
           </SectionCard>
 
-          {/* Payment Method Selection */}
           <SectionCard title={t("donate.paymentMethod.title")}>
             <div className="flex flex-wrap gap-3">
               {PAYMENT_METHODS.map((method) => (
@@ -156,6 +150,9 @@ function DonatePageContent() {
                       setIsCustomSelected(false);
                       setCustomAmount("");
                     }
+                    if (method === "Bank Transfer") {
+                      // Bank details will show automatically
+                    }
                   }}
                   className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
                     selectedMethod === method
@@ -169,9 +166,8 @@ function DonatePageContent() {
             </div>
           </SectionCard>
 
-          {/* Amount Selection (only for Stripe) */}
           {selectedMethod === "Stripe" && (
-            <SectionCard title="Select amount">
+            <SectionCard title={t("donate.selectAmount.title")}>
               <div className="flex flex-wrap gap-3">
                 {PRESET_AMOUNTS.map((amount) => (
                   <button
@@ -200,11 +196,10 @@ function DonatePageContent() {
                       : "border-border bg-surface text-foreground hover:bg-muted"
                   }`}
                 >
-                  Custom
+                  {t("donate.selectAmount.custom")}
                 </button>
               </div>
 
-              {/* Monthly checkbox (only for preset amounts) */}
               {!isCustomSelected && selectedPreset !== null && (
                 <div className="mt-4 flex items-center gap-2">
                   <input
@@ -218,14 +213,13 @@ function DonatePageContent() {
                     htmlFor="monthly"
                     className="text-sm text-foreground cursor-pointer"
                   >
-                    Make this donation monthly
+                    {t("donate.selectAmount.monthly")}
                   </label>
                 </div>
               )}
             </SectionCard>
           )}
 
-          {/* Bank Transfer Details */}
           {selectedMethod === "Bank Transfer" && (
             <SectionCard title={t("donate.bankTransfer.title")}>
               <div className="mb-4 flex gap-2 border-b border-border">
@@ -309,7 +303,6 @@ function DonatePageContent() {
             </SectionCard>
           )}
 
-          {/* Donate Button (hidden for Bank Transfer) */}
           {selectedMethod !== "Bank Transfer" && (
             <div className="flex justify-center">
               <button
@@ -330,17 +323,6 @@ function DonatePageContent() {
 
       <SiteFooter />
     </div>
-  );
-}
-
-export default function DonatePage() {
-  const pathname = usePathname();
-  const locale = getLocaleFromPath(pathname);
-
-  return (
-    <TranslationProvider locale={locale}>
-      <DonatePageContent />
-    </TranslationProvider>
   );
 }
 
@@ -383,6 +365,16 @@ function BankLine({
         {copied ? t("donate.bankTransfer.copied") : t("donate.bankTransfer.copy")}
       </button>
     </div>
+  );
+}
+
+export default function DonatePage({ params }: { params: { locale: Locale } }) {
+  const locale = params.locale;
+
+  return (
+    <TranslationProvider locale={locale}>
+      <DonatePageContent locale={locale} />
+    </TranslationProvider>
   );
 }
 

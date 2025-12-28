@@ -8,19 +8,26 @@ import { siteConfig } from "@/lib/site-config";
 import { generateMetadata as genMeta } from "@/lib/metadata";
 import { StructuredData } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { defaultLocale, getTranslations } from "@/lib/i18n";
+import { Locale, getTranslations, getLocalizedPath } from "@/lib/i18n";
 
-const locale = defaultLocale;
-const translations = getTranslations(locale);
+export async function generateMetadata({
+  params,
+}: {
+  params: { locale: Locale };
+}) {
+  const locale = params.locale;
+  const translations = getTranslations(locale);
 
-export const metadata = genMeta({
-  title: `${translations.home.title} - ${translations.common.appName}`,
-  description: translations.home.description,
-  path: "/",
-});
+  return genMeta({
+    title: `${translations.home.title} - ${translations.common.appName}`,
+    description: translations.home.description,
+    path: locale === "en" ? "/" : `/${locale}`,
+  });
+}
 
-function HomeContent() {
+function HomeContent({ locale }: { locale: Locale }) {
   const { t } = useTranslations();
+
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <StructuredData
@@ -100,7 +107,7 @@ function HomeContent() {
                 />
               </a>
               <Link
-                href="/contact"
+                href={getLocalizedPath("/contact", locale)}
                 className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
               >
                 {t("home.ctaContact")}
@@ -167,10 +174,13 @@ function HomeContent() {
   );
 }
 
-export default function Home() {
+export default function Home({ params }: { params: { locale: Locale } }) {
+  const locale = params.locale;
+
   return (
     <TranslationProvider locale={locale}>
-      <HomeContent />
+      <HomeContent locale={locale} />
     </TranslationProvider>
   );
 }
+

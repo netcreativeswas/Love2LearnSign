@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';        // from CLI
+import 'firebase_options.dart'; // from CLI
 import 'login_page.dart';
 import 'admin_home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,10 +9,11 @@ import 'user_role_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
+
   runApp(
     OverlaySupport.global(
       child: MyApp(),
@@ -52,9 +53,9 @@ class MyApp extends StatelessWidget {
     );
 
     final baseText = Typography.material2021().black.apply(
-      bodyColor: lightScheme.onSurface,
-      displayColor: lightScheme.onSurface,
-    );
+          bodyColor: lightScheme.onSurface,
+          displayColor: lightScheme.onSurface,
+        );
 
     return MaterialApp(
       title: 'Love to Learn Sign Dashboard',
@@ -83,7 +84,8 @@ class MyApp extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
           bodyMedium: TextStyle(color: lightScheme.onSurface),
-          bodySmall: TextStyle(color: lightScheme.onSurface.withValues(alpha: 0.8)),
+          bodySmall:
+              TextStyle(color: lightScheme.onSurface.withValues(alpha: 0.8)),
         ),
         cardTheme: CardThemeData(
           color: lightScheme.surface,
@@ -96,7 +98,8 @@ class MyApp extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: lightScheme.secondary,
             foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             textStyle: const TextStyle(fontWeight: FontWeight.w600),
           ),
@@ -106,13 +109,17 @@ class MyApp extends StatelessWidget {
           foregroundColor: Colors.black,
         ),
         inputDecorationTheme: InputDecorationTheme(
-          labelStyle: TextStyle(color: lightScheme.onSurface.withValues(alpha: 0.9), fontSize: 12),
-          hintStyle: TextStyle(color: lightScheme.onSurface.withValues(alpha: 0.6)),
+          labelStyle: TextStyle(
+              color: lightScheme.onSurface.withValues(alpha: 0.9),
+              fontSize: 12),
+          hintStyle:
+              TextStyle(color: lightScheme.onSurface.withValues(alpha: 0.6)),
           filled: true,
           fillColor: lightScheme.surface,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: lightScheme.onSurface.withValues(alpha: 0.15)),
+            borderSide: BorderSide(
+                color: lightScheme.onSurface.withValues(alpha: 0.15)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
@@ -122,7 +129,8 @@ class MyApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             borderSide: BorderSide(color: lightScheme.error),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
         iconTheme: IconThemeData(color: lightScheme.primary),
       ),
@@ -155,7 +163,8 @@ class MyApp extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: darkScheme.secondary,
             foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             textStyle: const TextStyle(fontWeight: FontWeight.w600),
           ),
@@ -165,13 +174,16 @@ class MyApp extends StatelessWidget {
           foregroundColor: Colors.black,
         ),
         inputDecorationTheme: InputDecorationTheme(
-          labelStyle: TextStyle(color: darkScheme.onSurface.withValues(alpha: 0.9), fontSize: 12),
-          hintStyle: TextStyle(color: darkScheme.onSurface.withValues(alpha: 0.6)),
+          labelStyle: TextStyle(
+              color: darkScheme.onSurface.withValues(alpha: 0.9), fontSize: 12),
+          hintStyle:
+              TextStyle(color: darkScheme.onSurface.withValues(alpha: 0.6)),
           filled: true,
           fillColor: darkScheme.surface,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: darkScheme.onSurface.withValues(alpha: 0.15)),
+            borderSide:
+                BorderSide(color: darkScheme.onSurface.withValues(alpha: 0.15)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
@@ -181,7 +193,8 @@ class MyApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             borderSide: BorderSide(color: darkScheme.error),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
         iconTheme: IconThemeData(color: darkScheme.primary),
       ),
@@ -199,7 +212,8 @@ class AuthGate extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (ctx, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
         if (snap.hasData) {
           // User is authenticated, check role and show appropriate dashboard
@@ -222,17 +236,18 @@ class RoleBasedDashboard extends StatelessWidget {
       builder: (context, roleSnapshot) {
         // Show loading while checking role
         if (roleSnapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
 
         if (roleSnapshot.hasError) {
-           // Check for permission denied error
-           final error = roleSnapshot.error.toString();
-           final isPermissionError = error.contains('permission-denied') || 
-                                   error.contains('insufficient permissions') ||
-                                   error.contains('Missing or insufficient permissions');
+          // Check for permission denied error
+          final error = roleSnapshot.error.toString();
+          final isPermissionError = error.contains('permission-denied') ||
+              error.contains('insufficient permissions') ||
+              error.contains('Missing or insufficient permissions');
 
-           return Scaffold(
+          return Scaffold(
             appBar: AppBar(title: const Text('Error')),
             body: Center(
               child: Padding(
@@ -241,22 +256,24 @@ class RoleBasedDashboard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      isPermissionError ? Icons.security : Icons.error_outline,
-                      size: 64, 
-                      color: Colors.red
-                    ),
+                        isPermissionError
+                            ? Icons.security
+                            : Icons.error_outline,
+                        size: 64,
+                        color: Colors.red),
                     const SizedBox(height: 16),
                     Text(
-                      isPermissionError 
-                        ? 'Permission Denied' 
-                        : 'Error checking role',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      isPermissionError
+                          ? 'Permission Denied'
+                          : 'Error checking role',
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       isPermissionError
-                        ? 'Your account is not authorized to read user roles.\nPlease ask an administrator to update Firestore Security Rules.'
-                        : 'Details: $error',
+                          ? 'Your account is not authorized to read user roles.\nPlease ask an administrator to update Firestore Security Rules.'
+                          : 'Details: $error',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
@@ -272,9 +289,10 @@ class RoleBasedDashboard extends StatelessWidget {
         }
 
         final role = roleSnapshot.data;
-        
+
         // Check if user has dashboard access (admin or editor)
-        if (role == UserRoleService.roleAdmin || role == UserRoleService.roleEditor) {
+        if (role == UserRoleService.roleAdmin ||
+            role == UserRoleService.roleEditor) {
           return AdminHome(userRole: role);
         }
 
@@ -312,7 +330,10 @@ class RoleBasedDashboard extends StatelessWidget {
                       padding: EdgeInsets.only(top: 8.0),
                       child: Text(
                         '(No role assigned to this user)',
-                        style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic),
                       ),
                     ),
                   const SizedBox(height: 8),

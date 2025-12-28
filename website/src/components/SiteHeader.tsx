@@ -3,17 +3,23 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-
+import { usePathname } from "next/navigation";
 import { siteConfig } from "@/lib/site-config";
+import { TranslationProvider, useTranslations } from "./TranslationProvider";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { Locale, getLocaleFromPath, getLocalizedPath } from "@/lib/i18n";
 
-const nav = [
-  { href: "/", label: "Home" },
-  { href: "/contact", label: "Contact Us" },
-  { href: "/donate", label: "Donate" },
-] as const;
-
-export function SiteHeader() {
+function SiteHeaderContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+  const { t } = useTranslations();
+
+  const nav = [
+    { href: getLocalizedPath("/", locale), label: t("common.home") },
+    { href: getLocalizedPath("/contact", locale), label: t("common.contact") },
+    { href: getLocalizedPath("/donate", locale), label: t("common.donate") },
+  ] as const;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/70 bg-surface/70 backdrop-blur">
@@ -47,6 +53,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+          <LanguageSwitcher />
         </nav>
 
         {/* Mobile Hamburger Button */}
@@ -105,7 +112,7 @@ export function SiteHeader() {
             
             <div className="p-6">
               <div className="mb-6">
-                <div className="text-xl font-semibold text-foreground">Menu</div>
+                <div className="text-xl font-semibold text-foreground">{t("common.menu")}</div>
               </div>
               
               <nav className="flex flex-col gap-2">
@@ -119,12 +126,26 @@ export function SiteHeader() {
                     {item.label}
                   </Link>
                 ))}
+                <div className="mt-2 pt-2 border-t border-border">
+                  <LanguageSwitcher />
+                </div>
               </nav>
             </div>
           </div>
         </div>
       )}
     </header>
+  );
+}
+
+export function SiteHeader() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+
+  return (
+    <TranslationProvider locale={locale}>
+      <SiteHeaderContent />
+    </TranslationProvider>
   );
 }
 

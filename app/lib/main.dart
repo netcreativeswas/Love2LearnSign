@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 // import 'package:flutter_native_timezone_updated_gradle/flutter_native_timezone_updated_gradle.dart';
@@ -25,7 +26,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:app_links/app_links.dart';
 
 import 'url_strategy_stub.dart'
-if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart';
+    if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 // import 'dart:ui' as ui;
 import 'dart:ui' as ui;
@@ -36,6 +37,7 @@ import 'services/history_repository.dart';
 import 'services/spaced_repetition_service.dart';
 import 'services/flashcard_notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -51,16 +53,25 @@ class LoggingObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     if (kDebugMode) {
-      final routeName = route.settings.name ?? route.settings.arguments?.toString() ?? 'unnamed';
-      final prevName = previousRoute?.settings.name ?? previousRoute?.settings.arguments?.toString() ?? 'none';
+      final routeName = route.settings.name ??
+          route.settings.arguments?.toString() ??
+          'unnamed';
+      final prevName = previousRoute?.settings.name ??
+          previousRoute?.settings.arguments?.toString() ??
+          'none';
       debugPrint('PUSHED $routeName from $prevName');
     }
   }
+
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     if (kDebugMode) {
-      final routeName = route.settings.name ?? route.settings.arguments?.toString() ?? 'unnamed';
-      final prevName = previousRoute?.settings.name ?? previousRoute?.settings.arguments?.toString() ?? 'none';
+      final routeName = route.settings.name ??
+          route.settings.arguments?.toString() ??
+          'unnamed';
+      final prevName = previousRoute?.settings.name ??
+          previousRoute?.settings.arguments?.toString() ??
+          'none';
       debugPrint('POPPED $routeName to $prevName');
     }
   }
@@ -82,7 +93,7 @@ Future<void> _requestExactAlarmPermission() async {
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-FlutterLocalNotificationsPlugin();
+    FlutterLocalNotificationsPlugin();
 
 void main() async {
   debugPrint('🔍 DeepLink Debug: main() started');
@@ -136,57 +147,183 @@ void main() async {
 
   // Remove the hash (#) from Flutter web URLs
   setUrlStrategy(PathUrlStrategy());
+
+  // #region agent log
+  AgentLogger.log({
+    'sessionId': 'debug-session',
+    'runId': 'white-screen-pre',
+    'hypothesisId': 'H2',
+    'location': 'app/main.dart:main',
+    'message': 'before Firebase.initializeApp',
+    'data': {'platform': Platform.operatingSystem},
+    'timestamp': DateTime.now().millisecondsSinceEpoch,
+  });
+  // #endregion
   await Firebase.initializeApp();
-  
+
+  // #region agent log
+  AgentLogger.log({
+    'sessionId': 'debug-session',
+    'runId': 'white-screen-pre',
+    'hypothesisId': 'H2',
+    'location': 'app/main.dart:main',
+    'message': 'after Firebase.initializeApp',
+    'data': {},
+    'timestamp': DateTime.now().millisecondsSinceEpoch,
+  });
+  // #endregion
+
   // Set Firebase locale based on app locale (reduces X-Firebase-Locale warnings)
   try {
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H6',
+      'location': 'app/main.dart:main',
+      'message': 'before SharedPreferences.getInstance (locale)',
+      'data': {},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
     final prefs = await SharedPreferences.getInstance();
     final savedLocale = prefs.getString('app_locale') ?? 'en';
     FirebaseFirestore.instance.settings = Settings(
       persistenceEnabled: true,
     );
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H6',
+      'location': 'app/main.dart:main',
+      'message': 'after SharedPreferences.getInstance (locale)',
+      'data': {'savedLocale': savedLocale},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
     // Note: Firebase Auth locale is set automatically based on device locale
     // This is just to reduce warnings
   } catch (e) {
     debugPrint('Failed to set Firebase locale: $e');
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H6',
+      'location': 'app/main.dart:main',
+      'message': 'locale prefs failed',
+      'data': {'error': e.toString()},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
   }
   FirebaseMessaging messaging = FirebaseMessaging.instance;
   // === Création des canaux de notification Android ===
   const AndroidNotificationChannel learnChannel = AndroidNotificationChannel(
-    'learn_word_channel',               // Channel ID must match zonedSchedule
-    'Learn Word Notifications',         // Channel name visible in settings
+    'learn_word_channel', // Channel ID must match zonedSchedule
+    'Learn Word Notifications', // Channel name visible in settings
     description: 'Reminder to learn a new word',
     importance: Importance.high,
   );
-  final androidImpl = flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  final androidImpl =
+      flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+
+  // #region agent log
+  AgentLogger.log({
+    'sessionId': 'debug-session',
+    'runId': 'white-screen-pre',
+    'hypothesisId': 'H6',
+    'location': 'app/main.dart:main',
+    'message': 'before createNotificationChannel',
+    'data': {'androidImplNull': androidImpl == null},
+    'timestamp': DateTime.now().millisecondsSinceEpoch,
+  });
+  // #endregion
   await androidImpl?.createNotificationChannel(learnChannel);
+
+  // #region agent log
+  AgentLogger.log({
+    'sessionId': 'debug-session',
+    'runId': 'white-screen-pre',
+    'hypothesisId': 'H6',
+    'location': 'app/main.dart:main',
+    'message': 'after createNotificationChannel',
+    'data': {},
+    'timestamp': DateTime.now().millisecondsSinceEpoch,
+  });
+  // #endregion
   // ================================================
 
   // Initialize timezone data
   tz.initializeTimeZones();
   // Use platform timezone via MethodChannel; fallback to Dart's zone name
   try {
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H6',
+      'location': 'app/main.dart:main',
+      'message': 'before FlutterTimezone.getLocalTimezone',
+      'data': {},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
     final String tzName = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(tzName));
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H6',
+      'location': 'app/main.dart:main',
+      'message': 'after FlutterTimezone.getLocalTimezone',
+      'data': {'tzName': tzName},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
   } catch (e) {
     debugPrint('Failed to get platform timezone: $e');
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H6',
+      'location': 'app/main.dart:main',
+      'message': 'FlutterTimezone.getLocalTimezone failed',
+      'data': {'error': e.toString()},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
     // Fallback to system timezone
     tz.setLocalLocation(tz.local);
   }
 
   // Initialiser les services de notification
   try {
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H7',
+      'location': 'app/main.dart:main',
+      'message': 'notification init block: start',
+      'data': {},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
     final spacedRepetitionService = SpacedRepetitionService();
     final flashcardNotificationService = FlashcardNotificationService();
     final notificationService = NotificationService();
 
     await flashcardNotificationService.initialize();
     await notificationService.initialize();
-    
+
     // Nettoyer les anciens mots et programmer les notifications
     await spacedRepetitionService.cleanupOldWords();
-    
+
     // Programmer les notifications de révision (avec gestion d'erreur)
     try {
       await flashcardNotificationService.scheduleAllReviewNotifications();
@@ -194,44 +331,48 @@ void main() async {
       debugPrint('Warning: Could not schedule review notifications: $e');
       // Continue without notifications
     }
+
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H7',
+      'location': 'app/main.dart:main',
+      'message': 'notification init block: end',
+      'data': {},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
   } catch (e) {
     debugPrint('Warning: Could not initialize notification services: $e');
     // Continue without notifications
   }
 
-  // Runtime notification permission (Android 13+)
-  bool notificationGranted = true;
-  if (Platform.isAndroid) {
-    notificationGranted = await NotificationPermissionService.areNotificationsEnabled();
-    if (!notificationGranted) {
-      notificationGranted = await NotificationPermissionService.requestPermission();
-      if (!notificationGranted) {
-        debugPrint('Notification permissions denied');
-      }
-    }
-  }
-  // Only subscribe to topic if permission granted
-  if (notificationGranted) {
-    await messaging.subscribeToTopic('new_words');
-  }
-  
-  // Initialize Ad Service
-  try {
-    await AdService().initialize();
-  } catch (e) {
-    debugPrint('Warning: Could not initialize ad service: $e');
-    // Continue without ads
-  }
-  
-  // Initialize Subscription Service
-  try {
-    await SubscriptionService().initialize();
-  } catch (e) {
-    debugPrint('Warning: Could not initialize subscription service: $e');
-    // Continue without subscriptions
-  }
-  
+  // #region agent log
+  AgentLogger.log({
+    'sessionId': 'debug-session',
+    'runId': 'white-screen-pre',
+    'hypothesisId': 'H8',
+    'location': 'app/main.dart:main',
+    'message': 'before ThemeProvider.create',
+    'data': {},
+    'timestamp': DateTime.now().millisecondsSinceEpoch,
+  });
+  // #endregion
+
   final themeProvider = await ThemeProvider.create();
+
+  // #region agent log
+  AgentLogger.log({
+    'sessionId': 'debug-session',
+    'runId': 'white-screen-pre',
+    'hypothesisId': 'H8',
+    'location': 'app/main.dart:main',
+    'message': 'after ThemeProvider.create',
+    'data': {},
+    'timestamp': DateTime.now().millisecondsSinceEpoch,
+  });
+  // #endregion
   final prefs = await SharedPreferences.getInstance();
 
   final favoritesRepo = await FavoritesRepository.create();
@@ -240,22 +381,293 @@ void main() async {
   final historyRepo = await HistoryRepository.create();
   final historyNotifier = historyRepo.notifier;
 
+  // #region agent log
+  AgentLogger.log({
+    'sessionId': 'debug-session',
+    'runId': 'white-screen-pre',
+    'hypothesisId': 'H2',
+    'location': 'app/main.dart:main',
+    'message': 'before runApp',
+    'data': {},
+    'timestamp': DateTime.now().millisecondsSinceEpoch,
+  });
+  // #endregion
+
   runApp(
     OverlaySupport.global(
       child: MultiProvider(
         providers: [
-          ChangeNotifierProvider<LocaleProvider>(create: (_) => LocaleProvider()),
+          ChangeNotifierProvider<LocaleProvider>(
+              create: (_) => LocaleProvider()),
           ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
-          ChangeNotifierProvider<FavoritesRepository>.value(value: favoritesRepo),
+          ChangeNotifierProvider<FavoritesRepository>.value(
+              value: favoritesRepo),
           ChangeNotifierProvider<HistoryRepository>.value(value: historyRepo),
           ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
         ],
         child: MyApp(
-          // Repos are provided via Provider; no need to pass notifiers down
-        ),
+            // Repos are provided via Provider; no need to pass notifiers down
+            ),
       ),
     ),
   );
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // #region agent log
+    AgentLogger.log({
+      'sessionId': 'debug-session',
+      'runId': 'white-screen-pre',
+      'hypothesisId': 'H5',
+      'location': 'app/main.dart:main',
+      'message': 'first frame rendered',
+      'data': {},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
+
+    // Defer potentially blocking plugin init (permissions/FCM/ads/subscriptions)
+    // until after the first frame so startup never gets stuck on a white screen.
+    Future(() async {
+      // Reconcile subscription roles (paidUser/freeUser exclusivity) on login/startup.
+      // This ensures that when a subscription expires (end-of-period), roles revert to freeUser.
+      fb_auth.FirebaseAuth.instance.authStateChanges().listen((user) async {
+        if (user == null) return;
+        try {
+          final callable = FirebaseFunctions.instance
+              .httpsCallable('reconcileSubscriptionRoles');
+          await callable
+              .call(<String, dynamic>{}).timeout(const Duration(seconds: 15));
+          await user.getIdToken(true).timeout(const Duration(seconds: 15));
+          debugPrint('✅ reconcileSubscriptionRoles: roles refreshed');
+        } catch (e) {
+          debugPrint('⚠️ reconcileSubscriptionRoles failed (non-fatal): $e');
+        }
+      });
+
+      // #region agent log
+      AgentLogger.log({
+        'sessionId': 'debug-session',
+        'runId': 'white-screen-pre',
+        'hypothesisId': 'H9',
+        'location': 'app/main.dart:postFrame',
+        'message': 'post-startup init start',
+        'data': {},
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      // #endregion
+
+      // Runtime notification permission (Android 13+)
+      if (Platform.isAndroid) {
+        try {
+          // #region agent log
+          AgentLogger.log({
+            'sessionId': 'debug-session',
+            'runId': 'white-screen-pre',
+            'hypothesisId': 'H10',
+            'location': 'app/main.dart:postFrame',
+            'message': 'before notification permission status',
+            'data': {},
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          });
+          // #endregion
+
+          final granted =
+              await NotificationPermissionService.areNotificationsEnabled()
+                  .timeout(const Duration(seconds: 3), onTimeout: () => true);
+
+          // #region agent log
+          AgentLogger.log({
+            'sessionId': 'debug-session',
+            'runId': 'white-screen-pre',
+            'hypothesisId': 'H10',
+            'location': 'app/main.dart:postFrame',
+            'message': 'after notification permission status',
+            'data': {'granted': granted},
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          });
+          // #endregion
+
+          if (!granted) {
+            // #region agent log
+            AgentLogger.log({
+              'sessionId': 'debug-session',
+              'runId': 'white-screen-pre',
+              'hypothesisId': 'H10',
+              'location': 'app/main.dart:postFrame',
+              'message': 'before notification permission request',
+              'data': {},
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+            });
+            // #endregion
+
+            final requested =
+                await NotificationPermissionService.requestPermission().timeout(
+                    const Duration(seconds: 10),
+                    onTimeout: () => false);
+
+            // #region agent log
+            AgentLogger.log({
+              'sessionId': 'debug-session',
+              'runId': 'white-screen-pre',
+              'hypothesisId': 'H10',
+              'location': 'app/main.dart:postFrame',
+              'message': 'after notification permission request',
+              'data': {'granted': requested},
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+            });
+            // #endregion
+          }
+        } catch (e) {
+          // #region agent log
+          AgentLogger.log({
+            'sessionId': 'debug-session',
+            'runId': 'white-screen-pre',
+            'hypothesisId': 'H10',
+            'location': 'app/main.dart:postFrame',
+            'message': 'notification permission check/request failed',
+            'data': {'error': e.toString()},
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          });
+          // #endregion
+        }
+      }
+
+      // Subscribe to FCM topic (does not require notification permission)
+      try {
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H11',
+          'location': 'app/main.dart:postFrame',
+          'message': 'before FCM subscribeToTopic',
+          'data': {},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+        await messaging
+            .subscribeToTopic('new_words')
+            .timeout(const Duration(seconds: 8));
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H11',
+          'location': 'app/main.dart:postFrame',
+          'message': 'after FCM subscribeToTopic',
+          'data': {},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+      } catch (e) {
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H11',
+          'location': 'app/main.dart:postFrame',
+          'message': 'FCM subscribeToTopic failed',
+          'data': {'error': e.toString()},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+      }
+
+      // Initialize Ad Service
+      try {
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H12',
+          'location': 'app/main.dart:postFrame',
+          'message': 'before AdService.initialize',
+          'data': {},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+        await AdService().initialize().timeout(const Duration(seconds: 15));
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H12',
+          'location': 'app/main.dart:postFrame',
+          'message': 'after AdService.initialize',
+          'data': {},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+      } catch (e) {
+        debugPrint('Warning: Could not initialize ad service: $e');
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H12',
+          'location': 'app/main.dart:postFrame',
+          'message': 'AdService.initialize failed',
+          'data': {'error': e.toString()},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+      }
+
+      // Initialize Subscription Service
+      try {
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H13',
+          'location': 'app/main.dart:postFrame',
+          'message': 'before SubscriptionService.initialize',
+          'data': {},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+        await SubscriptionService()
+            .initialize()
+            .timeout(const Duration(seconds: 15));
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H13',
+          'location': 'app/main.dart:postFrame',
+          'message': 'after SubscriptionService.initialize',
+          'data': {},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+      } catch (e) {
+        debugPrint('Warning: Could not initialize subscription service: $e');
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H13',
+          'location': 'app/main.dart:postFrame',
+          'message': 'SubscriptionService.initialize failed',
+          'data': {'error': e.toString()},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+      }
+
+      // #region agent log
+      AgentLogger.log({
+        'sessionId': 'debug-session',
+        'runId': 'white-screen-pre',
+        'hypothesisId': 'H9',
+        'location': 'app/main.dart:postFrame',
+        'message': 'post-startup init end',
+        'data': {},
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      // #endregion
+    });
+  });
 }
 
 /// Planifie une notification pour de nouveaux mots
@@ -268,11 +680,13 @@ Future<void> _scheduleNewWordsNotification({
   required String body,
   required DateTime scheduledDate,
   required String payload,
-  AndroidScheduleMode androidScheduleMode = AndroidScheduleMode.exactAllowWhileIdle,
+  AndroidScheduleMode androidScheduleMode =
+      AndroidScheduleMode.exactAllowWhileIdle,
 }) async {
   // Create the channel if needed
-  final androidImpl = flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  final androidImpl =
+      flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
   await androidImpl?.createNotificationChannel(AndroidNotificationChannel(
     channelId,
     channelName,
@@ -329,11 +743,13 @@ Future<void> _scheduleLearnWordNotification({
   required String body,
   required DateTime scheduledDate,
   required String payload,
-  AndroidScheduleMode androidScheduleMode = AndroidScheduleMode.exactAllowWhileIdle,
+  AndroidScheduleMode androidScheduleMode =
+      AndroidScheduleMode.exactAllowWhileIdle,
 }) async {
   // Create the channel if needed
-  final androidImpl = flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  final androidImpl =
+      flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
   await androidImpl?.createNotificationChannel(AndroidNotificationChannel(
     channelId,
     channelName,
@@ -385,7 +801,8 @@ Future<void> _scheduleLearnWordNotification({
     ),
     androidScheduleMode: mode,
     payload: payload,
-    matchDateTimeComponents: DateTimeComponents.time, // repeat daily at this time
+    matchDateTimeComponents:
+        DateTimeComponents.time, // repeat daily at this time
   );
 }
 
@@ -420,7 +837,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // Only prompt on Android 13+ (SDK 34+)
         if (androidInfo.version.sdkInt >= 34) {
           final prefs = await SharedPreferences.getInstance();
-          final alreadyRequested = prefs.getBool('requestedExactAlarm') ?? false;
+          final alreadyRequested =
+              prefs.getBool('requestedExactAlarm') ?? false;
           if (!alreadyRequested) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               showDialog(
@@ -429,10 +847,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 builder: (ctx) => AlertDialog(
                   title: Text('Enable exact alarms for reminders'),
                   content: Text(
-                    'To deliver reminders at the precise time, Android requires a special permission.\n\n'
-                    'You will be redirected to the system Settings to allow "Alarms & reminders" for this app. '
-                    'After enabling it (or if you choose not to), press Back to return here and finish setup.'
-                  ),
+                      'To deliver reminders at the precise time, Android requires a special permission.\n\n'
+                      'You will be redirected to the system Settings to allow "Alarms & reminders" for this app. '
+                      'After enabling it (or if you choose not to), press Back to return here and finish setup.'),
                   actions: [
                     TextButton(
                       onPressed: () {
@@ -457,14 +874,51 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        scheduleDailyTasks(flutterLocalNotificationsPlugin)
-            .catchError((e) => debugPrint('Failed to schedule daily tasks: $e'));
+        // #region agent log
+        AgentLogger.log({
+          'sessionId': 'debug-session',
+          'runId': 'white-screen-pre',
+          'hypothesisId': 'H14',
+          'location': 'app/main.dart:MyApp.initState',
+          'message': 'scheduleDailyTasks start',
+          'data': {},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        // #endregion
+
+        scheduleDailyTasks(flutterLocalNotificationsPlugin).then((_) {
+          // #region agent log
+          AgentLogger.log({
+            'sessionId': 'debug-session',
+            'runId': 'white-screen-pre',
+            'hypothesisId': 'H14',
+            'location': 'app/main.dart:MyApp.initState',
+            'message': 'scheduleDailyTasks done',
+            'data': {},
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          });
+          // #endregion
+        }).catchError((e) {
+          debugPrint('Failed to schedule daily tasks: $e');
+          // #region agent log
+          AgentLogger.log({
+            'sessionId': 'debug-session',
+            'runId': 'white-screen-pre',
+            'hypothesisId': 'H14',
+            'location': 'app/main.dart:MyApp.initState',
+            'message': 'scheduleDailyTasks failed',
+            'data': {'error': e.toString()},
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          });
+          // #endregion
+        });
       });
     });
   }
 
   Future<void> _initNotifications() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -478,7 +932,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
         // Ensure OPEN_LEARN_WORD action is handled first
-        if (response.actionId == 'OPEN_LEARN_WORD' && response.payload != null) {
+        if (response.actionId == 'OPEN_LEARN_WORD' &&
+            response.payload != null) {
           final data = jsonDecode(response.payload!);
           final args = data['args'] as Map<String, dynamic>;
           navigatorKey.currentState?.pushNamed(
@@ -504,14 +959,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         if (payload == 'new_words') {
           // Open Home page to show "What's New" row
           navigatorKey.currentState?.pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => HomePage(countryCode: _countryCode)),
+            MaterialPageRoute(
+                builder: (_) => HomePage(countryCode: _countryCode)),
             (route) => false,
           );
           return;
         }
         if (payload == 'review_home') {
           navigatorKey.currentState?.pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => HomePage(countryCode: _countryCode)),
+            MaterialPageRoute(
+                builder: (_) => HomePage(countryCode: _countryCode)),
             (route) => false,
           );
           return;
@@ -529,14 +986,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
 
     // Add action button for Learn Word notification on Android
-    final androidImpl = flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final androidImpl =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
     await androidImpl?.createNotificationChannelGroup(
-      const AndroidNotificationChannelGroup('learn_group', 'Learn Notifications'),
+      const AndroidNotificationChannelGroup(
+          'learn_group', 'Learn Notifications'),
     );
 
     // Handle app launch via notification tap/action
-    final details = await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+    final details =
+        await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
     if (details?.didNotificationLaunchApp ?? false) {
       final response = details!.notificationResponse!;
       if (response.actionId == 'OPEN_LEARN_WORD' && response.payload != null) {
@@ -553,7 +1013,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
       if (response.payload == 'review_home') {
         navigatorKey.currentState?.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => HomePage(countryCode: _countryCode)),
+          MaterialPageRoute(
+              builder: (_) => HomePage(countryCode: _countryCode)),
           (route) => false,
         );
         return;
@@ -561,7 +1022,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // New words tap from terminated state
       if (response.payload == 'new_words') {
         navigatorKey.currentState?.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => HomePage(countryCode: _countryCode)),
+          MaterialPageRoute(
+              builder: (_) => HomePage(countryCode: _countryCode)),
           (route) => false,
         );
         return;
@@ -592,8 +1054,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugPrint('Location detection failed: $e');
     }
   }
-
-
 
   void _navigateToUri(Uri uri) {
     final segments = uri.pathSegments;
@@ -709,20 +1169,20 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
         .get();
 
     if (newWordsSnapshot.docs.isNotEmpty) {
-      final nextNoon = tz.TZDateTime(tz.local, now.year, now.month, now.day, 12);
-      final scheduledNoon = nextNoon.isBefore(now) ? nextNoon.add(Duration(days: 1)) : nextNoon;
-      final titleNew = S.of(navigatorKey.currentContext!)!.notificationNewWordsTitle;
+      final nextNoon =
+          tz.TZDateTime(tz.local, now.year, now.month, now.day, 12);
+      final scheduledNoon =
+          nextNoon.isBefore(now) ? nextNoon.add(Duration(days: 1)) : nextNoon;
+      final titleNew =
+          S.of(navigatorKey.currentContext!)!.notificationNewWordsTitle;
       // Build body with English/Bengali pairs (max 5)
       final maxWords = 5;
-      final wordLines = newWordsSnapshot.docs
-          .take(maxWords)
-          .map((d) {
-            final data = d.data();
-            final en = data['english'] ?? '';
-            final bn = data['bengali'] ?? '';
-            return "$en — $bn";
-          })
-          .join('\n');
+      final wordLines = newWordsSnapshot.docs.take(maxWords).map((d) {
+        final data = d.data();
+        final en = data['english'] ?? '';
+        final bn = data['bengali'] ?? '';
+        return "$en — $bn";
+      }).join('\n');
       final others = newWordsSnapshot.docs.length > maxWords ? '\n…' : '';
       final bodyNew = wordLines + others;
       await _scheduleNewWordsNotification(
@@ -743,19 +1203,26 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
   final learnHour = prefs.getInt('learnWordHour') ?? 10;
   final learnMinute = prefs.getInt('learnWordMinute') ?? 0;
   final category = prefs.getString('notificationCategory') ?? 'Random';
-  debugPrint('LearnWord prefs: hour=$learnHour, minute=$learnMinute, category=$category');
+  debugPrint(
+      'LearnWord prefs: hour=$learnHour, minute=$learnMinute, category=$category');
   if (prefs.getBool('notifyLearnWord') ?? true) {
-    final nextLearnTime = tz.TZDateTime(tz.local, now.year, now.month, now.day, learnHour, learnMinute);
-    final scheduledLearn = nextLearnTime.isBefore(now) ? nextLearnTime.add(Duration(days: 1)) : nextLearnTime;
+    final nextLearnTime = tz.TZDateTime(
+        tz.local, now.year, now.month, now.day, learnHour, learnMinute);
+    final scheduledLearn = nextLearnTime.isBefore(now)
+        ? nextLearnTime.add(Duration(days: 1))
+        : nextLearnTime;
     // Build query based on category
-    Query query = FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl');
+    Query query =
+        FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl');
     var snapshot = await query.get();
     if (category != 'Random') {
       query = query.where('category_main', isEqualTo: category);
       snapshot = await query.get();
       if (snapshot.docs.isEmpty) {
         // If no docs in this category, fallback to all words
-        final allSnapshot = await FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').get();
+        final allSnapshot = await FirebaseFirestore.instance
+            .collection('bangla_dictionary_eng_bnsl')
+            .get();
         if (allSnapshot.docs.isEmpty) return;
         snapshot = allSnapshot;
       }
@@ -765,8 +1232,8 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
     final wordEnglish = pick['english'] as String;
     final wordBengali = pick['bengali'] as String;
     // Capitalize first letter of English word
-    final wordEnglishCapitalized = wordEnglish.isEmpty 
-        ? wordEnglish 
+    final wordEnglishCapitalized = wordEnglish.isEmpty
+        ? wordEnglish
         : '${wordEnglish[0].toUpperCase()}${wordEnglish.substring(1)}';
     // Format body: Capitalized English word + Bengali word
     final bodyText = '$wordEnglishCapitalized $wordBengali';
@@ -781,7 +1248,7 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
     });
     // Schedule learn-word reminder
     final titleLearn = 'Learn one Sign Today!';
-          await _scheduleLearnWordNotification(
+    await _scheduleLearnWordNotification(
       id: 200,
       channelId: 'learn_word_channel',
       channelName: 'Learn Word Notifications',
@@ -795,9 +1262,8 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
   }
 }
 
-
-
-Future<void> sendNewWordsNotification(FlutterLocalNotificationsPlugin plugin) async {
+Future<void> sendNewWordsNotification(
+    FlutterLocalNotificationsPlugin plugin) async {
   final ctx = navigatorKey.currentContext!;
   final locale = Localizations.localeOf(ctx);
   final isBengali = locale.languageCode == 'bn';
@@ -811,18 +1277,13 @@ Future<void> sendNewWordsNotification(FlutterLocalNotificationsPlugin plugin) as
   if (snapshot.docs.isEmpty) return;
 
   final maxWords = 5;
-  final wordLines = snapshot.docs
-      .take(maxWords)
-      .map((doc) {
-        final data = doc.data();
-        final en = (data['english'] ?? '').toString();
-        final bn = (data['bengali'] ?? '').toString();
-        final enUpper = en.toUpperCase();
-        return isBengali
-            ? "• $bn / $enUpper"
-            : "• $enUpper / $bn";
-      })
-      .join('\n');
+  final wordLines = snapshot.docs.take(maxWords).map((doc) {
+    final data = doc.data();
+    final en = (data['english'] ?? '').toString();
+    final bn = (data['bengali'] ?? '').toString();
+    final enUpper = en.toUpperCase();
+    return isBengali ? "• $bn / $enUpper" : "• $enUpper / $bn";
+  }).join('\n');
 
   final others = snapshot.docs.length > maxWords ? '\n…' : '';
   final body = "$wordLines$others";
@@ -842,16 +1303,19 @@ Future<void> sendNewWordsNotification(FlutterLocalNotificationsPlugin plugin) as
   );
 }
 
-Future<void> sendLearnWordNotification(FlutterLocalNotificationsPlugin plugin) async {
-  final snapshot = await FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').get();
+Future<void> sendLearnWordNotification(
+    FlutterLocalNotificationsPlugin plugin) async {
+  final snapshot = await FirebaseFirestore.instance
+      .collection('bangla_dictionary_eng_bnsl')
+      .get();
   if (snapshot.docs.isEmpty) return;
   final docs = snapshot.docs..shuffle();
   final pick = docs.first;
   final wordEnglish = pick['english'] as String;
   final wordBengali = pick['bengali'] as String;
   // Capitalize first letter of English word
-  final wordEnglishCapitalized = wordEnglish.isEmpty 
-      ? wordEnglish 
+  final wordEnglishCapitalized = wordEnglish.isEmpty
+      ? wordEnglish
       : '${wordEnglish[0].toUpperCase()}${wordEnglish.substring(1)}';
   // Format body: Capitalized English word + Bengali word
   final bodyText = '$wordEnglishCapitalized $wordBengali';

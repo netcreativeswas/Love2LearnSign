@@ -15,19 +15,26 @@ export function generateMetadata({
   path = "",
   image = "/og-image.png",
   noIndex = false,
-}: PageMetadata): Metadata {
+  locale = "en",
+}: PageMetadata & { locale?: "en" | "bn" }): Metadata {
   const url = `${siteConfig.url}${path}`;
   const ogImage = image.startsWith("http") ? image : `${siteConfig.url}${image}`;
+  const isBengali = locale === "bn" || path.startsWith("/bn");
 
   return {
     title,
     description,
     alternates: {
       canonical: url,
+      languages: {
+        en: path.replace("/bn", "") || "/",
+        bn: path.startsWith("/bn") ? path : `/bn${path}`,
+      },
     },
     openGraph: {
       type: "website",
-      locale: "en_US",
+      locale: isBengali ? "bn_BD" : "en_US",
+      alternateLocale: isBengali ? "en_US" : "bn_BD",
       url,
       siteName: siteConfig.appName,
       title,

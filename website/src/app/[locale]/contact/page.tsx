@@ -6,25 +6,32 @@ import { siteConfig } from "@/lib/site-config";
 import { generateMetadata as genMeta } from "@/lib/metadata";
 import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { defaultLocale, getTranslations, getLocalizedPath } from "@/lib/i18n";
+import { Locale, getTranslations, getLocalizedPath } from "@/lib/i18n";
 
-const locale = defaultLocale;
-const translations = getTranslations(locale);
+export async function generateMetadata({
+  params,
+}: {
+  params: { locale: Locale };
+}) {
+  const locale = params.locale;
+  const translations = getTranslations(locale);
 
-export const metadata = genMeta({
-  title: `${translations.contact.title} - ${translations.common.appName}`,
-  description: translations.contact.description,
-  path: "/contact",
-});
+  return genMeta({
+    title: `${translations.contact.title} - ${translations.common.appName}`,
+    description: translations.contact.description,
+    path: locale === "en" ? "/contact" : `/${locale}/contact`,
+  });
+}
 
-function ContactPageContent() {
+function ContactPageContent({ locale }: { locale: Locale }) {
   const { t } = useTranslations();
+
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <BreadcrumbList
         items={[
           { name: t("common.home"), url: siteConfig.url },
-          { name: t("contact.title"), url: `${siteConfig.url}/contact` },
+          { name: t("contact.title"), url: `${siteConfig.url}${getLocalizedPath("/contact", locale)}` },
         ]}
       />
       <StructuredData
@@ -32,7 +39,7 @@ function ContactPageContent() {
         data={{
           name: t("contact.title"),
           description: t("contact.description"),
-          url: `${siteConfig.url}/contact`,
+          url: `${siteConfig.url}${getLocalizedPath("/contact", locale)}`,
         }}
       />
       <SiteHeader />
@@ -76,7 +83,7 @@ function ContactPageContent() {
 
           <SectionCard title={t("contact.about.title")}>
             <p className="text-muted-foreground">
-              {t("contact.about.text1", { netcreative: "NetCreative" })}{" "}
+              {t("contact.about.text1")}{" "}
               <a
                 href="https://netcreative-swas.net"
                 target="_blank"
@@ -91,7 +98,7 @@ function ContactPageContent() {
               {t("contact.about.text2")}
             </p>
             <p className="mt-4 text-muted-foreground">
-              {t("contact.about.text3", { website: "netcreative-swas.net" })}{" "}
+              {t("contact.about.text3")}{" "}
               <a
                 href="https://netcreative-swas.net"
                 target="_blank"
@@ -111,12 +118,13 @@ function ContactPageContent() {
   );
 }
 
-export default function ContactPage() {
+export default function ContactPage({ params }: { params: { locale: Locale } }) {
+  const locale = params.locale;
+
   return (
     <TranslationProvider locale={locale}>
-      <ContactPageContent />
+      <ContactPageContent locale={locale} />
     </TranslationProvider>
   );
 }
-
 

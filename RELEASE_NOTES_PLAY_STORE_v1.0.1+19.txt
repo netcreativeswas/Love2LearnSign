@@ -1,0 +1,9 @@
+What's New in Version 1.0.1 (Build 19):
+
+• Security Improvements: Enhanced API key security and better data protection
+• New Website: Official showcase website now available at love2learnsign.com
+• Updated Privacy Policy: Comprehensive privacy policy with detailed data collection information
+• Account Management: Added account deletion page as required by Google Play
+• Bug Fixes: Fixed Firebase configuration issues and improved app stability
+• Performance: Enhanced app performance and error handling
+

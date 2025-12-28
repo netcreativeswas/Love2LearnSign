@@ -18,6 +18,31 @@ const storage = getStorage();
 const DEFAULT_STORAGE_BUCKET = "love-to-learn-sign.firebasestorage.app";
 const ANDROID_PACKAGE_NAME = "com.lovetolearnsign.app";
 
+/**
+ * Normalize roles so premium state is consistent across Firestore + Custom Claims.
+ * Rule: `paidUser` and `freeUser` are mutually exclusive.
+ * - If `paidUser` is present => remove `freeUser`
+ * - Otherwise => ensure `freeUser` is present (baseline role for non-premium users)
+ *
+ * Other roles (admin/editor/teacher/...) are preserved.
+ */
+function normalizeRoles(inputRoles) {
+  const roles = Array.isArray(inputRoles) ? inputRoles : [];
+  const set = new Set(
+    roles
+      .map((r) => String(r).trim())
+      .filter((r) => r.length > 0)
+  );
+
+  if (set.has("paidUser")) {
+    set.delete("freeUser");
+  } else {
+    set.add("freeUser");
+  }
+
+  return Array.from(set);
+}
+
 async function findUserDocRefByUid(uid) {
   const qs = await db.collection("users").where("uid", "==", uid).limit(1).get();
   if (!qs.empty) return qs.docs[0].ref;
@@ -253,10 +278,14 @@ exports.updateUserRoles = onDocumentUpdated(
 
     const newRoles = Array.isArray(afterData.roles) ? afterData.roles : [];
     const oldRoles = Array.isArray(beforeData.roles) ? beforeData.roles : [];
+    const normalizedRoles = normalizeRoles(newRoles);
 
     console.log(`🔍 updateUserRoles: Document ID: ${documentId}, UID: ${uid}`);
     console.log(`🔍 updateUserRoles: Old roles:`, oldRoles);
     console.log(`🔍 updateUserRoles: New roles:`, newRoles);
+    if (JSON.stringify([...normalizedRoles].sort()) !== JSON.stringify([...newRoles].map((r) => String(r)).sort())) {
+      console.log(`ℹ️ updateUserRoles: Normalized roles (enforcing freeUser/paidUser exclusivity):`, normalizedRoles);
+    }
 
     // Always update Custom Claims to ensure they match Firestore (even if empty)
     if (newRoles.length === 0) {
@@ -264,17 +293,19 @@ exports.updateUserRoles = onDocumentUpdated(
     }
 
     // Check if roles changed
-    const rolesChanged = JSON.stringify([...newRoles].sort()) !== JSON.stringify([...oldRoles].sort());
+    const rolesChanged =
+      JSON.stringify([...normalizedRoles].sort()) !==
+      JSON.stringify([...normalizeRoles(oldRoles)].sort());
 
     try {
-      console.log(`🔄 updateUserRoles: Setting Custom Claims for user ${uid} with roles:`, newRoles);
+      console.log(`🔄 updateUserRoles: Setting Custom Claims for user ${uid} with roles:`, normalizedRoles);
 
       // Update Custom Claims using the UID from document data
       await auth.setCustomUserClaims(uid, {
-        roles: newRoles,
+        roles: normalizedRoles,
       });
 
-      console.log(`✅ updateUserRoles: Successfully set Custom Claims for user ${uid} (document: ${documentId}) with roles:`, newRoles);
+      console.log(`✅ updateUserRoles: Successfully set Custom Claims for user ${uid} (document: ${documentId}) with roles:`, normalizedRoles);
 
       if (rolesChanged) {
         // Log the change only if roles actually changed
@@ -282,7 +313,7 @@ exports.updateUserRoles = onDocumentUpdated(
           userId: uid,
           documentId: documentId,
           oldRoles: oldRoles,
-          newRoles: newRoles,
+          newRoles: normalizedRoles,
           updatedBy: 'cloud-function',
           updatedAt: FieldValue.serverTimestamp(),
         });
@@ -346,16 +377,17 @@ exports.setCustomClaims = onCall(
     }
 
     try {
-      console.log(`🔄 setCustomClaims: Setting Custom Claims for user ${userId} with roles:`, roles);
+      const normalizedRoles = normalizeRoles(roles || []);
+      console.log(`🔄 setCustomClaims: Setting Custom Claims for user ${userId} with roles:`, normalizedRoles);
 
       // Set Custom Claims
       await auth.setCustomUserClaims(userId, {
-        roles: roles || [],
+        roles: normalizedRoles,
       });
 
-      console.log(`✅ setCustomClaims: Successfully set Custom Claims for user ${userId} with roles:`, roles);
+      console.log(`✅ setCustomClaims: Successfully set Custom Claims for user ${userId} with roles:`, normalizedRoles);
 
-      return { success: true, userId, roles };
+      return { success: true, userId, roles: normalizedRoles };
     } catch (error) {
       console.error(`❌ setCustomClaims: Error setting Custom Claims for user ${userId}:`, error);
       throw new HttpsError('internal', `Failed to set Custom Claims: ${error.message}`);
@@ -434,10 +466,12 @@ exports.verifyPlaySubscription = onCall(
     const data = snap.exists ? snap.data() : {};
     const currentRoles = Array.isArray(data?.roles) ? data.roles : [];
     const rolesSet = new Set(currentRoles.map((r) => String(r)));
-    if (active) rolesSet.add("paidUser");
-    // NOTE: We do not auto-remove paidUser here when inactive; you can add a scheduled
-    // reconciliation job later based on renewal_date / RTDN.
-    const newRoles = Array.from(rolesSet);
+    if (active) {
+      rolesSet.add("paidUser");
+    } else {
+      rolesSet.delete("paidUser");
+    }
+    const newRoles = normalizeRoles(Array.from(rolesSet));
 
     await userRef.set({ roles: newRoles }, { merge: true });
     await setUserRolesInAuth(uid, newRoles);
@@ -447,6 +481,74 @@ exports.verifyPlaySubscription = onCall(
       active,
       renewalDate: renewalDate ? renewalDate.toISOString() : null,
       productId,
+      roles: newRoles,
+    };
+  }
+);
+
+/**
+ * Callable: reconcileSubscriptionRoles
+ *
+ * Why this exists:
+ * - Play cancellations are end-of-period; users should retain access until expiry.
+ * - When the period ends, we need to downgrade roles (paidUser -> freeUser).
+ * - This runs on app startup/login to keep roles consistent without needing RTDN.
+ */
+exports.reconcileSubscriptionRoles = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const uid = request.auth.uid;
+    const userRef = await findUserDocRefByUid(uid);
+    const snap = await userRef.get();
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "User document not found");
+    }
+
+    const data = snap.data() || {};
+    const currentRoles = Array.isArray(data?.roles) ? data.roles : [];
+    const rolesSet = new Set(currentRoles.map((r) => String(r)));
+
+    const subscriptionActiveFlag = Boolean(data.subscription_active);
+    const renewalDate = data.subscription_renewal_date
+      ? new Date(data.subscription_renewal_date.toDate ? data.subscription_renewal_date.toDate() : data.subscription_renewal_date)
+      : null;
+
+    const now = Date.now();
+    const renewalMs = renewalDate ? renewalDate.getTime() : 0;
+    const isStillActive = subscriptionActiveFlag && renewalMs > now;
+
+    if (isStillActive) {
+      rolesSet.add("paidUser");
+    } else {
+      rolesSet.delete("paidUser");
+    }
+
+    const newRoles = normalizeRoles(Array.from(rolesSet));
+
+    const update = {
+      roles: newRoles,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    // If the subscription is not active anymore, mark it inactive server-side.
+    if (!isStillActive && subscriptionActiveFlag) {
+      update.subscription_active = false;
+    }
+
+    await userRef.set(update, { merge: true });
+    await setUserRolesInAuth(uid, newRoles);
+
+    return {
+      success: true,
+      active: isStillActive,
+      renewalDate: renewalDate ? renewalDate.toISOString() : null,
       roles: newRoles,
     };
   }
@@ -1199,8 +1301,9 @@ exports.approveUserAfterEmailVerification = onCall(
       if (userData.approved === true && userData.status === 'approved') {
         // Already approved, but don't add duplicate freeUser role
         const currentRoles = Array.isArray(userData.roles) ? userData.roles : [];
-        if (!currentRoles.includes('freeUser')) {
-          const updatedRoles = [...currentRoles, 'freeUser'];
+        const normalizedCurrent = normalizeRoles(currentRoles);
+        if (JSON.stringify(normalizedCurrent.sort()) !== JSON.stringify(currentRoles.map((r) => String(r)).sort())) {
+          const updatedRoles = normalizedCurrent;
           await userDoc.ref.update({
             roles: updatedRoles,
             updatedAt: FieldValue.serverTimestamp(),
@@ -1216,9 +1319,7 @@ exports.approveUserAfterEmailVerification = onCall(
 
       // Update Firestore: approve user and assign freeUser role
       const currentRoles = Array.isArray(userData.roles) ? userData.roles : [];
-      const updatedRoles = currentRoles.includes('freeUser')
-        ? currentRoles
-        : [...currentRoles, 'freeUser'];
+      const updatedRoles = normalizeRoles(currentRoles);
 
       await userDoc.ref.update({
         approved: true,

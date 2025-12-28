@@ -7,8 +7,10 @@ class AgentLoggerImpl {
   // - We POST to the local ingest server instead.
   // - For Android emulators, 10.0.2.2 points to the host machine.
   static const List<String> _endpoints = [
-    'http://127.0.0.1:7242/ingest/9a094446-bd02-48fd-b135-914128dcd952',
-    'http://10.0.2.2:7242/ingest/9a094446-bd02-48fd-b135-914128dcd952',
+    // Cursor debug-mode ingest server (host machine)
+    'http://127.0.0.1:7243/ingest/e742e3b3-12ea-413e-9e63-f9ff4decb905',
+    // Android emulator -> host machine mapping
+    'http://10.0.2.2:7243/ingest/e742e3b3-12ea-413e-9e63-f9ff4decb905',
   ];
 
   static Future<void> log(Map<String, dynamic> payload) async {

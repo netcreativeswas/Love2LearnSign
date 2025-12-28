@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
-import { siteConfig } from "@/lib/site-config";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
 import { Locale, getLocaleFromPath, getLocalizedPath } from "@/lib/i18n";
 
@@ -12,6 +11,7 @@ function NotFoundContent() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const { t } = useTranslations();
+
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <SiteHeader />
@@ -76,9 +76,9 @@ function NotFoundContent() {
   );
 }
 
-export default function NotFound() {
+export default function NotFound({ params }: { params: { locale: Locale } }) {
   const pathname = usePathname();
-  const locale = getLocaleFromPath(pathname);
+  const locale = params?.locale || getLocaleFromPath(pathname || "");
 
   return (
     <TranslationProvider locale={locale}>

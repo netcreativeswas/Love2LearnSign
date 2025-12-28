@@ -27,6 +27,78 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
   String _selectedRoleFilter = 'all'; // all, none, or specific role
   late final Stream<QuerySnapshot> _usersStream;
 
+  bool _hasActiveSubscription(Map<String, dynamic> data) {
+    try {
+      final active = data['subscription_active'] == true;
+      if (!active) return false;
+      final renewalTs = data['subscription_renewal_date'];
+      if (renewalTs == null || renewalTs is! Timestamp) return false;
+      return DateTime.now().isBefore(renewalTs.toDate());
+    } catch (e) {
+      // If there's any error parsing subscription data, assume not active
+      return false;
+    }
+  }
+
+  /// Admin UI should reflect premium state even if older user docs didn't get roles reconciled yet.
+  /// This is **display-only** (source of truth remains Cloud Functions + claims).
+  List<String> _effectiveRolesForDisplay(Map<String, dynamic> data) {
+    try {
+      final rawDynamic =
+          (data['roles'] is List) ? (data['roles'] as List) : const [];
+      final raw = rawDynamic.map((e) => e == null ? '' : e.toString()).toList();
+      final set = <String>{
+        for (final r in raw)
+          if (r.trim().isNotEmpty) r.trim(),
+      };
+
+      final isPremium =
+          _hasActiveSubscription(data) || set.contains('paidUser');
+
+      if (isPremium) {
+        set.add('paidUser');
+        set.remove('freeUser');
+      } else {
+        set.remove('paidUser');
+        // Only add freeUser if user has no other roles (or explicitly has freeUser)
+        if (set.isEmpty || raw.contains('freeUser')) {
+          set.add('freeUser');
+        }
+      }
+
+      // Stable display order
+      final priority = <String>[
+        'admin',
+        'editor',
+        'teacher',
+        'jw',
+        'student',
+        'paidUser',
+        'freeUser',
+      ];
+      final list = set.toList();
+      list.sort((a, b) {
+        final ia = priority.indexOf(a);
+        final ib = priority.indexOf(b);
+        if (ia == -1 && ib == -1) {
+          return a.toLowerCase().compareTo(b.toLowerCase());
+        }
+        if (ia == -1) return 1;
+        if (ib == -1) return -1;
+        return ia.compareTo(ib);
+      });
+      return list;
+    } catch (e) {
+      // Fallback to raw roles if there's any error
+      final rawDynamic =
+          (data['roles'] is List) ? (data['roles'] as List) : const [];
+      return rawDynamic
+          .map((e) => e == null ? '' : e.toString())
+          .where((s) => s.trim().isNotEmpty)
+          .toList();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -100,7 +172,9 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
         data['userType'] as String?;
     if (hearingStatus == null) return null;
     final lower = hearingStatus.toLowerCase();
-    if (lower.contains('hearing') && !lower.contains('impaired') && !lower.contains('deaf')) {
+    if (lower.contains('hearing') &&
+        !lower.contains('impaired') &&
+        !lower.contains('deaf')) {
       return 'hearing';
     }
     if (lower.contains('deaf') || lower.contains('impaired')) {
@@ -131,7 +205,9 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           decoration: BoxDecoration(
             color: background,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: borderColor ?? theme.colorScheme.outlineVariant, width: 0.8),
+            border: Border.all(
+                color: borderColor ?? theme.colorScheme.outlineVariant,
+                width: 0.8),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,7 +238,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: theme.colorScheme.outlineVariant, width: 0.8),
+          border:
+              Border.all(color: theme.colorScheme.outlineVariant, width: 0.8),
         ),
         child: Text(text, style: theme.textTheme.labelSmall),
       );
@@ -171,7 +248,9 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('New users', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+        Text('New users',
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -206,16 +285,20 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.colorScheme.outlineVariant, width: 0.8),
+            border:
+                Border.all(color: theme.colorScheme.outlineVariant, width: 0.8),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Total users', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              Text('Total users',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               Text(
                 totalUsers.toString(),
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -487,13 +570,18 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           }
           final decodedBytesAfter = base64Decode(normalizedPayloadAfter);
           final decodedAfter = utf8.decode(decodedBytesAfter);
-          final tokenDataAfter = jsonDecode(decodedAfter) as Map<String, dynamic>;
+          final tokenDataAfter =
+              jsonDecode(decodedAfter) as Map<String, dynamic>;
           final customClaimsAfter = tokenDataAfter['roles'] as List<dynamic>?;
-          debugPrint('🔍 _saveUserRoles: Custom Claims AFTER refresh: $customClaimsAfter');
-          debugPrint('🔍 _saveUserRoles: Full token data AFTER: $tokenDataAfter');
+          debugPrint(
+              '🔍 _saveUserRoles: Custom Claims AFTER refresh: $customClaimsAfter');
+          debugPrint(
+              '🔍 _saveUserRoles: Full token data AFTER: $tokenDataAfter');
 
-          if (customClaimsAfter == null || !customClaimsAfter.contains('admin')) {
-            debugPrint('❌ ERROR: Admin role NOT found in Custom Claims after refresh!');
+          if (customClaimsAfter == null ||
+              !customClaimsAfter.contains('admin')) {
+            debugPrint(
+                '❌ ERROR: Admin role NOT found in Custom Claims after refresh!');
             debugPrint('❌ This means Firestore rules will deny access.');
           } else {
             debugPrint('✅ Admin role found in Custom Claims after refresh');
@@ -1229,7 +1317,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: Theme.of(context).colorScheme.outline,
@@ -1319,11 +1408,22 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                       onChanged: (bool? value) {
                         setDialogState(() {
                           if (value == true) {
+                            // Enforce mutual exclusivity: freeUser XOR paidUser
+                            if (role == 'paidUser') {
+                              selectedRoles.remove('freeUser');
+                            } else if (role == 'freeUser') {
+                              selectedRoles.remove('paidUser');
+                            }
                             if (!selectedRoles.contains(role)) {
                               selectedRoles.add(role);
                             }
                           } else {
                             selectedRoles.remove(role);
+                            // If premium is removed, ensure baseline freeUser
+                            if (role == 'paidUser' &&
+                                !selectedRoles.contains('freeUser')) {
+                              selectedRoles.add('freeUser');
+                            }
                           }
                         });
                       },
@@ -1440,639 +1540,800 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
             ignoring: _isLoading,
             child: Opacity(
               opacity: _isLoading ? 0.5 : 1.0,
-              child: isDashboardDesktop ? _buildDesktopBody(context, theme) : SingleChildScrollView(
-              child: Column(
-                children: [
-                  // DASHBOARD SECTION (mobile-friendly)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Dashboard',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_errorMessage != null)
-                    Container(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.error,
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
+              child: isDashboardDesktop
+                  ? _buildDesktopBody(context, theme)
+                  : SingleChildScrollView(
+                      child: Column(
                         children: [
-                          Icon(
-                            Icons.error_outline,
-                            color:
-                                Theme.of(context).colorScheme.onErrorContainer,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onErrorContainer,
-                                fontWeight: FontWeight.w500,
+                          // DASHBOARD SECTION (mobile-friendly)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Dashboard',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  StreamBuilder<QuerySnapshot>(
-                      stream: _usersStream,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Error: ${snapshot.error}'),
-                          );
-                        }
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return const Center(child: Text('No users found'));
-                        }
-
-                        final allDocs = snapshot.data!.docs;
-
-                        // Compute dashboard stats based on createdAt field
-                        final now = DateTime.now();
-                        final todayStart =
-                            DateTime(now.year, now.month, now.day);
-                        final last7Start =
-                            now.subtract(const Duration(days: 7));
-                        final last30Start =
-                            now.subtract(const Duration(days: 30));
-
-                        int todayCount = 0;
-                        int last7Count = 0;
-                        int last30Count = 0;
-
-                        final countrySet = <String>{};
-                        final roleSet = <String>{};
-
-                        for (final doc in allDocs) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          final createdAt = data['createdAt'] as Timestamp?;
-                          final rawCountry =
-                              (data['country'] as String?)?.trim();
-                          final normalizedCountry =
-                              (rawCountry == null || rawCountry.isEmpty)
-                                  ? 'Unknown'
-                                  : rawCountry;
-                          countrySet.add(normalizedCountry);
-
-                          final roles = List<String>.from(data['roles'] ?? []);
-                          for (final r in roles) {
-                            if (r.trim().isNotEmpty) {
-                              roleSet.add(r.trim());
-                            }
-                          }
-
-                          if (createdAt == null) continue;
-                          final created = createdAt.toDate();
-
-                          if (!created.isBefore(todayStart)) {
-                            todayCount++;
-                          }
-                          if (!created.isBefore(last7Start)) {
-                            last7Count++;
-                          }
-                          if (!created.isBefore(last30Start)) {
-                            last30Count++;
-                          }
-                        }
-
-                        final totalUsers = allDocs.length;
-                        final countries = countrySet.toList()
-                          ..sort((a, b) {
-                            if (a == 'Unknown') return 1;
-                            if (b == 'Unknown') return -1;
-                            return a.toLowerCase().compareTo(b.toLowerCase());
-                          });
-                        final rolesForFilter = roleSet.toList()
-                          ..sort((a, b) =>
-                              a.toLowerCase().compareTo(b.toLowerCase()));
-
-                        // Apply combined filters: search + country + date
-                        DateTime? rangeStart;
-                        switch (_selectedDateRange) {
-                          case 'today':
-                            rangeStart = todayStart;
-                            break;
-                          case '7':
-                            rangeStart = last7Start;
-                            break;
-                          case '30':
-                            rangeStart = last30Start;
-                            break;
-                          case '90':
-                            rangeStart = now.subtract(const Duration(days: 90));
-                            break;
-                          default:
-                            rangeStart = null;
-                        }
-
-                        final filteredUsers = allDocs.where((doc) {
-                          final data = doc.data() as Map<String, dynamic>;
-
-                          // Search filter (email or displayName)
-                          if (_searchQuery.isNotEmpty) {
-                            final email =
-                                (data['email'] ?? '').toString().toLowerCase();
-                            final displayName = (data['displayName'] ?? '')
-                                .toString()
-                                .toLowerCase();
-                            final matchesSearch =
-                                email.contains(_searchQuery) ||
-                                    displayName.contains(_searchQuery);
-                            if (!matchesSearch) return false;
-                          }
-
-                          // Country filter
-                          if (_selectedCountryFilter != null) {
-                            final rawCountry =
-                                (data['country'] as String?)?.trim();
-                            final normalizedCountry =
-                                (rawCountry == null || rawCountry.isEmpty)
-                                    ? 'Unknown'
-                                    : rawCountry;
-                            if (normalizedCountry != _selectedCountryFilter) {
-                              return false;
-                            }
-                          }
-
-                          // Hearing status filter
-                          if (_selectedHearingStatusFilter != null) {
-                            final hearingStatus = data['hearingStatus'] as String? ??
-                                                 data['hearing_status'] as String? ??
-                                                 data['userType'] as String?;
-                            String? normalizedStatus;
-                            if (hearingStatus != null) {
-                              final lower = hearingStatus.toLowerCase();
-                              if (lower.contains('hearing') && !lower.contains('impaired') && !lower.contains('deaf')) {
-                                normalizedStatus = 'hearing';
-                              } else if (lower.contains('deaf') || lower.contains('impaired')) {
-                                normalizedStatus = 'deaf';
+                          if (_errorMessage != null)
+                            Container(
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .errorContainer,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.error,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onErrorContainer,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onErrorContainer,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          StreamBuilder<QuerySnapshot>(
+                            stream: _usersStream,
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
                               }
-                            }
-                            if (normalizedStatus != _selectedHearingStatusFilter) {
-                              return false;
-                            }
-                          }
 
-                          // Date range filter
-                          if (rangeStart != null) {
-                            final createdAt = data['createdAt'] as Timestamp?;
-                            if (createdAt == null) {
-                              return false;
-                            }
-                            final created = createdAt.toDate();
-                            if (created.isBefore(rangeStart)) {
-                              return false;
-                            }
-                          }
+                              if (snapshot.hasError) {
+                                return Center(
+                                  child: Text('Error: ${snapshot.error}'),
+                                );
+                              }
+                              if (!snapshot.hasData ||
+                                  snapshot.data!.docs.isEmpty) {
+                                return const Center(
+                                    child: Text('No users found'));
+                              }
 
-                          // Role filter
-                          if (_selectedRoleFilter != 'all') {
-                            final roles =
-                                List<String>.from(data['roles'] ?? []);
-                            if (_selectedRoleFilter == 'none') {
-                              if (roles.isNotEmpty) return false;
-                            } else {
-                              if (!roles.contains(_selectedRoleFilter))
-                                return false;
-                            }
-                          }
+                              final allDocs = snapshot.data!.docs;
 
-                          return true;
-                        }).toList();
+                              // Compute dashboard stats based on createdAt field
+                              final now = DateTime.now();
+                              final todayStart =
+                                  DateTime(now.year, now.month, now.day);
+                              final last7Start =
+                                  now.subtract(const Duration(days: 7));
+                              final last30Start =
+                                  now.subtract(const Duration(days: 30));
 
-                        final usersList = filteredUsers.isEmpty
-                            ? const Padding(
-                                padding: EdgeInsets.all(24.0),
-                                child: Text('No users match your filters'),
-                              )
-                            : Column(
-                                children: filteredUsers.map((doc) {
-                                  final data = doc.data() as Map<String, dynamic>;
-                                  final email = data['email'] ?? 'No email';
-                                  final displayName = data['displayName'] ?? 'No name';
-                                  final country = data['country'] as String?;
-                                  final roles = List<String>.from(data['roles'] ?? []);
-                                  final isApproved = data['approved'] ?? false;
-                                  final createdAt = data['createdAt'] as Timestamp?;
-                                  final photoUrl = data['photoUrl'] as String?;
-                                  final userId = data['uid'] as String? ?? _extractUserId(doc.id);
-                                  final hearingStatus = data['hearingStatus'] as String? ??
-                                      data['hearing_status'] as String? ??
-                                      data['userType'] as String?;
-                                  String? normalizedHearingStatus;
+                              int todayCount = 0;
+                              int last7Count = 0;
+                              int last30Count = 0;
+
+                              final countrySet = <String>{};
+                              final roleSet = <String>{};
+
+                              for (final doc in allDocs) {
+                                final data = doc.data() as Map<String, dynamic>;
+                                final createdAt =
+                                    data['createdAt'] as Timestamp?;
+                                final rawCountry =
+                                    (data['country'] as String?)?.trim();
+                                final normalizedCountry =
+                                    (rawCountry == null || rawCountry.isEmpty)
+                                        ? 'Unknown'
+                                        : rawCountry;
+                                countrySet.add(normalizedCountry);
+
+                                final roles = _effectiveRolesForDisplay(data);
+                                for (final r in roles) {
+                                  if (r.trim().isNotEmpty) {
+                                    roleSet.add(r.trim());
+                                  }
+                                }
+
+                                if (createdAt == null) continue;
+                                final created = createdAt.toDate();
+
+                                if (!created.isBefore(todayStart)) {
+                                  todayCount++;
+                                }
+                                if (!created.isBefore(last7Start)) {
+                                  last7Count++;
+                                }
+                                if (!created.isBefore(last30Start)) {
+                                  last30Count++;
+                                }
+                              }
+
+                              final totalUsers = allDocs.length;
+                              final countries = countrySet.toList()
+                                ..sort((a, b) {
+                                  if (a == 'Unknown') return 1;
+                                  if (b == 'Unknown') return -1;
+                                  return a
+                                      .toLowerCase()
+                                      .compareTo(b.toLowerCase());
+                                });
+                              final rolesForFilter = roleSet.toList()
+                                ..sort((a, b) =>
+                                    a.toLowerCase().compareTo(b.toLowerCase()));
+
+                              // Apply combined filters: search + country + date
+                              DateTime? rangeStart;
+                              switch (_selectedDateRange) {
+                                case 'today':
+                                  rangeStart = todayStart;
+                                  break;
+                                case '7':
+                                  rangeStart = last7Start;
+                                  break;
+                                case '30':
+                                  rangeStart = last30Start;
+                                  break;
+                                case '90':
+                                  rangeStart =
+                                      now.subtract(const Duration(days: 90));
+                                  break;
+                                default:
+                                  rangeStart = null;
+                              }
+
+                              final filteredUsers = allDocs.where((doc) {
+                                final data = doc.data() as Map<String, dynamic>;
+
+                                // Search filter (email or displayName)
+                                if (_searchQuery.isNotEmpty) {
+                                  final email = (data['email'] ?? '')
+                                      .toString()
+                                      .toLowerCase();
+                                  final displayName =
+                                      (data['displayName'] ?? '')
+                                          .toString()
+                                          .toLowerCase();
+                                  final matchesSearch =
+                                      email.contains(_searchQuery) ||
+                                          displayName.contains(_searchQuery);
+                                  if (!matchesSearch) return false;
+                                }
+
+                                // Country filter
+                                if (_selectedCountryFilter != null) {
+                                  final rawCountry =
+                                      (data['country'] as String?)?.trim();
+                                  final normalizedCountry =
+                                      (rawCountry == null || rawCountry.isEmpty)
+                                          ? 'Unknown'
+                                          : rawCountry;
+                                  if (normalizedCountry !=
+                                      _selectedCountryFilter) {
+                                    return false;
+                                  }
+                                }
+
+                                // Hearing status filter
+                                if (_selectedHearingStatusFilter != null) {
+                                  final hearingStatus =
+                                      data['hearingStatus'] as String? ??
+                                          data['hearing_status'] as String? ??
+                                          data['userType'] as String?;
+                                  String? normalizedStatus;
                                   if (hearingStatus != null) {
                                     final lower = hearingStatus.toLowerCase();
                                     if (lower.contains('hearing') &&
                                         !lower.contains('impaired') &&
                                         !lower.contains('deaf')) {
-                                      normalizedHearingStatus = 'hearing';
-                                    } else if (lower.contains('deaf') || lower.contains('impaired')) {
-                                      normalizedHearingStatus = 'deaf';
+                                      normalizedStatus = 'hearing';
+                                    } else if (lower.contains('deaf') ||
+                                        lower.contains('impaired')) {
+                                      normalizedStatus = 'deaf';
                                     }
                                   }
+                                  if (normalizedStatus !=
+                                      _selectedHearingStatusFilter) {
+                                    return false;
+                                  }
+                                }
 
-                                  return Card(
-                                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    child: Stack(
-                                      children: [
-                                        ListTile(
-                                          leading: CircleAvatar(
-                                            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                                            child: photoUrl == null
-                                                ? Text(
-                                                    displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                                                  )
-                                                : null,
-                                          ),
-                                          title: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                // Date range filter
+                                if (rangeStart != null) {
+                                  final createdAt =
+                                      data['createdAt'] as Timestamp?;
+                                  if (createdAt == null) {
+                                    return false;
+                                  }
+                                  final created = createdAt.toDate();
+                                  if (created.isBefore(rangeStart)) {
+                                    return false;
+                                  }
+                                }
+
+                                // Role filter
+                                if (_selectedRoleFilter != 'all') {
+                                  final roles =
+                                      List<String>.from(data['roles'] ?? []);
+                                  if (_selectedRoleFilter == 'none') {
+                                    if (roles.isNotEmpty) return false;
+                                  } else {
+                                    if (!roles.contains(_selectedRoleFilter))
+                                      return false;
+                                  }
+                                }
+
+                                return true;
+                              }).toList();
+
+                              final usersList = filteredUsers.isEmpty
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(24.0),
+                                      child:
+                                          Text('No users match your filters'),
+                                    )
+                                  : Column(
+                                      children: filteredUsers.map((doc) {
+                                        final data =
+                                            doc.data() as Map<String, dynamic>;
+                                        final email =
+                                            data['email'] ?? 'No email';
+                                        final displayName =
+                                            data['displayName'] ?? 'No name';
+                                        final country =
+                                            data['country'] as String?;
+                                        final roles = List<String>.from(
+                                            data['roles'] ?? []);
+                                        final isApproved =
+                                            data['approved'] ?? false;
+                                        final createdAt =
+                                            data['createdAt'] as Timestamp?;
+                                        final photoUrl =
+                                            data['photoUrl'] as String?;
+                                        final userId = data['uid'] as String? ??
+                                            _extractUserId(doc.id);
+                                        final hearingStatus =
+                                            data['hearingStatus'] as String? ??
+                                                data['hearing_status']
+                                                    as String? ??
+                                                data['userType'] as String?;
+                                        String? normalizedHearingStatus;
+                                        if (hearingStatus != null) {
+                                          final lower =
+                                              hearingStatus.toLowerCase();
+                                          if (lower.contains('hearing') &&
+                                              !lower.contains('impaired') &&
+                                              !lower.contains('deaf')) {
+                                            normalizedHearingStatus = 'hearing';
+                                          } else if (lower.contains('deaf') ||
+                                              lower.contains('impaired')) {
+                                            normalizedHearingStatus = 'deaf';
+                                          }
+                                        }
+
+                                        return Card(
+                                          margin: const EdgeInsets.symmetric(
+                                              horizontal: 16, vertical: 8),
+                                          child: Stack(
                                             children: [
-                                              Row(
-                                                children: [
-                                                  Expanded(child: Text(displayName)),
-                                                  if (!isApproved)
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(
-                                                          horizontal: 6, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: theme.colorScheme.error,
-                                                        borderRadius: BorderRadius.circular(8),
-                                                      ),
-                                                      child: const Text(
-                                                        'PENDING',
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 10,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Row(
-                                                children: [
-                                                  Icon(Icons.email,
-                                                      size: 14, color: Colors.grey[600]),
-                                                  const SizedBox(width: 4),
-                                                  Expanded(
-                                                    child: Text(
-                                                      email,
-                                                      style: TextStyle(
-                                                          fontSize: 12, color: Colors.grey[600]),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Row(
-                                                children: [
-                                                  Icon(Icons.location_on,
-                                                      size: 14, color: Colors.grey[600]),
-                                                  const SizedBox(width: 4),
-                                                  Expanded(
-                                                    child: Text(
-                                                      country ?? 'Missing country',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: country == null
-                                                            ? theme.colorScheme.error
-                                                            : Colors.grey[600],
-                                                        fontStyle: country == null
-                                                            ? FontStyle.italic
-                                                            : FontStyle.normal,
-                                                      ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  if (country == null)
-                                                    Container(
-                                                      margin: const EdgeInsets.only(left: 4),
-                                                      padding: const EdgeInsets.symmetric(
-                                                          horizontal: 4, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: theme.colorScheme.errorContainer,
-                                                        borderRadius: BorderRadius.circular(4),
-                                                      ),
-                                                      child: Text(
-                                                        '⚠',
-                                                        style: TextStyle(
-                                                          fontSize: 10,
-                                                          color: theme.colorScheme.onErrorContainer,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                          subtitle: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const SizedBox(height: 4),
-                                              Wrap(
-                                                spacing: 4,
-                                                runSpacing: 4,
-                                                children: roles.isEmpty
-                                                    ? [
-                                                        Container(
-                                                          padding: const EdgeInsets.symmetric(
-                                                              horizontal: 6, vertical: 2),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.grey,
-                                                            borderRadius: BorderRadius.circular(8),
-                                                          ),
-                                                          child: const Text(
-                                                            'NO ROLES',
-                                                            style: TextStyle(
-                                                              color: Colors.white,
-                                                              fontSize: 10,
-                                                              fontWeight: FontWeight.bold,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ]
-                                                    : roles
-                                                        .map(
-                                                          (role) => Container(
-                                                            padding: const EdgeInsets.symmetric(
-                                                                horizontal: 6, vertical: 2),
-                                                            decoration: BoxDecoration(
-                                                              color: _getRoleColor(role),
-                                                              borderRadius: BorderRadius.circular(8),
-                                                            ),
+                                              ListTile(
+                                                leading: CircleAvatar(
+                                                  backgroundImage: photoUrl !=
+                                                          null
+                                                      ? NetworkImage(photoUrl)
+                                                      : null,
+                                                  child: photoUrl == null
+                                                      ? Text(
+                                                          displayName.isNotEmpty
+                                                              ? displayName[0]
+                                                                  .toUpperCase()
+                                                              : '?',
+                                                        )
+                                                      : null,
+                                                ),
+                                                title: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
                                                             child: Text(
-                                                              role.toUpperCase(),
-                                                              style: const TextStyle(
-                                                                color: Colors.white,
+                                                                displayName)),
+                                                        if (!isApproved)
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .symmetric(
+                                                                    horizontal:
+                                                                        6,
+                                                                    vertical:
+                                                                        2),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: theme
+                                                                  .colorScheme
+                                                                  .error,
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          8),
+                                                            ),
+                                                            child: const Text(
+                                                              'PENDING',
+                                                              style: TextStyle(
+                                                                color: Colors
+                                                                    .white,
                                                                 fontSize: 10,
-                                                                fontWeight: FontWeight.bold,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
                                                               ),
                                                             ),
                                                           ),
-                                                        )
-                                                        .toList(),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.email,
+                                                            size: 14,
+                                                            color: Colors
+                                                                .grey[600]),
+                                                        const SizedBox(
+                                                            width: 4),
+                                                        Expanded(
+                                                          child: Text(
+                                                            email,
+                                                            style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Colors
+                                                                    .grey[600]),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.location_on,
+                                                            size: 14,
+                                                            color: Colors
+                                                                .grey[600]),
+                                                        const SizedBox(
+                                                            width: 4),
+                                                        Expanded(
+                                                          child: Text(
+                                                            country ??
+                                                                'Missing country',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color: country ==
+                                                                      null
+                                                                  ? theme
+                                                                      .colorScheme
+                                                                      .error
+                                                                  : Colors.grey[
+                                                                      600],
+                                                              fontStyle: country ==
+                                                                      null
+                                                                  ? FontStyle
+                                                                      .italic
+                                                                  : FontStyle
+                                                                      .normal,
+                                                            ),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                        if (country == null)
+                                                          Container(
+                                                            margin:
+                                                                const EdgeInsets
+                                                                    .only(
+                                                                    left: 4),
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .symmetric(
+                                                                    horizontal:
+                                                                        4,
+                                                                    vertical:
+                                                                        2),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: theme
+                                                                  .colorScheme
+                                                                  .errorContainer,
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          4),
+                                                            ),
+                                                            child: Text(
+                                                              '⚠',
+                                                              style: TextStyle(
+                                                                fontSize: 10,
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .onErrorContainer,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                                subtitle: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const SizedBox(height: 4),
+                                                    Wrap(
+                                                      spacing: 4,
+                                                      runSpacing: 4,
+                                                      children: roles.isEmpty
+                                                          ? [
+                                                              Container(
+                                                                padding: const EdgeInsets
+                                                                    .symmetric(
+                                                                    horizontal:
+                                                                        6,
+                                                                    vertical:
+                                                                        2),
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                  color: Colors
+                                                                      .grey,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8),
+                                                                ),
+                                                                child:
+                                                                    const Text(
+                                                                  'NO ROLES',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    color: Colors
+                                                                        .white,
+                                                                    fontSize:
+                                                                        10,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ]
+                                                          : roles
+                                                              .map(
+                                                                (role) =>
+                                                                    Container(
+                                                                  padding: const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          6,
+                                                                      vertical:
+                                                                          2),
+                                                                  decoration:
+                                                                      BoxDecoration(
+                                                                    color:
+                                                                        _getRoleColor(
+                                                                            role),
+                                                                    borderRadius:
+                                                                        BorderRadius
+                                                                            .circular(8),
+                                                                  ),
+                                                                  child: Text(
+                                                                    role.toUpperCase(),
+                                                                    style:
+                                                                        const TextStyle(
+                                                                      color: Colors
+                                                                          .white,
+                                                                      fontSize:
+                                                                          10,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              )
+                                                              .toList(),
+                                                    ),
+                                                    if (createdAt != null)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .only(top: 4),
+                                                        child: Text(
+                                                          'Joined: ${createdAt.toDate().toString().split(' ')[0]}',
+                                                          style: TextStyle(
+                                                              fontSize: 12,
+                                                              color: Colors
+                                                                  .grey[600]),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                                trailing: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    IconButton(
+                                                      icon: const Icon(
+                                                          Icons.edit),
+                                                      onPressed: () {
+                                                        _showRoleDialog(
+                                                          userId,
+                                                          roles,
+                                                          displayName,
+                                                          isApproved,
+                                                          note: data['note']
+                                                              as String?,
+                                                          email: email,
+                                                          country: country,
+                                                        );
+                                                      },
+                                                    ),
+                                                    IconButton(
+                                                      icon: Icon(
+                                                          Icons.delete_outline,
+                                                          color: theme
+                                                              .colorScheme
+                                                              .error),
+                                                      onPressed: () =>
+                                                          _confirmAndDeleteUser(
+                                                              userId,
+                                                              displayName),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
-                                              if (createdAt != null)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(top: 4),
-                                                  child: Text(
-                                                    'Joined: ${createdAt.toDate().toString().split(' ')[0]}',
-                                                    style: TextStyle(
-                                                        fontSize: 12, color: Colors.grey[600]),
+                                              // Ear icon indicator in top-left corner
+                                              if (normalizedHearingStatus !=
+                                                  null)
+                                                Positioned(
+                                                  top: 8,
+                                                  left: 8,
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(4),
+                                                    decoration: BoxDecoration(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .surface
+                                                          .withValues(
+                                                              alpha: 0.9),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: Icon(
+                                                      normalizedHearingStatus ==
+                                                              'hearing'
+                                                          ? Icons.hearing
+                                                          : Icons
+                                                              .hearing_disabled,
+                                                      size: 16,
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurface
+                                                          .withValues(
+                                                              alpha: 0.7),
+                                                    ),
                                                   ),
                                                 ),
                                             ],
                                           ),
-                                          trailing: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.edit),
-                                                onPressed: () {
-                                                  _showRoleDialog(
-                                                    userId,
-                                                    roles,
-                                                    displayName,
-                                                    isApproved,
-                                                    note: data['note'] as String?,
-                                                    email: email,
-                                                    country: country,
-                                                  );
-                                                },
-                                              ),
-                                              IconButton(
-                                                icon: Icon(Icons.delete_outline,
-                                                    color: theme.colorScheme.error),
-                                                onPressed: () =>
-                                                    _confirmAndDeleteUser(userId, displayName),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Ear icon indicator in top-left corner
-                                        if (normalizedHearingStatus != null)
-                                          Positioned(
-                                            top: 8,
-                                            left: 8,
-                                            child: Container(
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: BoxDecoration(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .surface
-                                                    .withValues(alpha: 0.9),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Icon(
-                                                normalizedHearingStatus == 'hearing'
-                                                    ? Icons.hearing
-                                                    : Icons.hearing_disabled,
-                                                size: 16,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurface
-                                                    .withValues(alpha: 0.7),
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
+                                        );
+                                      }).toList(),
+                                    );
+
+                              final dashboardCards = _buildDashboardSection(
+                                context,
+                                todayCount: todayCount,
+                                last7Count: last7Count,
+                                last30Count: last30Count,
+                                totalUsers: totalUsers,
                               );
 
-                        final dashboardCards = _buildDashboardSection(
-                          context,
-                          todayCount: todayCount,
-                          last7Count: last7Count,
-                          last30Count: last30Count,
-                          totalUsers: totalUsers,
-                        );
-
-                        final filtersAndSearch = Column(
-                          children: [
-                            // Filters header + button (opens modal)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              final filtersAndSearch = Column(
                                 children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Filters',
-                                        style: theme.textTheme.titleSmall?.copyWith(
-                                          fontWeight: FontWeight.w600,
+                                  // Filters header + button (opens modal)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Filters',
+                                              style: theme.textTheme.titleSmall
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            TextButton.icon(
+                                              icon: const Icon(Icons.tune,
+                                                  size: 18),
+                                              label: const Text('Open filters'),
+                                              style: TextButton.styleFrom(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8),
+                                                foregroundColor:
+                                                    theme.colorScheme.primary,
+                                              ),
+                                              onPressed: () {
+                                                _openFilterSheet(
+                                                  context,
+                                                  countries: countries,
+                                                  rolesForFilter:
+                                                      rolesForFilter,
+                                                );
+                                              },
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      const Spacer(),
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.tune, size: 18),
-                                        label: const Text('Open filters'),
-                                        style: TextButton.styleFrom(
-                                          padding:
-                                              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          foregroundColor: theme.colorScheme.primary,
+                                        const SizedBox(height: 4),
+                                        // Filter chips (country / date / role)
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: [
+                                            if (_selectedCountryFilter != null)
+                                              _buildFilterChip(
+                                                label: _selectedCountryFilter ==
+                                                        'Unknown'
+                                                    ? 'Country: Unknown / Missing'
+                                                    : 'Country: $_selectedCountryFilter',
+                                                onClear: () {
+                                                  setState(() {
+                                                    _selectedCountryFilter =
+                                                        null;
+                                                  });
+                                                },
+                                                theme: theme,
+                                              ),
+                                            if (_selectedHearingStatusFilter !=
+                                                null)
+                                              _buildFilterChip(
+                                                label: _selectedHearingStatusFilter ==
+                                                        'hearing'
+                                                    ? 'Hearing Status: Hearing'
+                                                    : 'Hearing Status: Deaf / Hearing Impaired',
+                                                onClear: () {
+                                                  setState(() {
+                                                    _selectedHearingStatusFilter =
+                                                        null;
+                                                  });
+                                                },
+                                                theme: theme,
+                                              ),
+                                            if (_selectedDateRange != 'all')
+                                              _buildFilterChip(
+                                                label:
+                                                    'Date: ${_dateRangeLabel(_selectedDateRange)}',
+                                                onClear: () {
+                                                  setState(() {
+                                                    _selectedDateRange = 'all';
+                                                  });
+                                                },
+                                                theme: theme,
+                                              ),
+                                            if (_selectedRoleFilter != 'all')
+                                              _buildFilterChip(
+                                                label: _selectedRoleFilter ==
+                                                        'none'
+                                                    ? 'Role: No role'
+                                                    : 'Role: ${_selectedRoleFilter.toUpperCase()}',
+                                                onClear: () {
+                                                  setState(() {
+                                                    _selectedRoleFilter = 'all';
+                                                  });
+                                                },
+                                                theme: theme,
+                                              ),
+                                          ],
                                         ),
-                                        onPressed: () {
-                                          _openFilterSheet(
-                                            context,
-                                            countries: countries,
-                                            rolesForFilter: rolesForFilter,
-                                          );
-                                        },
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  // Filter chips (country / date / role)
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 4,
-                                    children: [
-                                      if (_selectedCountryFilter != null)
-                                        _buildFilterChip(
-                                          label: _selectedCountryFilter == 'Unknown'
-                                              ? 'Country: Unknown / Missing'
-                                              : 'Country: $_selectedCountryFilter',
-                                          onClear: () {
-                                            setState(() {
-                                              _selectedCountryFilter = null;
-                                            });
-                                          },
-                                          theme: theme,
-                                        ),
-                                      if (_selectedHearingStatusFilter != null)
-                                        _buildFilterChip(
-                                          label: _selectedHearingStatusFilter == 'hearing'
-                                              ? 'Hearing Status: Hearing'
-                                              : 'Hearing Status: Deaf / Hearing Impaired',
-                                          onClear: () {
-                                            setState(() {
-                                              _selectedHearingStatusFilter = null;
-                                            });
-                                          },
-                                          theme: theme,
-                                        ),
-                                      if (_selectedDateRange != 'all')
-                                        _buildFilterChip(
-                                          label: 'Date: ${_dateRangeLabel(_selectedDateRange)}',
-                                          onClear: () {
-                                            setState(() {
-                                              _selectedDateRange = 'all';
-                                            });
-                                          },
-                                          theme: theme,
-                                        ),
-                                      if (_selectedRoleFilter != 'all')
-                                        _buildFilterChip(
-                                          label: _selectedRoleFilter == 'none'
-                                              ? 'Role: No role'
-                                              : 'Role: ${_selectedRoleFilter.toUpperCase()}',
-                                          onClear: () {
-                                            setState(() {
-                                              _selectedRoleFilter = 'all';
-                                            });
-                                          },
-                                          theme: theme,
-                                        ),
-                                    ],
+                                  // Search bar (always visible for quick access)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                                    child: TextField(
+                                      controller: _searchController,
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            'Search users by email or name',
+                                        prefixIcon: const Icon(Icons.search),
+                                        suffixIcon: _searchQuery.isNotEmpty
+                                            ? IconButton(
+                                                icon: const Icon(Icons.clear),
+                                                onPressed: () {
+                                                  _searchController.clear();
+                                                  setState(() {
+                                                    _searchQuery = '';
+                                                  });
+                                                },
+                                              )
+                                            : null,
+                                      ),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _searchQuery = value.toLowerCase();
+                                        });
+                                      },
+                                    ),
                                   ),
                                 ],
-                              ),
-                            ),
-                            // Search bar (always visible for quick access)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                              child: TextField(
-                                controller: _searchController,
-                                decoration: InputDecoration(
-                                  labelText: 'Search users by email or name',
-                                  prefixIcon: const Icon(Icons.search),
-                                  suffixIcon: _searchQuery.isNotEmpty
-                                      ? IconButton(
-                                          icon: const Icon(Icons.clear),
-                                          onPressed: () {
-                                            _searchController.clear();
-                                            setState(() {
-                                              _searchQuery = '';
-                                            });
-                                          },
-                                        )
-                                      : null,
-                                ),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _searchQuery = value.toLowerCase();
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        );
+                              );
 
-                        if (isDashboardDesktop) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 24),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 380,
-                                  child: Column(
+                              if (isDashboardDesktop) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 24),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      dashboardCards,
-                                      const SizedBox(height: 8),
-                                      filtersAndSearch,
+                                      SizedBox(
+                                        width: 380,
+                                        child: Column(
+                                          children: [
+                                            dashboardCards,
+                                            const SizedBox(height: 8),
+                                            filtersAndSearch,
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: usersList),
                                     ],
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(child: usersList),
-                              ],
-                            ),
-                          );
-                        }
+                                );
+                              }
 
-                        return Column(
-                          children: [
-                            // Dashboard cards
-                            dashboardCards,
-                            filtersAndSearch,
-                            usersList,
-                          ],
-                        );
-                      },
-                  ),
-                ],
-                ),
-              ),
+                              return Column(
+                                children: [
+                                  // Dashboard cards
+                                  dashboardCards,
+                                  filtersAndSearch,
+                                  usersList,
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
             ),
           ),
           // Loading overlay - centered spinner
@@ -2216,7 +2477,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: theme.colorScheme.onErrorContainer),
+                Icon(Icons.error_outline,
+                    color: theme.colorScheme.onErrorContainer),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -2265,10 +2527,12 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
                 final rawCountry = (data['country'] as String?)?.trim();
                 final normalizedCountry =
-                    (rawCountry == null || rawCountry.isEmpty) ? 'Unknown' : rawCountry;
+                    (rawCountry == null || rawCountry.isEmpty)
+                        ? 'Unknown'
+                        : rawCountry;
                 countrySet.add(normalizedCountry);
 
-                final roles = List<String>.from(data['roles'] ?? []);
+                final roles = _effectiveRolesForDisplay(data);
                 for (final r in roles) {
                   final trimmed = r.trim();
                   if (trimmed.isNotEmpty) roleSet.add(trimmed);
@@ -2319,14 +2583,18 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
                 if (_searchQuery.isNotEmpty) {
                   final email = (data['email'] ?? '').toString().toLowerCase();
-                  final displayName = (data['displayName'] ?? '').toString().toLowerCase();
-                  if (!email.contains(_searchQuery) && !displayName.contains(_searchQuery)) return false;
+                  final displayName =
+                      (data['displayName'] ?? '').toString().toLowerCase();
+                  if (!email.contains(_searchQuery) &&
+                      !displayName.contains(_searchQuery)) return false;
                 }
 
                 if (_selectedCountryFilter != null) {
                   final rawCountry = (data['country'] as String?)?.trim();
                   final normalizedCountry =
-                      (rawCountry == null || rawCountry.isEmpty) ? 'Unknown' : rawCountry;
+                      (rawCountry == null || rawCountry.isEmpty)
+                          ? 'Unknown'
+                          : rawCountry;
                   if (normalizedCountry != _selectedCountryFilter) return false;
                 }
 
@@ -2343,7 +2611,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                 }
 
                 if (_selectedRoleFilter != 'all') {
-                  final roles = List<String>.from(data['roles'] ?? []);
+                  final roles = _effectiveRolesForDisplay(data);
                   if (_selectedRoleFilter == 'none') {
                     if (roles.isNotEmpty) return false;
                   } else {
@@ -2359,7 +2627,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                 final email = data['email'] ?? 'No email';
                 final displayName = data['displayName'] ?? 'No name';
                 final country = data['country'] as String?;
-                final roles = List<String>.from(data['roles'] ?? []);
+                final roles = _effectiveRolesForDisplay(data);
                 final isApproved = data['approved'] ?? false;
                 final createdAt = data['createdAt'] as Timestamp?;
                 final photoUrl = data['photoUrl'] as String?;
@@ -2372,9 +2640,12 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                     children: [
                       ListTile(
                         leading: CircleAvatar(
-                          backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                          backgroundImage:
+                              photoUrl != null ? NetworkImage(photoUrl) : null,
                           child: photoUrl == null
-                              ? Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?')
+                              ? Text(displayName.isNotEmpty
+                                  ? displayName[0].toUpperCase()
+                                  : '?')
                               : null,
                         ),
                         title: Column(
@@ -2385,7 +2656,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                                 Expanded(child: Text(displayName)),
                                 if (!isApproved)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: theme.colorScheme.error,
                                       borderRadius: BorderRadius.circular(8),
@@ -2404,12 +2676,14 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                Icon(Icons.email, size: 14, color: Colors.grey[600]),
+                                Icon(Icons.email,
+                                    size: 14, color: Colors.grey[600]),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
                                     email,
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.grey[600]),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -2418,15 +2692,20 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
+                                Icon(Icons.location_on,
+                                    size: 14, color: Colors.grey[600]),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
                                     country ?? 'Missing country',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: country == null ? theme.colorScheme.error : Colors.grey[600],
-                                      fontStyle: country == null ? FontStyle.italic : FontStyle.normal,
+                                      color: country == null
+                                          ? theme.colorScheme.error
+                                          : Colors.grey[600],
+                                      fontStyle: country == null
+                                          ? FontStyle.italic
+                                          : FontStyle.normal,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -2445,10 +2724,12 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                               children: roles.isEmpty
                                   ? [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
                                           color: Colors.grey,
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                         child: const Text(
                                           'NO ROLES',
@@ -2463,10 +2744,12 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                                   : roles
                                       .map(
                                         (role) => Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: _getRoleColor(role),
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                           child: Text(
                                             role.toUpperCase(),
@@ -2485,7 +2768,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
                                   'Joined: ${createdAt.toDate().toString().split(' ')[0]}',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey[600]),
                                 ),
                               ),
                           ],
@@ -2508,8 +2792,10 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                               },
                             ),
                             IconButton(
-                              icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                              onPressed: () => _confirmAndDeleteUser(userId, displayName),
+                              icon: Icon(Icons.delete_outline,
+                                  color: theme.colorScheme.error),
+                              onPressed: () =>
+                                  _confirmAndDeleteUser(userId, displayName),
                             ),
                           ],
                         ),
@@ -2521,7 +2807,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surface.withValues(alpha: 0.9),
+                              color: theme.colorScheme.surface
+                                  .withValues(alpha: 0.9),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -2529,7 +2816,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                                   ? Icons.hearing
                                   : Icons.hearing_disabled,
                               size: 16,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.7),
                             ),
                           ),
                         ),
@@ -2550,14 +2838,16 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                         children: [
                           Text(
                             'Filters',
-                            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                            style: theme.textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const Spacer(),
                           TextButton.icon(
                             icon: const Icon(Icons.tune, size: 18),
                             label: const Text('Open filters'),
                             style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                               foregroundColor: theme.colorScheme.primary,
                             ),
                             onPressed: () {
@@ -2580,7 +2870,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                               label: _selectedCountryFilter == 'Unknown'
                                   ? 'Country: Unknown / Missing'
                                   : 'Country: $_selectedCountryFilter',
-                              onClear: () => setState(() => _selectedCountryFilter = null),
+                              onClear: () =>
+                                  setState(() => _selectedCountryFilter = null),
                               theme: theme,
                             ),
                           if (_selectedHearingStatusFilter != null)
@@ -2588,13 +2879,16 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                               label: _selectedHearingStatusFilter == 'hearing'
                                   ? 'Hearing: Hearing'
                                   : 'Hearing: Deaf / Impaired',
-                              onClear: () => setState(() => _selectedHearingStatusFilter = null),
+                              onClear: () => setState(
+                                  () => _selectedHearingStatusFilter = null),
                               theme: theme,
                             ),
                           if (_selectedDateRange != 'all')
                             _buildFilterChip(
-                              label: 'Date: ${_dateRangeLabel(_selectedDateRange)}',
-                              onClear: () => setState(() => _selectedDateRange = 'all'),
+                              label:
+                                  'Date: ${_dateRangeLabel(_selectedDateRange)}',
+                              onClear: () =>
+                                  setState(() => _selectedDateRange = 'all'),
                               theme: theme,
                             ),
                           if (_selectedRoleFilter != 'all')
@@ -2602,7 +2896,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                               label: _selectedRoleFilter == 'none'
                                   ? 'Role: No role'
                                   : 'Role: ${_selectedRoleFilter.toUpperCase()}',
-                              onClear: () => setState(() => _selectedRoleFilter = 'all'),
+                              onClear: () =>
+                                  setState(() => _selectedRoleFilter = 'all'),
                               theme: theme,
                             ),
                         ],
@@ -2623,7 +2918,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                                 )
                               : null,
                         ),
-                        onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                        onChanged: (value) =>
+                            setState(() => _searchQuery = value.toLowerCase()),
                       ),
                     ],
                   ),
@@ -2639,7 +2935,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                         controller: _usersScrollController,
                         padding: const EdgeInsets.only(top: 8),
                         itemCount: filteredUsers.length,
-                        itemBuilder: (ctx, i) => buildUserCard(filteredUsers[i]),
+                        itemBuilder: (ctx, i) =>
+                            buildUserCard(filteredUsers[i]),
                       ),
                     );
 
@@ -2690,7 +2987,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
     String? localCountryFilter = _selectedCountryFilter;
     String? localHearingStatusFilter = _selectedHearingStatusFilter;
 
-    Widget content(BuildContext ctx, void Function(void Function()) setModalState, VoidCallback close) {
+    Widget content(BuildContext ctx,
+        void Function(void Function()) setModalState, VoidCallback close) {
       return SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2885,7 +3183,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: StatefulBuilder(
                   builder: (context, setModalState) {
-                    return content(ctx, setModalState, () => Navigator.of(ctx).pop());
+                    return content(
+                        ctx, setModalState, () => Navigator.of(ctx).pop());
                   },
                 ),
               ),
@@ -2939,4 +3238,3 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
     }
   }
 }
-

@@ -1,0 +1,8 @@
+What's New in Version 1.0.1 (Build 20):
+
+• Critical Fix: Resolved white screen issue on app launch for Play Store installations
+• Improved App Startup: Enhanced app initialization for faster and more reliable startup
+• Performance: Optimized app loading sequence to prevent startup delays
+• Bug Fixes: Fixed issues that could cause the app to hang during initial launch
+• Stability: Improved overall app stability and reliability
+

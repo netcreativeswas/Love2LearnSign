@@ -1,9 +1,12 @@
 import { generateMetadata as genMeta } from "@/lib/metadata";
+import { defaultLocale, getTranslations } from "@/lib/i18n";
+
+const locale = defaultLocale;
+const translations = getTranslations(locale);
 
 export const metadata = genMeta({
-  title: "Donate - Support Love to Learn Sign",
-  description:
-    "Support Love to Learn Sign development. Your donation helps improve the app and extend the dictionary to other sign languages. Help us make sign language learning accessible to everyone.",
+  title: `${translations.donate.title} - ${translations.common.appName}`,
+  description: translations.donate.description,
   path: "/donate",
 });
 
