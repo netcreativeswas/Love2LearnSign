@@ -86,6 +86,7 @@ class _AdminHomeState extends State<AdminHome> {
                   ),
                 ),
           body: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (isDesktop)
                 _DashboardSidebar(

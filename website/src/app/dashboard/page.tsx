@@ -60,7 +60,7 @@ export default function DashboardWrapper() {
   }
 
   return (
-    <main className="h-[calc(100vh-73px)]">
+    <main className="h-dvh">
       <iframe
         title="Love to Learn Sign Dashboard"
         src="/dashboard-app/index.html"
