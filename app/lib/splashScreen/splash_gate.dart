@@ -4,6 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:love_to_learn_sign/home_page.dart'; // remplace par ta page d’accueil
 import 'package:love_to_learn_sign/splashScreen/onboarding_video_screen.dart';
 import 'package:l2l_shared/debug/agent_logger.dart';
+import 'package:provider/provider.dart';
+import 'package:love_to_learn_sign/tenancy/apps_catalog.dart';
+import 'package:love_to_learn_sign/tenancy/tenant_picker_page.dart';
+import 'package:love_to_learn_sign/tenancy/tenant_scope.dart';
 
 /// Feature flag: keep the onboarding code but disable showing it at install-time.
 /// Set to `true` to re-enable the onboarding video screen.
@@ -38,6 +42,8 @@ class _SplashGateState extends State<SplashGate> {
   Future<void> _route() async {
     final prefs = await SharedPreferences.getInstance();
     final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
+    final hasTenantSelection = (prefs.getString('selected_app_id') ?? '').trim().isNotEmpty ||
+        (prefs.getString('selected_tenant_id') ?? '').trim().isNotEmpty;
     
     print('🔍 SplashGate: hasSeenIntro = $hasSeenIntro');
 
@@ -70,6 +76,30 @@ class _SplashGateState extends State<SplashGate> {
         print('🔍 SplashGate: Onboarding disabled (already marked as seen)');
       }
       if (!mounted) return;
+
+      // Co-brand picker logic:
+      // - If QR/previous selection already set, go straight to home.
+      // - If no selection, list apps/*; show picker only if >=2.
+      if (!hasTenantSelection) {
+        try {
+          final apps = await AppsCatalog().fetchAvailableApps();
+          if (!mounted) return;
+          if (apps.length == 1) {
+            // Auto-pick the only edition so the app uses a stable appId (branding/config).
+            final scope = context.read<TenantScope>();
+            await scope.applyInstallLink(Uri(path: '/install', queryParameters: {'app': apps.first.id}));
+          } else if (apps.length >= 2) {
+            // Ask user to choose an edition on first launch.
+            await Navigator.of(context).push<bool>(
+              MaterialPageRoute(
+                builder: (_) => const TenantPickerPage(showBack: false),
+              ),
+            );
+          }
+        } catch (_) {
+          // ignore and continue to home
+        }
+      }
       // #region agent log
       AgentLogger.log({
         'sessionId': 'debug-session',

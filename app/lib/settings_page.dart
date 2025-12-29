@@ -12,6 +12,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
 import 'tenancy/tenant_scope.dart';
+import 'tenancy/tenant_picker_page.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 import 'services/notification_permission_service.dart';
 import 'main.dart' show scheduleDailyTasks;
@@ -320,7 +321,9 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             trailing: GestureDetector(
               onTap: () async {
-                final current = Provider.of<LocaleProvider>(context, listen: false).locale;
+                final prov = Provider.of<LocaleProvider>(context, listen: false);
+                final current = prov.locale;
+                final codes = prov.allowedLocaleCodes;
                 await showModalBottomSheet<void>(
                   context: context,
                   builder: (ctx) {
@@ -328,18 +331,17 @@ class _SettingsPageState extends State<SettingsPage> {
                       height: 200,
                       child: CupertinoPicker(
                         scrollController: FixedExtentScrollController(
-                          initialItem: current.languageCode == 'bn' ? 1 : 0,
+                          initialItem: (codes.indexOf(current.languageCode)).clamp(0, codes.length - 1),
                         ),
                         itemExtent: 32,
                         onSelectedItemChanged: (idx) {
-                          final newLocale = idx == 0 ? const Locale('en') : const Locale('bn');
-                          Provider.of<LocaleProvider>(ctx, listen: false).setLocale(newLocale);
+                          final code = (idx >= 0 && idx < codes.length) ? codes[idx] : 'en';
+                          Provider.of<LocaleProvider>(ctx, listen: false).setLocale(Locale(code));
                           Navigator.of(ctx).pop();
                         },
-                        children: const [
-                          Center(child: Text('English', style: TextStyle())),
-                          Center(child: Text('বাংলা', style: TextStyle())),
-                        ],
+                        children: codes
+                            .map((c) => Center(child: Text(c == 'bn' ? 'বাংলা' : (c == 'en' ? 'English' : c.toUpperCase()))))
+                            .toList(growable: false),
                       ),
                     );
                   },
@@ -350,8 +352,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   Text(
                     Provider.of<LocaleProvider>(context).locale.languageCode == 'bn'
-                        ? S.of(context)!.bengali
-                        : S.of(context)!.english,
+                        ? 'বাংলা'
+                        : 'English',
                     style: TextStyle(
                       fontSize: 16.0,
                       color: Theme.of(context).colorScheme.primary,
@@ -362,6 +364,32 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
+          ),
+          ListTile(
+            title: Text(
+              'Dictionary / Sign language',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              context.watch<TenantScope>().appConfig?.displayName.trim().isNotEmpty == true
+                  ? context.watch<TenantScope>().appConfig!.displayName.trim()
+                  : context.watch<TenantScope>().tenantConfig?.displayName.trim().isNotEmpty == true
+                      ? context.watch<TenantScope>().tenantConfig!.displayName.trim()
+                      : context.watch<TenantScope>().tenantId,
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: Theme.of(context).colorScheme.primary),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final picked = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(builder: (_) => const TenantPickerPage(showBack: true)),
+              );
+              if (!mounted) return;
+              if (picked == true) {
+                Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
+              }
+            },
           ),
           SwitchListTile(
             title: Text(

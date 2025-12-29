@@ -28,23 +28,23 @@ class AppTheme {
     );
 
     return ThemeData(
-      useMaterial3: true,
+    useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: scheme.surface,
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
         iconTheme: IconThemeData(color: scheme.onPrimary),
-        titleTextStyle: TextStyle(
+      titleTextStyle: TextStyle(
           color: scheme.onPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-        ),
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
       ),
+    ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.secondary,
         foregroundColor: scheme.onSecondary,
-      ),
+    ),
     );
   }
 

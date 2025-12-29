@@ -216,11 +216,11 @@ class _DashboardSidebar extends StatelessWidget {
                           ),
                         )
                       : Image.network(
-                          'icons/Icon-512.png',
-                          width: 36,
-                          height: 36,
-                          fit: BoxFit.cover,
-                        ),
+                    'icons/Icon-512.png',
+                    width: 36,
+                    height: 36,
+                    fit: BoxFit.cover,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
