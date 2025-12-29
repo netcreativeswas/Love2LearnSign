@@ -3,15 +3,37 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../l10n/dynamic_l10n.dart';
 import '../locale_provider.dart';
+import '../tenancy/tenant_scope.dart';
 import 'package:line_icons/line_icons.dart';
 import 'cupertino_sheet_container.dart';
 
 class AppLanguageSetup extends StatelessWidget {
   const AppLanguageSetup({super.key});
 
+  String _labelForCode(BuildContext context, String code) {
+    switch (code) {
+      case 'bn':
+        return 'বাংলা';
+      case 'en':
+        return 'English';
+      default:
+        return code.toUpperCase();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final locale = Provider.of<LocaleProvider>(context).locale;
+    final tenantLocales = context.watch<TenantScope>().uiLocales;
+
+    // Only show languages that are both tenant-allowed and app-allowed.
+    final allowed = context.watch<LocaleProvider>().allowedLocaleCodes;
+    final codes = <String>{
+      'en',
+      ...tenantLocales.map((c) => c.trim().toLowerCase()).where((c) => c.isNotEmpty),
+    }.where((c) => allowed.contains(c)).toList()
+      ..sort();
+    final currentIndex = codes.indexOf(locale.languageCode).clamp(0, (codes.isEmpty ? 0 : codes.length - 1));
 
     return GestureDetector(
       onTap: () async {
@@ -19,21 +41,20 @@ class AppLanguageSetup extends StatelessWidget {
           context: context,
           builder: (ctx) {
             return CupertinoSheetContainer(
-              height: 200,
+              height: 220,
               child: CupertinoPicker(
                 scrollController: FixedExtentScrollController(
-                  initialItem: locale.languageCode == 'bn' ? 1 : 0,
+                  initialItem: currentIndex,
                 ),
                 itemExtent: 32,
                 onSelectedItemChanged: (idx) {
-                  final newLocale = idx == 0 ? const Locale('en') : const Locale('bn');
-                  Provider.of<LocaleProvider>(ctx, listen: false).setLocale(newLocale);
+                  final code = (idx >= 0 && idx < codes.length) ? codes[idx] : 'en';
+                  Provider.of<LocaleProvider>(ctx, listen: false).setLocale(Locale(code));
                   Navigator.of(ctx).pop();
                 },
-                children: const [
-                  Center(child: Text('English')),
-                  Center(child: Text('বাংলা')),
-                ],
+                children: codes
+                    .map((c) => Center(child: Text(_labelForCode(ctx, c))))
+                    .toList(growable: false),
               ),
             );
           },
@@ -42,9 +63,7 @@ class AppLanguageSetup extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            locale.languageCode == 'bn'
-                ? S.of(context)!.bengali
-                : S.of(context)!.english,
+            _labelForCode(context, locale.languageCode),
             style: TextStyle(
               color: Theme.of(context).colorScheme.onPrimary,
               fontWeight: FontWeight.bold,

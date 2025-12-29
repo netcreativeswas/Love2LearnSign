@@ -826,6 +826,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _checkedLocation = false;
   String? _lastDeepLinkId;
   late final AppLinks _appLinks;
+  List<String> _lastAllowedLocaleCodes = const [];
 
   @override
   void initState() {
@@ -1116,6 +1117,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     return Consumer<LocaleProvider>(
       builder: (context, localeProv, _) {
+        // Sync allowed locales from tenant config, but only keep locales that exist in compiled localizations.
+        final supported = S.supportedLocales.map((l) => l.languageCode.toLowerCase()).toSet();
+        final desired = <String>{
+          'en',
+          ...tenant.uiLocales.map((c) => c.trim().toLowerCase()).where((c) => c.isNotEmpty),
+        }.where((c) => supported.contains(c)).toList()
+          ..sort();
+
+        if (!_sameStringList(_lastAllowedLocaleCodes, desired)) {
+          _lastAllowedLocaleCodes = desired;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            localeProv.setAllowedLocaleCodes(desired);
+          });
+        }
+
         return MaterialApp(
           navigatorKey: navigatorKey,
           navigatorObservers: [LoggingObserver()],
@@ -1205,6 +1221,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       },
     );
   }
+}
+
+bool _sameStringList(List<String> a, List<String> b) {
+  if (a.length != b.length) return false;
+  for (int i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 Future<void> scheduleDailyTasks(
