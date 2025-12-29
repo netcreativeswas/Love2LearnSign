@@ -28,8 +28,8 @@ service cloud.firestore {
     }
 
     function isTenantPublic(tenantId) {
-      return tenantDoc(tenantId).exists &&
-             (tenantDoc(tenantId).data.visibility == 'public');
+      return exists(/databases/$(database)/documents/tenants/$(tenantId)) &&
+             (get(/databases/$(database)/documents/tenants/$(tenantId)).data.visibility == 'public');
     }
 
     function tenantMemberDoc(tenantId, uid) {
@@ -121,8 +121,11 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isPlatformAdmin();
-      allow write: if isPlatformAdmin(); // tenant creation/plan/status controlled by platform
+      // Avoid self-referential reads: use `resource` for get() and keep list restricted.
+      allow get: if (resource.data.visibility == 'public') || isTenantMember(tenantId) || isPlatformAdmin();
+      allow list: if isPlatformAdmin();
+      allow create, update: if isPlatformAdmin(); // tenant creation/plan/status controlled by platform
+      allow delete: if false;
 
       match /members/{uid} {
         allow read: if isPlatformAdmin() || (request.auth != null && request.auth.uid == uid) || isTenantEditorOrAbove(tenantId);
