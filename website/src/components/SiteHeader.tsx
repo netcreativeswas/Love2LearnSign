@@ -36,6 +36,8 @@ function SiteHeaderContent() {
     { href: getLocalizedPath("/", locale), label: t("common.home") },
     { href: getLocalizedPath("/contact", locale), label: t("common.contact") },
     { href: getLocalizedPath("/donate", locale), label: t("common.donate") },
+    // Dashboard Sign In is intentionally NOT localized and has no sign-up.
+    { href: "/sign-in", label: "Sign In" },
   ] as const;
 
   const modalContent = mobileMenuOpen && mounted ? (
