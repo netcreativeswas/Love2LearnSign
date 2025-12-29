@@ -1217,6 +1217,7 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
     // Build query based on category
     Query query = TenantDb.concepts(FirebaseFirestore.instance);
     var snapshot = await query.get();
+    if (snapshot.docs.isEmpty) return;
     if (category != 'Random') {
       query = query.where('category_main', isEqualTo: category);
       snapshot = await query.get();
@@ -1227,7 +1228,8 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
         snapshot = allSnapshot;
       }
     }
-    final docs = snapshot.docs..shuffle();
+    final docs = snapshot.docs.toList()..shuffle();
+    if (docs.isEmpty) return;
     final pick = docs.first;
     final wordEnglish = pick['english'] as String;
     final wordBengali = pick['bengali'] as String;
