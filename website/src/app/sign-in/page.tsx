@@ -68,7 +68,7 @@ export default function SignInPage() {
       <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
         <div className="grid gap-8 md:grid-cols-[280px_1fr]">
           {/* Left: Dashboard-style sidebar (desktop). On mobile it becomes a compact header row. */}
-          <aside className="rounded-2xl border border-border bg-surface p-5 md:sticky md:top-6 md:h-[calc(100vh-48px)]">
+          <aside className="rounded-2xl border border-border bg-surface p-5 md:sticky md:top-14 md:h-[calc(100dvh-112px)]">
             <Link href="/" className="group flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-muted">
               <Image
                 src="/brand/logo.png"
