@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -38,73 +37,6 @@ class _LoginPageState extends State<LoginPage> {
         SnackBar(content: Text('Unexpected error: $e')),
       );
     } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _signInWithGoogle() async {
-    debugPrint('🔑 Attempting Google sign-in');
-    setState(() => _loading = true);
-    try {
-      if (kIsWeb) {
-        // WEB: Use direct Firebase Auth popup - most reliable for web
-        // This avoids "Null check operator" errors from google_sign_in plugin
-        // when index.html meta tags are missing
-        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        googleProvider.addScope('email');
-        googleProvider.addScope('profile');
-        
-        await FirebaseAuth.instance.signInWithPopup(googleProvider);
-        // Success is handled by AuthGate stream
-        debugPrint('✅ Google sign-in popup successful');
-      } else {
-        // MOBILE: Use google_sign_in plugin
-        final GoogleSignIn googleSignIn = GoogleSignIn();
-        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-
-        if (googleUser == null) {
-          // User cancelled
-          debugPrint('❌ Google sign-in cancelled by user');
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign-in cancelled')));
-          setState(() => _loading = false);
-          return;
-        }
-
-        // Obtain the auth details from the request
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-        // Create a new credential
-        final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-
-        // Sign in to Firebase with the Google credential
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        debugPrint('✅ Google sign-in successful');
-      }
-    } on FirebaseAuthException catch (e) {
-      debugPrint('❌ Google sign-in failed [${e.code}]: ${e.message}');
-      String errorMessage = 'Google Sign-In failed';
-      if (e.code == 'account-exists-with-different-credential') {
-        errorMessage = 'An account already exists with this email. Please sign in with email/password.';
-      } else if (e.code == 'popup-closed-by-user' || e.code == 'cancelled-popup-request') {
-        errorMessage = 'Sign-in cancelled';
-      } else if (e.message != null) {
-        errorMessage = e.message!;
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
-      setState(() => _loading = false);
-    } catch (e) {
-      debugPrint('❌ Unexpected Google sign-in error: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unexpected error: ${e.toString()}')),
-      );
       setState(() => _loading = false);
     }
   }
@@ -204,41 +136,6 @@ class _LoginPageState extends State<LoginPage> {
                 child: _loading
                     ? const CircularProgressIndicator()
                     : const Text('Login'),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(child: Divider(color: Theme.of(context).dividerColor)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'OR',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: Theme.of(context).dividerColor)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _loading ? null : _signInWithGoogle,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-                  ),
-                ),
-                icon: Image.network(
-                  'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                  height: 20,
-                  width: 20,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.login, size: 20);
-                  },
-                ),
-                label: const Text('Sign in with Google'),
               ),
             ],
           ),
