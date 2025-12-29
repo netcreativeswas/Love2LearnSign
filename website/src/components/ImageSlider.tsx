@@ -29,13 +29,12 @@ function ImageSliderContent() {
 
   const slides = useMemo(() => {
     const head = images.slice(0, CLONES);
-    const tail = images.slice(n - CLONES);
+    const tail = images.slice(images.length - CLONES);
     return [...tail, ...images, ...head];
-  }, [n]);
+  }, [images]);
 
   const [trackIndex, setTrackIndex] = useState(CLONES);
   const [enableTransition, setEnableTransition] = useState(true);
-  const [direction, setDirection] = useState<Dir>("left");
 
   const isAnimatingRef = useRef(false);
   const settledTrackIndexRef = useRef(CLONES); // ✅ remember last "settled" index (after transition)
@@ -54,14 +53,12 @@ function ImageSliderContent() {
 
   const goToPrevious = () => {
     isAnimatingRef.current = true;
-    setDirection("right");
     setEnableTransition(true);
     setTrackIndex((t) => t - 1);
   };
 
   const goToNext = () => {
     isAnimatingRef.current = true;
-    setDirection("left");
     setEnableTransition(true);
     setTrackIndex((t) => t + 1);
   };

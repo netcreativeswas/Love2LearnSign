@@ -11,6 +11,15 @@ export default function DashboardWrapper() {
   const [authed, setAuthed] = useState(false);
   const [forceHide, setForceHide] = useState(false);
 
+  function isSignedOutMessage(data: unknown): data is { type: "SIGNED_OUT" } {
+    return (
+      !!data &&
+      typeof data === "object" &&
+      "type" in data &&
+      (data as Record<string, unknown>).type === "SIGNED_OUT"
+    );
+  }
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       setAuthed(!!user);
@@ -24,13 +33,13 @@ export default function DashboardWrapper() {
 
   useEffect(() => {
     async function onMessage(ev: MessageEvent) {
-      const data = ev.data as any;
-      if (data && typeof data === "object" && data.type === "SIGNED_OUT") {
+      const data: unknown = ev.data;
+      if (isSignedOutMessage(data)) {
         setForceHide(true);
         // Ensure the parent window is actually signed out too (prevents bounce back to /dashboard).
         try {
           await signOut(auth);
-        } catch (_) {
+        } catch {
           // ignore
         }
         router.replace("/sign-in");

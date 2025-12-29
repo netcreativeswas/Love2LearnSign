@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // We commit a Flutter web build under /public/dashboard-app. It's generated/minified.
+    // Linting it is noisy, slow, and can OOM Node.
+    "public/**",
   ]),
 ]);
 

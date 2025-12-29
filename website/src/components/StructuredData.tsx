@@ -1,8 +1,6 @@
-import { siteConfig } from "@/lib/site-config";
-
 interface StructuredDataProps {
   type: "WebSite" | "Organization" | "MobileApplication" | "WebPage" | "BreadcrumbList";
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 }
 
 export function StructuredData({ type, data }: StructuredDataProps) {

@@ -41,11 +41,11 @@ export function getTranslations(locale: Locale) {
 
 export function t(locale: Locale, key: string, params?: Record<string, string>): string {
   const keys = key.split(".");
-  let value: any = translations[locale];
+  let value: unknown = translations[locale];
   
   for (const k of keys) {
     if (value && typeof value === "object" && k in value) {
-      value = value[k];
+      value = (value as Record<string, unknown>)[k];
     } else {
       console.warn(`Translation key "${key}" not found for locale "${locale}"`);
       return key;

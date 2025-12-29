@@ -12,14 +12,9 @@ import { Locale, getLocaleFromPath, getLocalizedPath } from "@/lib/i18n";
 
 function SiteHeaderContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const { t } = useTranslations();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -103,7 +98,7 @@ function SiteHeaderContent() {
     },
   ] as const;
 
-  const modalContent = mobileMenuOpen && mounted ? (
+  const modalContent = mobileMenuOpen ? (
     <div className="fixed inset-0 z-[9999] sm:hidden flex items-center justify-center min-h-screen">
       {/* Backdrop with blur - covers entire page */}
       <div
@@ -223,10 +218,9 @@ function SiteHeaderContent() {
       </div>
 
       {/* Mobile Menu Modal - Rendered via Portal to body */}
-      {mounted && typeof document !== "undefined" && createPortal(
-        modalContent,
-        document.body
-      )}
+      {typeof document !== "undefined" && modalContent
+        ? createPortal(modalContent, document.body)
+        : null}
     </header>
   );
 }

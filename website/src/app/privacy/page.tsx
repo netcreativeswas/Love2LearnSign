@@ -7,7 +7,8 @@ import { SectionCard } from "@/components/SectionCard";
 import { siteConfig } from "@/lib/site-config";
 import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { defaultLocale, getLocalizedPath } from "@/lib/i18n";
+import Link from "next/link";
+import { defaultLocale } from "@/lib/i18n";
 
 const locale = defaultLocale;
 
@@ -249,9 +250,9 @@ function PrivacyPageContent() {
               <li>Cancel your subscription via Google Play / App Store settings</li>
               <li>
                 Request account deletion and associated data deletion (see{" "}
-                <a className="text-foreground hover:underline" href="/delete-account">
+                <Link className="text-foreground hover:underline" href="/delete-account">
                   Delete account
-                </a>
+                </Link>
                 )
               </li>
               <li>Opt‑out of personalized ads by resetting your Advertising ID (device settings)</li>

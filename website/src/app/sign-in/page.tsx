@@ -29,6 +29,15 @@ export default function SignInPage() {
     return () => unsub();
   }, [router]);
 
+  function errorMessage(err: unknown, fallback: string) {
+    if (err && typeof err === "object" && "message" in err) {
+      const msg = (err as Record<string, unknown>).message;
+      if (typeof msg === "string" && msg.trim()) return msg;
+    }
+    if (err instanceof Error && err.message.trim()) return err.message;
+    return fallback;
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -37,8 +46,8 @@ export default function SignInPage() {
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       router.replace("/dashboard");
-    } catch (err: any) {
-      setError(err?.message ?? "Sign-in failed.");
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Sign-in failed."));
     } finally {
       setLoading(false);
     }
@@ -56,8 +65,8 @@ export default function SignInPage() {
     try {
       await sendPasswordResetEmail(auth, trimmed);
       setMessage("Password reset email sent.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to send password reset email.");
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Failed to send password reset email."));
     } finally {
       setLoading(false);
     }
