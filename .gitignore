@@ -47,6 +47,10 @@ dist/
 **/public/**/*.dart.js
 **/public/**/main.dart.js
 
+# ✅ Allow the Vercel-hosted Flutter Web dashboard entrypoint bundle
+# (otherwise /dashboard/main.dart.js is missing in production and the dashboard won't boot).
+!website/public/dashboard/main.dart.js
+
 # Environment variables
 .env
 .env.local
