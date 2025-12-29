@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'video_viewer_page.dart';
 import 'package:love_to_learn_sign/history_page.dart';
 import 'widgets/custom_search_bar.dart';
@@ -369,7 +370,7 @@ class _DictionaryPageState extends State<DictionaryPage> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4.0),
                           child: StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').snapshots(),
+                            stream: TenantDb.concepts(FirebaseFirestore.instance).snapshots(),
                             builder: (context, snapshot) {
                               if (!snapshot.hasData) {
                                 return const Center(child: CircularProgressIndicator());
@@ -594,8 +595,7 @@ class _DictionaryPageState extends State<DictionaryPage> {
                                     }
                                     
                                     return StreamBuilder<QuerySnapshot>(
-                                  stream: FirebaseFirestore.instance
-                                      .collection('bangla_dictionary_eng_bnsl')
+                                    stream: TenantDb.concepts(FirebaseFirestore.instance)
                                       .where('category_main', isEqualTo: _selectedCategory)
                                       .snapshots(),
                                   builder: (context, snapshot) {
@@ -774,7 +774,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
     setState(() => _isLoading = true);
     
     try {
-      Query query = FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl');
+      Query query = TenantDb.concepts(FirebaseFirestore.instance);
       
       // Apply category filter
       if (widget.selectedCategory.isNotEmpty && widget.selectedCategory != 'All') {
@@ -1198,7 +1198,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
       // Search mode: filter all words, sort/group by current sortBy/ascending
     return [
       StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').snapshots(),
+          stream: TenantDb.concepts(FirebaseFirestore.instance).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());

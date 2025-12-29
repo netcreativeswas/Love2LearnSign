@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'quiz_page.dart'; // Use unified quiz page
 import 'l10n/dynamic_l10n.dart';
 import 'l10n/dynamic_l10n.dart';
@@ -23,7 +24,7 @@ class QuizCategoryListPage extends StatelessWidget {
   });
 
   Future<Map<String, int>> fetchCategories() async {
-    final snapshot = await FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').get();
+    final snapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
     final Map<String, int> categoryCount = {};
 
     for (final doc in snapshot.docs) {

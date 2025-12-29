@@ -1,3 +1,4 @@
+// ignore_for_file: unused_import, unnecessary_import, unused_field, unused_element, unused_local_variable
 // Only import dart:io if not on web, for Platform checks and File usage
 import 'package:flutter/foundation.dart' show kIsWeb;
 // ignore: avoid_web_libraries_in_flutter
@@ -11,6 +12,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:overlay_support/overlay_support.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/tenant_storage_paths.dart';
 import 'style.dart';
 
 
@@ -144,9 +147,9 @@ class _AddWordPageState extends State<AddWordPage> {
   final GlobalKey _singleBlockKey = GlobalKey();
   final GlobalKey _variantsStartKey = GlobalKey();
   final GlobalKey _categoryBlockKey = GlobalKey();
-  // Single bucket (canonical): firebasestorage.app
-  static const String _bucket = 'love-to-learn-sign.firebasestorage.app';
-  Reference _storageRoot() => FirebaseStorage.instanceFor(bucket: _bucket).ref();
+  // Use the default Storage bucket configured by Firebase.initializeApp(...)
+  // (prevents hard-coding a legacy bucket and keeps multi-project setups working).
+  Reference _storageRoot() => FirebaseStorage.instance.ref();
   Future<String> _putBytes({
     required Uint8List bytes,
     required SettableMetadata metadata,
@@ -329,7 +332,7 @@ class _AddWordPageState extends State<AddWordPage> {
   Future<void> _testStorageUpload() async {
     try {
       await _ensureSignedIn();
-      final objectPath = 'bangla_sign_language/dictionary_eng_bnsl/test_probe.txt';
+      final objectPath = 'tenants/${TenantDb.defaultTenantId}/test_probe.txt';
       final meta = SettableMetadata(contentType: 'text/plain');
       final url = await _putString(
         data: 'hello',
@@ -578,7 +581,7 @@ class _AddWordPageState extends State<AddWordPage> {
   }
 
   // Batch upload all selected files and return URLs
-  Future<Map<String, dynamic>> _uploadAllSelectedFiles() async {
+  Future<Map<String, dynamic>> _uploadAllSelectedFiles({required String conceptId}) async {
     final Map<String, dynamic> uploadedUrls = {
       'videoUrl': '',
       'videoUrlSD': '',
@@ -599,21 +602,21 @@ class _AddWordPageState extends State<AddWordPage> {
     if (_selectedVideo != null) {
       uploadedUrls['videoUrl'] = await _uploadFileAndGetUrl(
         _selectedVideo!,
-        storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos',
+        storageDir: TenantStoragePaths.videosDir(conceptId: conceptId),
       );
     }
 
     if (_selectedVideoSD != null) {
       uploadedUrls['videoUrlSD'] = await _uploadFileAndGetUrl(
         _selectedVideoSD!,
-        storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_sd',
+        storageDir: TenantStoragePaths.videosSdDir(conceptId: conceptId),
       );
     }
 
     if (_selectedVideoHD != null) {
       uploadedUrls['videoUrlHD'] = await _uploadFileAndGetUrl(
         _selectedVideoHD!,
-        storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_hd',
+        storageDir: TenantStoragePaths.videosHdDir(conceptId: conceptId),
       );
     }
 
@@ -621,14 +624,14 @@ class _AddWordPageState extends State<AddWordPage> {
     if (_selectedVideoThumbnail != null) {
       uploadedUrls['videoThumbnail'] = await _uploadImageFile(
         _selectedVideoThumbnail!,
-        storageDir: 'bangla_sign_language/dictionary_eng_bnsl/thumbnails',
+        storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
       );
     }
 
     if (_selectedVideoThumbnailSmall != null) {
       uploadedUrls['videoThumbnailSmall'] = await _uploadImageFile(
         _selectedVideoThumbnailSmall!,
-        storageDir: 'bangla_sign_language/dictionary_eng_bnsl/thumbnails',
+        storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
       );
     }
 
@@ -636,7 +639,7 @@ class _AddWordPageState extends State<AddWordPage> {
     if (_selectedimageFlashcard != null) {
       uploadedUrls['imageFlashcard'] = await _uploadImageFile(
         _selectedimageFlashcard!,
-        storageDir: 'bangla_sign_language/dictionary_eng_bnsl/flashcards',
+        storageDir: TenantStoragePaths.flashcardsDir(conceptId: conceptId),
       );
     }
 
@@ -646,7 +649,7 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantVideos[i] != null) {
         final url = await _uploadFileAndGetUrl(
           _selectedVariantVideos[i]!,
-          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos',
+          storageDir: TenantStoragePaths.videosDir(conceptId: conceptId),
         );
         uploadedUrls['variantVideos'].add(url);
       } else {
@@ -656,7 +659,7 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantVideosSD[i] != null) {
         final url = await _uploadFileAndGetUrl(
           _selectedVariantVideosSD[i]!,
-          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_sd',
+          storageDir: TenantStoragePaths.videosSdDir(conceptId: conceptId),
         );
         uploadedUrls['variantVideosSD'].add(url);
       } else {
@@ -666,7 +669,7 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantVideosHD[i] != null) {
         final url = await _uploadFileAndGetUrl(
           _selectedVariantVideosHD[i]!,
-          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_hd',
+          storageDir: TenantStoragePaths.videosHdDir(conceptId: conceptId),
         );
         uploadedUrls['variantVideosHD'].add(url);
       } else {
@@ -677,7 +680,7 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantThumbnails[i] != null) {
         final url = await _uploadImageFile(
           _selectedVariantThumbnails[i]!,
-          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/thumbnails',
+          storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
         );
         uploadedUrls['variantThumbnails'].add(url);
       } else {
@@ -687,7 +690,7 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantThumbnailsSmall[i] != null) {
         final url = await _uploadImageFile(
           _selectedVariantThumbnailsSmall[i]!,
-          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/thumbnails',
+          storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
         );
         uploadedUrls['variantThumbnailsSmall'].add(url);
       } else {
@@ -723,18 +726,25 @@ class _AddWordPageState extends State<AddWordPage> {
   Future<void> _saveWord() async {
     setState(() => _isLoading = true);
 
+    final english = _englishController.text.trim();
+    final bengali = _bengaliController.text.trim();
+
+    final conceptId = english.isEmpty
+        ? 'concept-${DateTime.now().millisecondsSinceEpoch}'
+        : english.replaceAll(' ', '_').toLowerCase();
+
     // Upload all selected files first
     Map<String, dynamic> uploadedUrls;
     try {
-      uploadedUrls = await _uploadAllSelectedFiles();
+      uploadedUrls = await _uploadAllSelectedFiles(conceptId: conceptId);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
       setState(() => _isLoading = false);
       return;
     }
 
-    final english = _englishController.text.trim();
-    final bengali = _bengaliController.text.trim();
+    final tenantId = TenantDb.defaultTenantId;
+    final signLangId = TenantDb.defaultSignLangId;
     // For backward compatibility, expose first selected as legacy fields
     final categoryMain = _selectedCategories.isNotEmpty ? (_selectedCategories.first['category'] ?? '').trim() : '';
     final categorySub = _selectedCategories.isNotEmpty ? (_selectedCategories.first['subcategory'] ?? '').trim() : '';
@@ -818,15 +828,25 @@ class _AddWordPageState extends State<AddWordPage> {
       }
     }
 
-    final docId = english.trim().isEmpty
-        ? 'word-${DateTime.now().millisecondsSinceEpoch}'
-        : '${english.replaceAll(' ', '_').toLowerCase()}-bnsl';
+    final docId = conceptId;
 
     // Print what will be saved
     // debug payload summary
 
     try {
       final Map<String, dynamic> payload = {
+        // Multi-tenant core
+        'tenantId': tenantId,
+        'conceptId': docId,
+        'status': 'published',
+        'visibility': 'public',
+        'signLangIds': [signLangId],
+        'defaultSignLangId': signLangId,
+        // Labels (future-proof for UI multi-language)
+        'labels': {
+          'en': {'text': english, 'lower': english.toLowerCase()},
+          'bn': {'text': bengali, 'lower': bengali.toLowerCase()},
+        },
         'english': english,
         'english_lower': english.toLowerCase(),
         'bengali': bengali,
@@ -844,8 +864,28 @@ class _AddWordPageState extends State<AddWordPage> {
         'englishWordAntonyms': englishWordAntonyms,
         'bengaliWordAntonyms': bengaliWordAntonyms,
         'addedAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       };
-      await FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').doc(docId).set(payload);
+      await TenantDb.conceptDoc(FirebaseFirestore.instance, docId, tenantId: tenantId).set(payload);
+      await TenantDb.signDoc(
+        FirebaseFirestore.instance,
+        tenantId: tenantId,
+        conceptId: docId,
+        signLangId: signLangId,
+      ).set(
+        {
+          'tenantId': tenantId,
+          'conceptId': docId,
+          'signLangId': signLangId,
+          'variants': variants,
+          'imageFlashcard': imageFlashcardUrl,
+          'status': 'published',
+          'updatedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     } on FirebaseException catch (e) {
       // debug firestore error
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Save failed: ${e.code}')));

@@ -127,7 +127,7 @@ class _LoginPageState extends State<LoginPage> {
       await FirebaseAuth.instance.sendPasswordResetEmail(
         email: email,
         actionCodeSettings: ActionCodeSettings(
-          url: 'https://love-to-learn-sign.web.app',
+          url: 'https://love2learnsign.com',
           handleCodeInApp: true,
         ),
       );

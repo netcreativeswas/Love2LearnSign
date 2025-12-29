@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'services/favorites_repository.dart';
@@ -78,7 +79,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
               builder: (context, repo, _) {
                 final ids = repo.value;
                 return StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').snapshots(),
+                  stream: TenantDb.concepts(FirebaseFirestore.instance).snapshots(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 

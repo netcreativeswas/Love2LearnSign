@@ -342,7 +342,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String shareText(Object score, Object total) {
-    return 'I scored $score/$total in the sign language quiz! 🤟 Can you beat me? Download Love to Learn Sign and learn Bangla Sign Language: https://love-to-learn-sign.web.app/download';
+    return 'I scored $score/$total in the sign language quiz! Can you beat me? Download Love to Learn Sign: https://love2learnsign.com/download';
   }
 
   @override

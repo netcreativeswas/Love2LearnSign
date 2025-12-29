@@ -5,10 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 class WordsMediaService {
-  // Canonical bucket used elsewhere in the project (see AddWordPage).
-  static const String bucket = 'love-to-learn-sign.firebasestorage.app';
-
-  Reference _root() => FirebaseStorage.instanceFor(bucket: bucket).ref();
+  // Use the default Storage bucket configured by Firebase.initializeApp(...)
+  Reference _root() => FirebaseStorage.instance.ref();
 
   void _ensureAuthenticated() {
     if (FirebaseAuth.instance.currentUser == null) {

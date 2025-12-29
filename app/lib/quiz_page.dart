@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lottie/lottie.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:video_player/video_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/cache_service.dart';
@@ -145,8 +146,7 @@ class _QuizPageState extends State<QuizPage> {
     }
 
     final String cursor = _randomCursor();
-    final col =
-        FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl');
+    final col = TenantDb.concepts(FirebaseFirestore.instance);
 
     final first = await col
         .orderBy(FieldPath.documentId)
@@ -173,8 +173,7 @@ class _QuizPageState extends State<QuizPage> {
   Future<void> _warmupDistractorPool() async {
     try {
       if (_allDocsForDistractors.isNotEmpty) return;
-      final snapshot = await FirebaseFirestore.instance
-          .collection('bangla_dictionary_eng_bnsl')
+      final snapshot = await TenantDb.concepts(FirebaseFirestore.instance)
           .limit(500)
           .get();
       final docs = snapshot.docs.where((d) {
@@ -356,8 +355,7 @@ class _QuizPageState extends State<QuizPage> {
         unawaited(_warmupDistractorPool());
       } else {
         // Category mode: Fetch documents for the specific category
-        Query<Map<String, dynamic>> q = FirebaseFirestore.instance
-            .collection('bangla_dictionary_eng_bnsl')
+        Query<Map<String, dynamic>> q = TenantDb.concepts(FirebaseFirestore.instance)
             .where('category_main', isEqualTo: widget.category);
 
         final catSnapshot = await q.get();

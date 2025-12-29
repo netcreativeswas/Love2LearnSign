@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
@@ -479,7 +480,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           );
                         }
                         return StreamBuilder(
-                          stream: FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl')
+                          stream: TenantDb.concepts(FirebaseFirestore.instance)
                             .where(FieldPath.documentId, whereIn: ids.take(10).toList())
                             .snapshots(),
                           builder: (context, snapshot) {
@@ -741,8 +742,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   SizedBox(
                     height: 125,
                     child: StreamBuilder(
-                      stream: FirebaseFirestore.instance
-                          .collection('bangla_dictionary_eng_bnsl')
+                      stream: TenantDb.concepts(FirebaseFirestore.instance)
                           .orderBy('addedAt', descending: true)
                           .limit(15)
                           .snapshots(),

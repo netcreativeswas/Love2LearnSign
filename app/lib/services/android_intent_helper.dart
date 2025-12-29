@@ -8,7 +8,7 @@ class AndroidIntentHelper {
     if (!kIsWeb && Platform.isAndroid) {
       final intent = AndroidIntent(
         action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
-        data: 'package:com.lovetolearnsign.app',
+        data: 'package:com.love2learnsign.app',
       );
       await intent.launch();
     }

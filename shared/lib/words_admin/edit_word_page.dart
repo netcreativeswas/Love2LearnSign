@@ -11,6 +11,8 @@ import 'package:overlay_support/overlay_support.dart';
 
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
 import '../add_word/style.dart';
+import '../tenancy/tenant_db.dart';
+import '../tenancy/tenant_storage_paths.dart';
 import 'words_repository.dart';
 
 class EditWordPage extends StatefulWidget {
@@ -151,8 +153,8 @@ class _EditWordPageState extends State<EditWordPage> {
   final GlobalKey _categoryBlockKey = GlobalKey();
 
   // Storage bucket (canonical)
-  static const String _bucket = 'love-to-learn-sign.firebasestorage.app';
-  Reference _storageRoot() => FirebaseStorage.instanceFor(bucket: _bucket).ref();
+  // Use the default Storage bucket configured by Firebase.initializeApp(...)
+  Reference _storageRoot() => FirebaseStorage.instance.ref();
 
   final WordsRepository _repo = WordsRepository();
 
@@ -354,8 +356,11 @@ class _EditWordPageState extends State<EditWordPage> {
   Future<void> _loadExistingWord() async {
     setState(() => _isLoadingDoc = true);
     try {
-      final snap =
-          await FirebaseFirestore.instance.collection(WordsRepository.collectionPath).doc(widget.wordId).get();
+      final snap = await TenantDb.conceptDoc(
+        FirebaseFirestore.instance,
+        widget.wordId,
+        tenantId: TenantDb.defaultTenantId,
+      ).get();
       final data = snap.data() ?? <String, dynamic>{};
 
       _englishController.text = (data['english'] ?? '').toString();
@@ -484,30 +489,31 @@ class _EditWordPageState extends State<EditWordPage> {
 
   Future<Map<String, dynamic>> _uploadAllSelectedFiles() async {
     final uploadedUrls = <String, dynamic>{};
+    final conceptId = widget.wordId;
 
     // Main files
     if (_selectedVideo != null) {
       uploadedUrls['videoUrl'] =
-          await _uploadFileToStorage(_selectedVideo!, storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos');
+          await _uploadFileToStorage(_selectedVideo!, storageDir: TenantStoragePaths.videosDir(conceptId: conceptId));
     }
     if (_selectedVideoSD != null) {
       uploadedUrls['videoUrlSD'] =
-          await _uploadFileToStorage(_selectedVideoSD!, storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_sd');
+          await _uploadFileToStorage(_selectedVideoSD!, storageDir: TenantStoragePaths.videosSdDir(conceptId: conceptId));
     }
     if (_selectedVideoHD != null) {
       uploadedUrls['videoUrlHD'] =
-          await _uploadFileToStorage(_selectedVideoHD!, storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_hd');
+          await _uploadFileToStorage(_selectedVideoHD!, storageDir: TenantStoragePaths.videosHdDir(conceptId: conceptId));
     }
     if (_selectedVideoThumbnailSmall != null) {
       uploadedUrls['videoThumbnailSmall'] = await _uploadFileToStorage(
         _selectedVideoThumbnailSmall!,
-        storageDir: 'bangla_sign_language/dictionary_eng_bnsl/thumbnails',
+        storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
       );
     }
     if (_selectedimageFlashcard != null) {
       uploadedUrls['imageFlashcard'] = await _uploadFileToStorage(
         _selectedimageFlashcard!,
-        storageDir: 'bangla_sign_language/dictionary_eng_bnsl/flashcards',
+        storageDir: TenantStoragePaths.flashcardsDir(conceptId: conceptId),
       );
     }
 
@@ -521,35 +527,35 @@ class _EditWordPageState extends State<EditWordPage> {
       for (int i = 0; i < _variantFields.length; i++) {
         if (_selectedVariantVideos[i] != null) {
           variantVideos.add(await _uploadFileToStorage(_selectedVariantVideos[i]!,
-              storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos'));
+              storageDir: TenantStoragePaths.videosDir(conceptId: conceptId)));
         } else {
           variantVideos.add('');
         }
 
         if (_selectedVariantVideosSD[i] != null) {
           variantVideosSD.add(await _uploadFileToStorage(_selectedVariantVideosSD[i]!,
-              storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_sd'));
+              storageDir: TenantStoragePaths.videosSdDir(conceptId: conceptId)));
         } else {
           variantVideosSD.add('');
         }
 
         if (_selectedVariantVideosHD[i] != null) {
           variantVideosHD.add(await _uploadFileToStorage(_selectedVariantVideosHD[i]!,
-              storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_hd'));
+              storageDir: TenantStoragePaths.videosHdDir(conceptId: conceptId)));
         } else {
           variantVideosHD.add('');
         }
 
         if (_selectedVariantThumbnails[i] != null) {
           variantThumbnails.add(await _uploadFileToStorage(_selectedVariantThumbnails[i]!,
-              storageDir: 'bangla_sign_language/dictionary_eng_bnsl/thumbnails'));
+              storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId)));
         } else {
           variantThumbnails.add('');
         }
 
         if (_selectedVariantThumbnailsSmall[i] != null) {
           variantThumbnailsSmall.add(await _uploadFileToStorage(_selectedVariantThumbnailsSmall[i]!,
-              storageDir: 'bangla_sign_language/dictionary_eng_bnsl/thumbnails'));
+              storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId)));
         } else {
           variantThumbnailsSmall.add('');
         }
@@ -568,10 +574,11 @@ class _EditWordPageState extends State<EditWordPage> {
   Future<void> _saveAll() async {
     setState(() => _isLoading = true);
     try {
-      final beforeSnap = await FirebaseFirestore.instance
-          .collection(WordsRepository.collectionPath)
-          .doc(widget.wordId)
-          .get();
+      final beforeSnap = await TenantDb.conceptDoc(
+        FirebaseFirestore.instance,
+        widget.wordId,
+        tenantId: TenantDb.defaultTenantId,
+      ).get();
       final beforeData = beforeSnap.data() ?? <String, dynamic>{};
       final oldUrlsAll = _collectUrlsFromData(beforeData);
 
@@ -658,6 +665,14 @@ class _EditWordPageState extends State<EditWordPage> {
       }
 
       final payload = <String, dynamic>{
+        'tenantId': TenantDb.defaultTenantId,
+        'conceptId': widget.wordId,
+        'signLangIds': [TenantDb.defaultSignLangId],
+        'defaultSignLangId': TenantDb.defaultSignLangId,
+        'labels': {
+          'en': {'text': english, 'lower': english.toLowerCase()},
+          'bn': {'text': bengali, 'lower': bengali.toLowerCase()},
+        },
         'english': english,
         'english_lower': english.toLowerCase(),
         'bengali': bengali,
@@ -673,12 +688,32 @@ class _EditWordPageState extends State<EditWordPage> {
         'bengaliWordSynonyms': bengaliWordSynonyms,
         'englishWordAntonyms': englishWordAntonyms,
         'bengaliWordAntonyms': bengaliWordAntonyms,
+        'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      await FirebaseFirestore.instance
-          .collection(WordsRepository.collectionPath)
-          .doc(widget.wordId)
-          .set(payload, SetOptions(merge: true));
+      await TenantDb.conceptDoc(
+        FirebaseFirestore.instance,
+        widget.wordId,
+        tenantId: TenantDb.defaultTenantId,
+      ).set(payload, SetOptions(merge: true));
+
+      await TenantDb.signDoc(
+        FirebaseFirestore.instance,
+        tenantId: TenantDb.defaultTenantId,
+        conceptId: widget.wordId,
+        signLangId: TenantDb.defaultSignLangId,
+      ).set(
+        {
+          'tenantId': TenantDb.defaultTenantId,
+          'conceptId': widget.wordId,
+          'signLangId': TenantDb.defaultSignLangId,
+          'variants': variants,
+          'imageFlashcard': imageFlashcardUrl,
+          'status': 'published',
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
 
       // Update controllers to reflect newly uploaded URLs immediately
       if (uploadedUrls['videoUrl'] is String) _videoUrlController.text = uploadedUrls['videoUrl'] as String;
@@ -690,10 +725,11 @@ class _EditWordPageState extends State<EditWordPage> {
       if (uploadedUrls['imageFlashcard'] is String) _imageFlashcardUrlController.text = uploadedUrls['imageFlashcard'] as String;
 
       // Delete replaced old media (server-side verification)
-      final afterSnap = await FirebaseFirestore.instance
-          .collection(WordsRepository.collectionPath)
-          .doc(widget.wordId)
-          .get();
+      final afterSnap = await TenantDb.conceptDoc(
+        FirebaseFirestore.instance,
+        widget.wordId,
+        tenantId: TenantDb.defaultTenantId,
+      ).get();
       final afterData = afterSnap.data() ?? <String, dynamic>{};
       final afterUrls = _collectUrlsFromData(afterData).toSet();
       final candidates = oldUrlsAll.where((u) => !afterUrls.contains(u)).toSet().toList();

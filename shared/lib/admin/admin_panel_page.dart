@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -352,51 +353,17 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
       debugPrint(
           '🔍 _setCustomClaimsDirectly: Setting Custom Claims for user $userId with roles: $roles');
 
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final user = authProvider.user;
-      if (user == null) {
-        debugPrint('❌ _setCustomClaimsDirectly: User is null');
-        return;
-      }
-
-      final token = await user.getIdToken();
-      if (token == null) {
-        debugPrint('❌ _setCustomClaimsDirectly: Token is null');
-        return;
-      }
-
-      // Call the Cloud Function (Firebase Callable Functions format)
-      final url =
-          'https://us-central1-love-to-learn-sign.cloudfunctions.net/setCustomClaims';
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'data': {
-            'userId': userId,
-            'roles': roles,
-          },
-        }),
-      );
-
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('setCustomClaims');
+      final result = await callable.call({
+        'userId': userId,
+        'roles': roles,
+      });
+      debugPrint('✅ _setCustomClaimsDirectly: Custom Claims set successfully');
+      debugPrint('🔍 _setCustomClaimsDirectly: Result: ${result.data}');
+    } on FirebaseFunctionsException catch (e) {
       debugPrint(
-          '🔍 _setCustomClaimsDirectly: Response status: ${response.statusCode}');
-      debugPrint(
-          '🔍 _setCustomClaimsDirectly: Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        debugPrint(
-            '✅ _setCustomClaimsDirectly: Custom Claims set successfully');
-        final result = jsonDecode(response.body);
-        debugPrint('🔍 _setCustomClaimsDirectly: Result: $result');
-      } else {
-        debugPrint(
-            '❌ _setCustomClaimsDirectly: Failed with status ${response.statusCode}');
-        debugPrint('❌ _setCustomClaimsDirectly: Response: ${response.body}');
-      }
+          '❌ _setCustomClaimsDirectly: FirebaseFunctionsException: ${e.code} ${e.message}');
     } catch (e) {
       debugPrint('❌ _setCustomClaimsDirectly: Error: $e');
       // Don't throw - continue with operation even if Custom Claims setting fails

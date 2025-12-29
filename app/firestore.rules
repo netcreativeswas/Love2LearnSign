@@ -8,6 +8,49 @@ service cloud.firestore {
              request.auth.token.roles is list && 
              'admin' in request.auth.token.roles;
     }
+
+    function isAdminOrEditor() {
+      return request.auth != null &&
+             request.auth.token.roles is list &&
+             (('admin' in request.auth.token.roles) || ('editor' in request.auth.token.roles));
+    }
+
+    function isPlatformAdmin() {
+      return request.auth != null &&
+             // ✅ Canonical path (single source of truth):
+             // /platform/platform/members/{uid}
+             // (collection 'platform' -> doc 'platform' -> subcollection 'members' -> doc {uid})
+             exists(/databases/$(database)/documents/platform/platform/members/$(request.auth.uid));
+    }
+
+    function tenantDoc(tenantId) {
+      return get(/databases/$(database)/documents/tenants/$(tenantId));
+    }
+
+    function isTenantPublic(tenantId) {
+      return tenantDoc(tenantId).exists &&
+             (tenantDoc(tenantId).data.visibility == 'public');
+    }
+
+    function tenantMemberDoc(tenantId, uid) {
+      return get(/databases/$(database)/documents/tenants/$(tenantId)/members/$(uid));
+    }
+
+    function isTenantMember(tenantId) {
+      return request.auth != null &&
+             tenantMemberDoc(tenantId, request.auth.uid).exists;
+    }
+
+    function tenantRole(tenantId) {
+      return tenantMemberDoc(tenantId, request.auth.uid).data.role;
+    }
+
+    function isTenantEditorOrAbove(tenantId) {
+      // Accept global admin/editor (bootstrap-friendly), or per-tenant roles.
+      return isAdminOrEditor() ||
+             (isTenantMember(tenantId) &&
+              (tenantRole(tenantId) in ['owner', 'admin', 'editor']));
+    }
     
     function isOwnDocument() {
       return request.auth != null && 
@@ -65,6 +108,38 @@ service cloud.firestore {
     match /words/{wordId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    // --- Multi-tenant Phase-2 schema (public read per tenant) ---
+    match /apps/{appId} {
+      allow read: if true; // used by clients to discover mode/config
+      allow write: if isPlatformAdmin();
+    }
+
+    match /platform/{doc=**} {
+      allow read, write: if isPlatformAdmin();
+    }
+
+    match /tenants/{tenantId} {
+      allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isPlatformAdmin();
+      allow write: if isPlatformAdmin(); // tenant creation/plan/status controlled by platform
+
+      match /members/{uid} {
+        allow read: if isPlatformAdmin() || (request.auth != null && request.auth.uid == uid) || isTenantEditorOrAbove(tenantId);
+        allow write: if isPlatformAdmin() || isTenantEditorOrAbove(tenantId);
+      }
+
+      match /concepts/{conceptId} {
+        allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isPlatformAdmin();
+        allow create, update: if isTenantEditorOrAbove(tenantId);
+        allow delete: if false; // destructive deletes via Cloud Functions/Admin SDK
+
+        match /signs/{signLangId} {
+          allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isPlatformAdmin();
+          allow create, update: if isTenantEditorOrAbove(tenantId);
+          allow delete: if false;
+        }
+      }
     }
     
     // Dictionary collection: public read, editor/admin write only

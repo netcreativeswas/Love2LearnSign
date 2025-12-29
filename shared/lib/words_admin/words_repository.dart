@@ -1,15 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
+import '../tenancy/tenant_db.dart';
+
 class WordsRepository {
-  static const String collectionPath = 'bangla_dictionary_eng_bnsl';
   static const String functionsRegion = 'us-central1';
 
   final FirebaseFirestore _db;
+  final String tenantId;
+  final String signLangId;
 
-  WordsRepository({FirebaseFirestore? firestore}) : _db = firestore ?? FirebaseFirestore.instance;
+  WordsRepository({
+    FirebaseFirestore? firestore,
+    this.tenantId = TenantDb.defaultTenantId,
+    this.signLangId = TenantDb.defaultSignLangId,
+  }) : _db = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> get _col => _db.collection(collectionPath);
+  CollectionReference<Map<String, dynamic>> get _col => TenantDb.concepts(_db, tenantId: tenantId);
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> streamWord(String wordId) {
     return _col.doc(wordId).snapshots();
@@ -113,14 +120,21 @@ class WordsRepository {
     required String wordId,
   }) async {
     final fn = FirebaseFunctions.instanceFor(region: functionsRegion).httpsCallable('deleteDictionaryEntry');
-    final res = await fn.call(<String, dynamic>{'wordId': wordId});
+    final res = await fn.call(<String, dynamic>{
+      'tenantId': tenantId,
+      'conceptId': wordId,
+      'signLangId': signLangId,
+    });
     final data = res.data;
     return (data is Map) ? Map<String, dynamic>.from(data) : <String, dynamic>{'raw': data};
   }
 
   Future<Map<String, dynamic>> backfillWordLowerFields({int limit = 500, String? startAfterDocId}) async {
     final fn = FirebaseFunctions.instanceFor(region: functionsRegion).httpsCallable('backfillWordLowerFields');
-    final payload = <String, dynamic>{'limit': limit};
+    final payload = <String, dynamic>{
+      'tenantId': tenantId,
+      'limit': limit,
+    };
     if (startAfterDocId != null && startAfterDocId.trim().isNotEmpty) {
       payload['startAfterDocId'] = startAfterDocId.trim();
     }
@@ -134,7 +148,12 @@ class WordsRepository {
     required List<String> oldUrls,
   }) async {
     final fn = FirebaseFunctions.instanceFor(region: functionsRegion).httpsCallable('deleteReplacedWordMedia');
-    final res = await fn.call(<String, dynamic>{'wordId': wordId, 'oldUrls': oldUrls});
+    final res = await fn.call(<String, dynamic>{
+      'tenantId': tenantId,
+      'conceptId': wordId,
+      'signLangId': signLangId,
+      'oldUrls': oldUrls,
+    });
     final data = res.data;
     return (data is Map) ? Map<String, dynamic>.from(data) : <String, dynamic>{'raw': data};
   }

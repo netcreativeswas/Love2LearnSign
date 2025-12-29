@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.lovetolearnsign.app">
+    package="com.love2learnsign.app">
     <uses-permission
         android:name="android.permission.INTERNET"/>
     <uses-permission
@@ -7,6 +7,9 @@
     <!-- Needed so scheduled notifications can be restored after reboot (BootReceiver). -->
     <uses-permission
         android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Required for AdMob to access Advertising ID on Android 13+ -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"/>
     
     <queries>
         <package android:name="com.whatsapp" />
@@ -65,11 +68,11 @@
                 <!-- HTTPS App Link fallback -->
                 <data
                     android:scheme="https"
-                    android:host="love-to-learn-sign.web.app"
+                    android:host="love2learnsign.com"
                     android:pathPrefix="/word"/>
                 <data
                     android:scheme="https"
-                    android:host="love-to-learn-sign.web.app"
+                    android:host="love2learnsign.com"
                     android:pathPattern="/word/.*"/>
             </intent-filter>
         </activity>

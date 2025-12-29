@@ -1,6 +1,11 @@
 [
   {
-    "origin": ["https://love-to-learn-sign.web.app"],
+    "origin": [
+      "https://love2learnsign.com",
+      "https://www.love2learnsign.com",
+      "https://love2learnsign-1914ce.web.app",
+      "https://love2learnsign-1914ce.firebaseapp.com"
+    ],
     "method": ["GET", "POST", "PUT", "OPTIONS"],
     "maxAgeSeconds": 3600,
     "responseHeader": ["Content-Type", "Content-Length", "Authorization"]

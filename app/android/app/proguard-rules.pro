@@ -20,7 +20,7 @@
 -dontwarn com.google.firebase.installations.**
 
 # Prevent obfuscation of model classes (adjust the package name accordingly if needed)
--keep class com.lovetolearnsign.app.model.** { *; }
+-keep class com.love2learnsign.app.model.** { *; }
 
 # Keep all annotations
 -keepattributes *Annotation*

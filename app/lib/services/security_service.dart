@@ -9,8 +9,8 @@ class SecurityService {
   
   // Get Cloud Functions base URL
   String get _baseUrl {
-    // Replace with your Firebase project ID
-    return 'https://us-central1-love-to-learn-sign.cloudfunctions.net';
+    // Firebase Functions base URL (new project)
+    return 'https://us-central1-love2learnsign-1914ce.cloudfunctions.net';
   }
   
   // Get device ID for mobile CAPTCHA verification

@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 // import 'package:flutter_native_timezone_updated_gradle/flutter_native_timezone_updated_gradle.dart';
 
+import 'firebase_options.dart';
 import 'home_page.dart';
 import 'package:overlay_support/overlay_support.dart';
 import 'password_reset_page.dart';
@@ -24,6 +25,7 @@ import 'package:android_intent_plus/flag.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:app_links/app_links.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 
 import 'url_strategy_stub.dart'
     if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart';
@@ -159,7 +161,9 @@ void main() async {
     'timestamp': DateTime.now().millisecondsSinceEpoch,
   });
   // #endregion
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   // #region agent log
   AgentLogger.log({
@@ -1163,8 +1167,7 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
   // 1) New words summary at 12 PM (only if new words in last 24h)
   if (prefs.getBool('notifyNewWords') ?? true) {
     final since = DateTime.now().subtract(Duration(hours: 24));
-    final newWordsSnapshot = await FirebaseFirestore.instance
-        .collection('bangla_dictionary_eng_bnsl')
+    final newWordsSnapshot = await TenantDb.concepts(FirebaseFirestore.instance)
         .where('addedAt', isGreaterThan: Timestamp.fromDate(since))
         .get();
 
@@ -1212,17 +1215,14 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
         ? nextLearnTime.add(Duration(days: 1))
         : nextLearnTime;
     // Build query based on category
-    Query query =
-        FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl');
+    Query query = TenantDb.concepts(FirebaseFirestore.instance);
     var snapshot = await query.get();
     if (category != 'Random') {
       query = query.where('category_main', isEqualTo: category);
       snapshot = await query.get();
       if (snapshot.docs.isEmpty) {
         // If no docs in this category, fallback to all words
-        final allSnapshot = await FirebaseFirestore.instance
-            .collection('bangla_dictionary_eng_bnsl')
-            .get();
+        final allSnapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
         if (allSnapshot.docs.isEmpty) return;
         snapshot = allSnapshot;
       }
@@ -1269,8 +1269,7 @@ Future<void> sendNewWordsNotification(
   final isBengali = locale.languageCode == 'bn';
 
   final since = DateTime.now().subtract(Duration(days: 1));
-  final snapshot = await FirebaseFirestore.instance
-      .collection('bangla_dictionary_eng_bnsl')
+  final snapshot = await TenantDb.concepts(FirebaseFirestore.instance)
       .where('addedAt', isGreaterThan: Timestamp.fromDate(since))
       .get();
 
@@ -1305,9 +1304,7 @@ Future<void> sendNewWordsNotification(
 
 Future<void> sendLearnWordNotification(
     FlutterLocalNotificationsPlugin plugin) async {
-  final snapshot = await FirebaseFirestore.instance
-      .collection('bangla_dictionary_eng_bnsl')
-      .get();
+  final snapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
   if (snapshot.docs.isEmpty) return;
   final docs = snapshot.docs..shuffle();
   final pick = docs.first;

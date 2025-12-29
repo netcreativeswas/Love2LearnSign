@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:video_player/video_player.dart';
 import 'services/cache_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -87,8 +88,7 @@ class _QuizCategoryPageState extends State<QuizCategoryPage> {
 
     // If first question, fetch and shuffle docs, else use already fetched docs
     if (!_isReviewPass && (_currentQuestion == 1 || _quizDocuments.isEmpty)) {
-      Query<Map<String, dynamic>> q = FirebaseFirestore.instance
-          .collection('bangla_dictionary_eng_bnsl')
+      Query<Map<String, dynamic>> q = TenantDb.concepts(FirebaseFirestore.instance)
           .where('category_main', isEqualTo: widget.category);
 
       // Note: useMainCategoriesOnly signifie qu'on ignore totalement category_sub;

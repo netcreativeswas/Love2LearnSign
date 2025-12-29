@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:flutter/material.dart';
 // import 'package:flutter/scheduler.dart';
 // import 'package:flutter/widgets.dart';
@@ -134,7 +135,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _fetchCategories() async {
-    final snapshot = await FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').get();
+    final snapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
     final Set<String> catSet = {};
     for (final d in snapshot.docs) {
       final data = d.data();
@@ -1006,11 +1007,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 8),
                 GestureDetector(
                   onTap: () async {
-                    final uri = Uri.parse('https://netcreative-swas.net/privacy-policy');
+                    final uri = Uri.parse('https://love2learnsign.com/privacy');
                     await launchUrl(uri, mode: LaunchMode.externalApplication);
                   },
                   child: Text(
-                    'https://netcreative-swas.net/privacy-policy',
+                    'https://love2learnsign.com/privacy',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.secondary,
                       decoration: TextDecoration.underline,

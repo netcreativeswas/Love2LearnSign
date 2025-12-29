@@ -719,7 +719,7 @@ abstract class AppLocalizations {
   /// No description provided for @shareText.
   ///
   /// In en, this message translates to:
-  /// **'I scored {score}/{total} in the sign language quiz! 🤟 Can you beat me? Download Love to Learn Sign and learn Bangla Sign Language: https://love-to-learn-sign.web.app/download'**
+  /// **'I scored {score}/{total} in the sign language quiz! Can you beat me? Download Love to Learn Sign: https://love2learnsign.com/download'**
   String shareText(Object score, Object total);
 
   /// No description provided for @loginSuccess.

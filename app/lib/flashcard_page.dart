@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:video_player/video_player.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'l10n/dynamic_l10n.dart';
@@ -570,8 +571,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
           final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs = [];
           for (int i = 0; i < explicitIds.length; i += 10) {
             final chunk = explicitIds.sublist(i, (i + 10 > explicitIds.length) ? explicitIds.length : i + 10);
-            final snap = await FirebaseFirestore.instance
-                .collection('bangla_dictionary_eng_bnsl')
+            final snap = await TenantDb.concepts(FirebaseFirestore.instance)
                 .where(FieldPath.documentId, whereIn: chunk)
                 .get();
             docs.addAll(snap.docs);
@@ -598,8 +598,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
           return;
         }
         final wordIds = wordsToReviewList.map((word) => word.wordId).toList();
-        final snapshot = await FirebaseFirestore.instance
-            .collection('bangla_dictionary_eng_bnsl')
+        final snapshot = await TenantDb.concepts(FirebaseFirestore.instance)
             .where(FieldPath.documentId, whereIn: wordIds)
             .get();
         // Keep stable order (as they came from the service)
@@ -610,8 +609,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         return;
       } else {
         // Cas normal : charger depuis Firestore selon la catégorie
-        Query<Map<String, dynamic>> q =
-            FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl');
+        Query<Map<String, dynamic>> q = TenantDb.concepts(FirebaseFirestore.instance);
 
         if (widget.contentChoice != 'random') {
           // Specific main category: include all docs whose category_main matches,

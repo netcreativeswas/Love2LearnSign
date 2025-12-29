@@ -72,7 +72,7 @@ class ShareService {
   /// Optional [english] and [bengali] will be included in the message if provided.
   static Future<void> shareVideo(String wordId,
       {String? english, String? bengali}) async {
-    final url = 'https://love-to-learn-sign.web.app/word/$wordId';
+    final url = 'https://love2learnsign.com/word/$wordId';
     final hasTitle = (english != null && english.trim().isNotEmpty) ||
         (bengali != null && bengali.trim().isNotEmpty);
     final title = [english, bengali]

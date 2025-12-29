@@ -111,7 +111,7 @@
   "selectAnswerFirst": "Select your answer first",
   "submit": "Submit",
   "next": "Next",
-  "shareText": "I scored {score}/{total} in the sign language quiz! 🤟 Can you beat me? Download Love to Learn Sign and learn Bangla Sign Language: https://love-to-learn-sign.web.app/download",
+  "shareText": "I scored {score}/{total} in the sign language quiz! Can you beat me? Download Love to Learn Sign: https://love2learnsign.com/download",
   "loginSuccess": "You have successfully logged in!",
   "loginTitle": "Sign In",
   "emailLabel": "Email",

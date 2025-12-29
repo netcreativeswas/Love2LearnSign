@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'quiz_settings.dart';
@@ -811,9 +812,7 @@ class _GameMasterPageState extends State<GameMasterPage>
   }
 
   Future<Map<String, int>> _fetchCategories() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('bangla_dictionary_eng_bnsl')
-        .get();
+    final snapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
     final Map<String, int> categoryCount = {};
 
     for (final doc in snapshot.docs) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'services/cache_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -49,7 +50,7 @@ class _CategoryPageState extends State<CategoryPage> {
         // Category grid sliver replaced with StreamBuilder
         SliverToBoxAdapter(
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').snapshots(),
+            stream: TenantDb.concepts(FirebaseFirestore.instance).snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
@@ -157,8 +158,7 @@ class _CategoryPageState extends State<CategoryPage> {
           );
         }
         return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('bangla_dictionary_eng_bnsl')
+          stream: TenantDb.concepts(FirebaseFirestore.instance)
               .where('category', isEqualTo: selectedCategory)
               .snapshots(),
           builder: (context, snapshot) {

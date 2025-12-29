@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:love_to_learn_sign/video_viewer_page.dart';
 import 'package:love_to_learn_sign/services/share_utils.dart';
 import 'package:flutter/material.dart';
@@ -147,8 +148,7 @@ class _ReviewSessionsRowState extends State<ReviewSessionsRow> {
                 chunks.add(allIds.sublist(i, (i + 10 > allIds.length) ? allIds.length : i + 10));
               }
               final snaps = await Future.wait(chunks.map((chunk) =>
-                  FirebaseFirestore.instance
-                      .collection('bangla_dictionary_eng_bnsl')
+                  TenantDb.concepts(FirebaseFirestore.instance)
                       .where(FieldPath.documentId, whereIn: chunk)
                       .get()));
               final docs = snaps.expand((s) => s.docs).toList();

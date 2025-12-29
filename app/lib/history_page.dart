@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/history_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'video_viewer_page.dart';
 
@@ -32,8 +33,7 @@ class _HistoryPageState extends State<HistoryPage> {
         return Stack(
           children: [
             FutureBuilder<QuerySnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('bangla_dictionary_eng_bnsl')
+              future: TenantDb.concepts(FirebaseFirestore.instance)
                   .where(FieldPath.documentId, whereIn: history)
                   .get(),
               builder: (context, snapshot) {

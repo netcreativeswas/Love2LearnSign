@@ -15,8 +15,8 @@ const db = getFirestore();
 const auth = getAuth();
 const storage = getStorage();
 
-const DEFAULT_STORAGE_BUCKET = "love-to-learn-sign.firebasestorage.app";
-const ANDROID_PACKAGE_NAME = "com.lovetolearnsign.app";
+const DEFAULT_STORAGE_BUCKET = "love2learnsign-1914ce.firebasestorage.app";
+const ANDROID_PACKAGE_NAME = "com.love2learnsign.app";
 
 /**
  * Normalize roles so premium state is consistent across Firestore + Custom Claims.
@@ -189,12 +189,16 @@ async function deleteDocumentRecursive(docRef) {
   await docRef.delete();
 }
 
-exports.notifyNewWord = onDocumentCreated("bangla_dictionary_eng_bnsl/{wordId}", async (event) => {
+exports.notifyNewWord = onDocumentCreated("tenants/{tenantId}/concepts/{conceptId}", async (event) => {
   const snapshot = event.data;
   if (!snapshot) {
     console.log("No data in snapshot.");
     return;
   }
+
+  const { tenantId, conceptId } = event.params || {};
+  // Only notify for the Love2Learn default tenant (avoid spamming in white-label tenants).
+  if (tenantId !== "l2l-bdsl") return;
 
   const newWord = snapshot.data();
 
@@ -596,7 +600,12 @@ exports.backfillWordLowerFields = onCall(
     const limitNum = typeof limitRaw === "number" ? limitRaw : Number(limitRaw);
     const limit = Number.isFinite(limitNum) ? Math.max(1, Math.min(2000, limitNum)) : 500;
 
-    const wordsRef = db.collection("bangla_dictionary_eng_bnsl");
+    const tenantId = request.data?.tenantId;
+    if (!tenantId || typeof tenantId !== "string") {
+      throw new HttpsError("invalid-argument", "tenantId is required");
+    }
+
+    const wordsRef = db.collection("tenants").doc(tenantId).collection("concepts");
     const startAfterDocId = request.data?.startAfterDocId;
     let q = wordsRef.orderBy(FieldPath.documentId()).limit(limit);
     if (typeof startAfterDocId === "string" && startAfterDocId.trim()) {
@@ -678,16 +687,23 @@ exports.deleteReplacedWordMedia = onCall(
       }
     }
 
-    const wordId = request.data?.wordId;
+    const tenantId = request.data?.tenantId;
+    const wordId = request.data?.conceptId || request.data?.wordId;
     const oldUrls = request.data?.oldUrls;
+    const signLangId = (typeof request.data?.signLangId === "string" && request.data.signLangId.trim())
+      ? request.data.signLangId.trim()
+      : "bdsl";
+    if (!tenantId || typeof tenantId !== "string") {
+      throw new HttpsError("invalid-argument", "tenantId is required");
+    }
     if (!wordId || typeof wordId !== "string") {
-      throw new HttpsError("invalid-argument", "wordId is required");
+      throw new HttpsError("invalid-argument", "conceptId is required");
     }
     if (!Array.isArray(oldUrls)) {
       throw new HttpsError("invalid-argument", "oldUrls must be an array");
     }
 
-    const ref = db.collection("bangla_dictionary_eng_bnsl").doc(wordId);
+    const ref = db.collection("tenants").doc(tenantId).collection("concepts").doc(wordId);
     const snap = await ref.get();
     if (!snap.exists) {
       throw new HttpsError("not-found", "Word not found");
@@ -697,7 +713,10 @@ exports.deleteReplacedWordMedia = onCall(
     const currentUrls = new Set(collectDictionaryMediaUrls(currentData));
 
     const bucket = storage.bucket(DEFAULT_STORAGE_BUCKET);
-    const allowedPrefix = "bangla_sign_language/dictionary_eng_bnsl/";
+    const allowedPrefixes = [
+      `tenants/${tenantId}/signLanguages/${signLangId}/`,
+      "bangla_sign_language/dictionary_eng_bnsl/",
+    ];
 
     const summary = {
       wordId,
@@ -730,7 +749,8 @@ exports.deleteReplacedWordMedia = onCall(
         summary.skippedOtherBucket++;
         continue;
       }
-      if (!parsed.objectPath.startsWith(allowedPrefix)) {
+      const okPrefix = allowedPrefixes.some((p) => parsed.objectPath.startsWith(p));
+      if (!okPrefix) {
         summary.skippedOutsidePrefix++;
         continue;
       }
@@ -788,12 +808,19 @@ exports.deleteDictionaryEntry = onCall(
       }
     }
 
-    const wordId = request.data?.wordId;
+    const tenantId = request.data?.tenantId;
+    const wordId = request.data?.conceptId || request.data?.wordId;
+    const signLangId = (typeof request.data?.signLangId === "string" && request.data.signLangId.trim())
+      ? request.data.signLangId.trim()
+      : "bdsl";
+    if (!tenantId || typeof tenantId !== "string") {
+      throw new HttpsError("invalid-argument", "tenantId is required");
+    }
     if (!wordId || typeof wordId !== "string") {
-      throw new HttpsError("invalid-argument", "wordId is required");
+      throw new HttpsError("invalid-argument", "conceptId is required");
     }
 
-    const ref = db.collection("bangla_dictionary_eng_bnsl").doc(wordId);
+    const ref = db.collection("tenants").doc(tenantId).collection("concepts").doc(wordId);
     const snap = await ref.get();
     if (!snap.exists) {
       throw new HttpsError("not-found", "Word not found");
@@ -808,6 +835,10 @@ exports.deleteDictionaryEntry = onCall(
       .filter((x) => x.parsed && x.parsed.objectPath);
 
     const bucket = storage.bucket(DEFAULT_STORAGE_BUCKET);
+    const allowedPrefixes = [
+      `tenants/${tenantId}/signLanguages/${signLangId}/`,
+      "bangla_sign_language/dictionary_eng_bnsl/",
+    ];
 
     const summary = {
       wordId,
@@ -824,6 +855,12 @@ exports.deleteDictionaryEntry = onCall(
       const { bucket: b, objectPath } = item.parsed;
       // Only delete from our known bucket; never delete arbitrary buckets.
       if (b !== DEFAULT_STORAGE_BUCKET) {
+        summary.storageObjectsSkipped++;
+        summary.skippedUrls.push(item.url);
+        continue;
+      }
+      const okPrefix = allowedPrefixes.some((p) => objectPath.startsWith(p));
+      if (!okPrefix) {
         summary.storageObjectsSkipped++;
         summary.skippedUrls.push(item.url);
         continue;

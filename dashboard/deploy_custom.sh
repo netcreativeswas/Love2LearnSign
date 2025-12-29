@@ -45,4 +45,4 @@ cp ~/Downloads/assetlinks.json public/.well-known/assetlinks.json
 
 # ── 7️⃣ Deploy to Firebase Hosting ───────────────────────────────────────
 # Explicit project avoids "No currently active project" errors.
-firebase deploy --only hosting --project love-to-learn-sign
+firebase deploy --only hosting --project love2learnsign-1914ce

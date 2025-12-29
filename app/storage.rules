@@ -1,13 +1,38 @@
 rules_version = '2';
 
 service firebase.storage {
-  // Lock rules to the canonical bucket used by the project.
-  match /b/love-to-learn-sign.firebasestorage.app/o {
+  // Apply rules to the project's bucket (avoid hard-locking to a specific legacy bucket name).
+  match /b/{bucket}/o {
 
     function isAdminOrEditor() {
       return request.auth != null
         && request.auth.token.roles is list
         && ('admin' in request.auth.token.roles || 'editor' in request.auth.token.roles);
+    }
+
+    function tenantDoc(tenantId) {
+      // Storage rules don't have a {database} wildcard; Firestore database is almost always (default).
+      return firestore.get(/databases/(default)/documents/tenants/$(tenantId));
+    }
+
+    function isTenantPublic(tenantId) {
+      return tenantDoc(tenantId).exists &&
+             tenantDoc(tenantId).data.visibility == 'public';
+    }
+
+    function memberDoc(tenantId) {
+      return firestore.get(/databases/(default)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
+    }
+
+    function isTenantMember(tenantId) {
+      return request.auth != null && memberDoc(tenantId).exists;
+    }
+
+    function isTenantEditorOrAbove(tenantId) {
+      return isAdminOrEditor() ||
+        (request.auth != null &&
+         memberDoc(tenantId).exists &&
+         (memberDoc(tenantId).data.role in ['owner', 'admin', 'editor']));
     }
 
     // ✅ Public READ for splashscreen video(s)
@@ -21,6 +46,13 @@ service firebase.storage {
     match /bangla_sign_language/dictionary_eng_bnsl/{allPaths=**} {
       allow read: if true;
       allow create, update: if isAdminOrEditor();
+      allow delete: if false;
+    }
+
+    // ✅ Phase-2 tenant storage (future-proof)
+    match /tenants/{tenantId}/signLanguages/{signLangId}/{allPaths=**} {
+      allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isAdminOrEditor();
+      allow create, update: if isTenantEditorOrAbove(tenantId);
       allow delete: if false;
     }
 

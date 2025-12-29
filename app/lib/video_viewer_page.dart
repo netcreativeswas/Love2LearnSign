@@ -4,6 +4,7 @@ import 'package:line_icons/line_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/foundation.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'services/cache_service.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'package:provider/provider.dart';
@@ -257,7 +258,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     //   }
     // }
 
-    final doc = await FirebaseFirestore.instance.collection('bangla_dictionary_eng_bnsl').doc(widget.wordId).get();
+    final doc = await TenantDb.conceptDoc(FirebaseFirestore.instance, widget.wordId).get();
     
     // Check again after async operation
     if (_isDisposed || !mounted) return;
@@ -271,8 +272,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     // Determine if "Learn Also" should be shown: only if there is at least one other word in the same category
     if (_categoryMain.isNotEmpty) {
       try {
-        final snap = await FirebaseFirestore.instance
-            .collection('bangla_dictionary_eng_bnsl')
+        final snap = await TenantDb.concepts(FirebaseFirestore.instance)
             .where('category_main', isEqualTo: _categoryMain)
             .limit(2)
             .get();
@@ -418,8 +418,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     if (_categoryMain.isEmpty) return;
     
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('bangla_dictionary_eng_bnsl')
+      final snapshot = await TenantDb.concepts(FirebaseFirestore.instance)
           .where('category_main', isEqualTo: _categoryMain)
           .get();
       
@@ -1641,18 +1640,14 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     // Try English antonyms first
     if (_englishWordAntonyms.isNotEmpty) {
       for (final word in _englishWordAntonyms) {
-        // Convert word to lowercase and construct document ID in format "word-bnsl"
-        final docId = '${word.toLowerCase()}-bnsl';
         try {
-          final doc = await FirebaseFirestore.instance
-              .collection('bangla_dictionary_eng_bnsl')
-              .doc(docId)
+          final qs = await TenantDb.concepts(FirebaseFirestore.instance)
+              .where('english_lower', isEqualTo: word.toLowerCase())
+              .limit(1)
               .get();
-          if (doc.exists) {
-            return doc;
-          }
+          if (qs.docs.isNotEmpty) return qs.docs.first;
         } catch (e) {
-          print('Error fetching document $docId: $e');
+          print('Error querying English antonym $word: $e');
         }
       }
     }
@@ -1661,8 +1656,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     if (_bengaliWordAntonyms.isNotEmpty) {
       for (final word in _bengaliWordAntonyms) {
         try {
-          final querySnapshot = await FirebaseFirestore.instance
-              .collection('bangla_dictionary_eng_bnsl')
+          final querySnapshot = await TenantDb.concepts(FirebaseFirestore.instance)
               .where('bengali', isEqualTo: word)
               .limit(1)
               .get();

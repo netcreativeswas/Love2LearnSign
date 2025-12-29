@@ -1,4 +1,4 @@
-package com.lovetolearnsign.app
+package com.love2learnsign.app
 
 import android.app.Application
 import com.google.android.material.color.DynamicColors
@@ -10,3 +10,5 @@ class MyApplication : Application() {
         DynamicColors.applyToActivitiesIfAvailable(this)
     }
 }
+
+

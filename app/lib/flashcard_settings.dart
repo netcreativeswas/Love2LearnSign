@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'l10n/dynamic_l10n.dart';
@@ -31,9 +32,7 @@ class _FlashcardSettingsPageState extends State<FlashcardSettingsPage> {
   @override
   void initState() {
     super.initState();
-    FirebaseFirestore.instance
-        .collection('bangla_dictionary_eng_bnsl')
-        .get()
+    TenantDb.concepts(FirebaseFirestore.instance).get()
         .then((snapshot) {
       final Set<String> catSet = {};
       for (final d in snapshot.docs) {

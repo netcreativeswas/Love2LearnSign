@@ -1,4 +1,4 @@
-package com.lovetolearnsign.app
+package com.love2learnsign.app
 
 import io.flutter.embedding.android.FlutterActivity
 import android.content.Context
@@ -101,3 +101,5 @@ class MainActivity: FlutterActivity() {
     }
   }
 }
+
+

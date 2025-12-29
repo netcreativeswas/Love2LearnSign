@@ -337,7 +337,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String shareText(Object score, Object total) {
-    return 'সাইন ভাষার কুইজে $score/$total পেয়েছি! 🤟 আপনি কি তা করতে পারবেন? Love to Learn Sign ডাউনলোড করুন এবংবাংলা সাইন ল্যাঙ্গুয়েজ শিখুন: https://love-to-learn-sign.web.app/download';
+    return 'সাইন ভাষার কুইজে $score/$total পেয়েছি! আপনি কি তা করতে পারবেন? Love to Learn Sign ডাউনলোড করুন: https://love2learnsign.com/download';
   }
 
   @override

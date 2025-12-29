@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 import 'package:provider/provider.dart';
 
+import '../tenancy/tenant_storage_paths.dart';
 import 'words_media_service.dart';
 import 'words_repository.dart';
 
@@ -126,7 +127,7 @@ class _WordsEditorViewState extends State<WordsEditorView> {
     await _saveField(() async {
       final url = await _media.uploadPlatformFile(
         file,
-        storageDir: 'bangla_sign_language/dictionary_eng_bnsl/flashcards',
+        storageDir: TenantStoragePaths.flashcardsDir(conceptId: widget.wordId),
       );
       await _repo.updateFields(widget.wordId, {'imageFlashcard': url});
     });
@@ -354,32 +355,32 @@ class _WordsEditorViewState extends State<WordsEditorView> {
                         onReplaceVideo: () => _replaceVariantMedia(
                           index: i,
                           fieldKey: 'videoUrl',
-                          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos',
+                          storageDir: TenantStoragePaths.videosDir(conceptId: widget.wordId),
                           fileType: FileType.video,
                         ),
                         onReplaceVideoSD: () => _replaceVariantMedia(
                           index: i,
                           fieldKey: 'videoUrlSD',
-                          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_sd',
+                          storageDir: TenantStoragePaths.videosSdDir(conceptId: widget.wordId),
                           fileType: FileType.video,
                         ),
                         onReplaceVideoHD: () => _replaceVariantMedia(
                           index: i,
                           fieldKey: 'videoUrlHD',
-                          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/videos_hd',
+                          storageDir: TenantStoragePaths.videosHdDir(conceptId: widget.wordId),
                           fileType: FileType.video,
                         ),
                         onReplaceThumb: () => _replaceVariantMedia(
                           index: i,
                           fieldKey: 'videoThumbnail',
-                          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/thumbnails',
+                          storageDir: TenantStoragePaths.thumbnailsDir(conceptId: widget.wordId),
                           fileType: FileType.custom,
                           allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
                         ),
                         onReplaceThumbSmall: () => _replaceVariantMedia(
                           index: i,
                           fieldKey: 'videoThumbnailSmall',
-                          storageDir: 'bangla_sign_language/dictionary_eng_bnsl/thumbnails',
+                          storageDir: TenantStoragePaths.thumbnailsDir(conceptId: widget.wordId),
                           fileType: FileType.custom,
                           allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
                         ),
