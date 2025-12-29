@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'l10n/dynamic_l10n.dart';
+import 'tenancy/tenant_scope.dart';
 import 'widgets/cupertino_sheet_container.dart';
 import 'package:provider/provider.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
@@ -32,7 +33,8 @@ class _FlashcardSettingsPageState extends State<FlashcardSettingsPage> {
   @override
   void initState() {
     super.initState();
-    TenantDb.concepts(FirebaseFirestore.instance).get()
+    final tenantId = context.read<TenantScope>().tenantId;
+    TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).get()
         .then((snapshot) {
       final Set<String> catSet = {};
       for (final d in snapshot.docs) {

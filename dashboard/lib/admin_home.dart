@@ -12,6 +12,7 @@ import 'admin_dashboard_page.dart';
 import 'widgets/dashboard_content.dart';
 import 'package:l2l_shared/words_admin/words_list_page.dart';
 import 'web_bridge.dart';
+import 'tenancy/dashboard_tenant_scope.dart';
 
 class AdminHome extends StatefulWidget {
   final String? userRole;
@@ -177,6 +178,7 @@ class _DashboardSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final auth = context.watch<AuthProvider>();
+    final tenant = context.watch<DashboardTenantScope>();
     final user = auth.user;
     final displayName = (auth.displayName ?? user?.displayName ?? 'Dashboard User').trim();
     final email = (user?.email ?? '').trim();
@@ -200,20 +202,33 @@ class _DashboardSidebar extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    'icons/Icon-512.png',
-                    width: 36,
-                    height: 36,
-                    fit: BoxFit.cover,
-                  ),
+                  child: (tenant.brand.logoUrl.trim().isNotEmpty)
+                      ? Image.network(
+                          tenant.brand.logoUrl.trim(),
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Image.network(
+                            'icons/Icon-512.png',
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Image.network(
+                          'icons/Icon-512.png',
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                        ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Love to Learn Sign',
+                    tenant.displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],

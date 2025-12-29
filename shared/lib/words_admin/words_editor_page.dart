@@ -7,17 +7,22 @@ import 'package:l2l_shared/auth/auth_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../tenancy/tenant_storage_paths.dart';
+import '../tenancy/tenant_db.dart';
 import 'words_media_service.dart';
 import 'words_repository.dart';
 
 class WordsEditorPage extends StatelessWidget {
   final String wordId;
   final String? userRoleOverride;
+  final String tenantId;
+  final String signLangId;
 
   const WordsEditorPage({
     super.key,
     required this.wordId,
     this.userRoleOverride,
+    this.tenantId = TenantDb.defaultTenantId,
+    this.signLangId = TenantDb.defaultSignLangId,
   });
 
   @override
@@ -27,6 +32,8 @@ class WordsEditorPage extends StatelessWidget {
       body: WordsEditorView(
         wordId: wordId,
         userRoleOverride: userRoleOverride,
+        tenantId: tenantId,
+        signLangId: signLangId,
         embedded: false,
       ),
     );
@@ -36,6 +43,8 @@ class WordsEditorPage extends StatelessWidget {
 class WordsEditorView extends StatefulWidget {
   final String wordId;
   final String? userRoleOverride;
+  final String tenantId;
+  final String signLangId;
   final bool embedded;
   final VoidCallback? onDeleted;
   final VoidCallback? onSaved;
@@ -44,6 +53,8 @@ class WordsEditorView extends StatefulWidget {
     super.key,
     required this.wordId,
     this.userRoleOverride,
+    this.tenantId = TenantDb.defaultTenantId,
+    this.signLangId = TenantDb.defaultSignLangId,
     required this.embedded,
     this.onDeleted,
     this.onSaved,
@@ -54,10 +65,16 @@ class WordsEditorView extends StatefulWidget {
 }
 
 class _WordsEditorViewState extends State<WordsEditorView> {
-  final WordsRepository _repo = WordsRepository();
+  late final WordsRepository _repo;
   final WordsMediaService _media = WordsMediaService();
 
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _repo = WordsRepository(tenantId: widget.tenantId, signLangId: widget.signLangId);
+  }
 
   bool _isAdmin(BuildContext context) {
     final override = widget.userRoleOverride?.toLowerCase().trim();

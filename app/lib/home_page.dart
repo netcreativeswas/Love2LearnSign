@@ -8,6 +8,7 @@ import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
+import 'tenancy/tenant_scope.dart';
 import 'widgets/main_app_bar.dart';
 import 'widgets/app_language_setup.dart';
 import 'widgets/main_btm_nav_bar.dart';
@@ -251,6 +252,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     }
     final locale = Provider.of<LocaleProvider>(context).locale;
+    final tenantId = context.watch<TenantScope>().tenantId;
     final bool showDonationIcon =
         (widget.countryCode != 'BD') &&
         (locale.languageCode != 'bn') &&
@@ -480,7 +482,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           );
                         }
                         return StreamBuilder(
-                          stream: TenantDb.concepts(FirebaseFirestore.instance)
+                          stream: TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
                             .where(FieldPath.documentId, whereIn: ids.take(10).toList())
                             .snapshots(),
                           builder: (context, snapshot) {
@@ -742,7 +744,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   SizedBox(
                     height: 125,
                     child: StreamBuilder(
-                      stream: TenantDb.concepts(FirebaseFirestore.instance)
+                      stream: TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
                           .orderBy('addedAt', descending: true)
                           .limit(15)
                           .snapshots(),

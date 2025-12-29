@@ -11,6 +11,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
+import 'tenancy/tenant_scope.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 import 'services/notification_permission_service.dart';
 import 'main.dart' show scheduleDailyTasks;
@@ -135,7 +136,8 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _fetchCategories() async {
-    final snapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
+    final tenantId = context.read<TenantScope>().tenantId;
+    final snapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).get();
     final Set<String> catSet = {};
     for (final d in snapshot.docs) {
       final data = d.data();
@@ -170,7 +172,10 @@ class _SettingsPageState extends State<SettingsPage> {
     });
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.cancel(200);
-    await scheduleDailyTasks(plugin);
+    await scheduleDailyTasks(
+      plugin,
+      tenantId: context.read<TenantScope>().tenantId,
+    );
   }
 
   Future<void> _updateLearnWordHour(int hour) async {
@@ -188,7 +193,10 @@ class _SettingsPageState extends State<SettingsPage> {
     final plugin = FlutterLocalNotificationsPlugin();
     // Cancel existing and reschedule
     await plugin.cancel(200);
-    await scheduleDailyTasks(plugin);
+    await scheduleDailyTasks(
+      plugin,
+      tenantId: context.read<TenantScope>().tenantId,
+    );
   }
 
   Future<void> _updatePrecachePreference(bool value) async {
@@ -265,7 +273,10 @@ class _SettingsPageState extends State<SettingsPage> {
     } else {
       // When enabled, cancel any existing and reschedule
       await plugin.cancel(200);
-      await scheduleDailyTasks(plugin);
+      await scheduleDailyTasks(
+        plugin,
+        tenantId: context.read<TenantScope>().tenantId,
+      );
     }
   }
 

@@ -13,6 +13,8 @@ import 'package:lottie/lottie.dart';
 // Removed FontAwesome import, switching to asset icons.
 import 'package:share_plus/share_plus.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import 'tenancy/tenant_scope.dart';
 
 class QuizCategoryPage extends StatefulWidget {
   final bool useMainCategoriesOnly;
@@ -88,7 +90,8 @@ class _QuizCategoryPageState extends State<QuizCategoryPage> {
 
     // If first question, fetch and shuffle docs, else use already fetched docs
     if (!_isReviewPass && (_currentQuestion == 1 || _quizDocuments.isEmpty)) {
-      Query<Map<String, dynamic>> q = TenantDb.concepts(FirebaseFirestore.instance)
+      final tenantId = context.read<TenantScope>().tenantId;
+      Query<Map<String, dynamic>> q = TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
           .where('category_main', isEqualTo: widget.category);
 
       // Note: useMainCategoriesOnly signifie qu'on ignore totalement category_sub;

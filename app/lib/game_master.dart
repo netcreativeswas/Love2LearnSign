@@ -24,6 +24,7 @@ import 'services/spaced_repetition_service.dart';
 import 'package:provider/provider.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 import 'package:audioplayers/audioplayers.dart';
+import 'tenancy/tenant_scope.dart';
 
 class GameMasterPage extends StatefulWidget {
   final String? countryCode;
@@ -812,7 +813,8 @@ class _GameMasterPageState extends State<GameMasterPage>
   }
 
   Future<Map<String, int>> _fetchCategories() async {
-    final snapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
+    final tenantId = context.read<TenantScope>().tenantId;
+    final snapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).get();
     final Map<String, int> categoryCount = {};
 
     for (final doc in snapshot.docs) {

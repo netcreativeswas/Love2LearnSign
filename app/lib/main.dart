@@ -26,6 +26,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:app_links/app_links.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'tenancy/tenant_scope.dart';
 
 import 'url_strategy_stub.dart'
     if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart';
@@ -49,6 +50,7 @@ import 'services/notification_service.dart';
 import 'services/ad_service.dart';
 import 'services/subscription_service.dart';
 import 'package:l2l_shared/debug/agent_logger.dart';
+import 'package:l2l_shared/tenancy/app_config.dart' show TenantBranding;
 
 // LoggingObserver for navigation event logging (only in debug mode)
 class LoggingObserver extends NavigatorObserver {
@@ -365,6 +367,7 @@ void main() async {
   // #endregion
 
   final themeProvider = await ThemeProvider.create();
+  final tenantScope = await TenantScope.create();
 
   // #region agent log
   AgentLogger.log({
@@ -404,6 +407,7 @@ void main() async {
           ChangeNotifierProvider<LocaleProvider>(
               create: (_) => LocaleProvider()),
           ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
+          ChangeNotifierProvider<TenantScope>.value(value: tenantScope),
           ChangeNotifierProvider<FavoritesRepository>.value(
               value: favoritesRepo),
           ChangeNotifierProvider<HistoryRepository>.value(value: historyRepo),
@@ -821,6 +825,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   String? _countryCode;
   bool _checkedLocation = false;
   String? _lastDeepLinkId;
+  late final AppLinks _appLinks;
 
   @override
   void initState() {
@@ -828,12 +833,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _detectCountry();
-    final appLinks = AppLinks();
+    _appLinks = AppLinks();
     // Handle deep links while the app is running
-    appLinks.uriLinkStream.listen((uri) {
+    _appLinks.uriLinkStream.listen((uri) {
       debugPrint('🔍 DeepLink Debug: uriLinkStream event, uri=$uri');
       _navigateToUri(uri);
     }, onError: (_) {});
+    // Also handle initial link (cold start) if provided.
+    Future(() async {
+      try {
+        final uri = await _appLinks.getInitialLink();
+        if (uri != null) {
+          debugPrint('🔍 DeepLink Debug: initialLink uri=$uri');
+          _navigateToUri(uri);
+        }
+      } catch (_) {
+        // ignore
+      }
+    });
     _initNotifications().then((_) async {
       if (Platform.isAndroid) {
         final deviceInfo = DeviceInfoPlugin();
@@ -890,7 +907,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         });
         // #endregion
 
-        scheduleDailyTasks(flutterLocalNotificationsPlugin).then((_) {
+        scheduleDailyTasks(
+          flutterLocalNotificationsPlugin,
+          tenantId: context.read<TenantScope>().tenantId,
+        ).then((_) {
           // #region agent log
           AgentLogger.log({
             'sessionId': 'debug-session',
@@ -1061,6 +1081,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   void _navigateToUri(Uri uri) {
     final segments = uri.pathSegments;
+    // Co-brand install link: /install?tenant=...&app=...&ui=...
+    if (segments.isNotEmpty && segments.first == 'install') {
+      try {
+        final scope = context.read<TenantScope>();
+        scope.applyInstallLink(uri);
+      } catch (_) {
+        // ignore if provider not ready
+      }
+      return;
+    }
     if (segments.length == 2 && segments.first == 'word') {
       final id = segments[1];
       // Skip if this ID was just handled
@@ -1079,6 +1109,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final tenant = context.watch<TenantScope>();
+    final branding = tenant.appConfig?.brand ?? tenant.tenantConfig?.brand ?? const TenantBranding();
+    final primary = branding.primary != null ? Color(branding.primary!) : null;
+    final secondary = branding.secondary != null ? Color(branding.secondary!) : null;
+
     return Consumer<LocaleProvider>(
       builder: (context, localeProv, _) {
         return MaterialApp(
@@ -1092,10 +1127,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
+          theme: AppTheme.themed(
+            brightness: Brightness.light,
+            primary: primary,
+            secondary: secondary,
+          ),
+          darkTheme: AppTheme.themed(
+            brightness: Brightness.dark,
+            primary: primary,
+            secondary: secondary,
+          ),
           themeMode: context.watch<ThemeProvider>().mode,
-          title: 'Love to Learn Sign',
+          title: (tenant.appConfig?.displayName.trim().isNotEmpty == true)
+              ? tenant.appConfig!.displayName.trim()
+              : ((tenant.tenantConfig?.displayName.trim().isNotEmpty == true)
+                  ? tenant.tenantConfig!.displayName.trim()
+                  : 'Love to Learn Sign'),
           debugShowCheckedModeBanner: false,
           routes: {
             // Route to home so SplashGate can pushReplacementNamed('/home')
@@ -1160,14 +1207,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 }
 
-Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
+Future<void> scheduleDailyTasks(
+  FlutterLocalNotificationsPlugin plugin, {
+  required String tenantId,
+}) async {
   final prefs = await SharedPreferences.getInstance();
   final now = tz.TZDateTime.now(tz.local);
 
   // 1) New words summary at 12 PM (only if new words in last 24h)
   if (prefs.getBool('notifyNewWords') ?? true) {
     final since = DateTime.now().subtract(Duration(hours: 24));
-    final newWordsSnapshot = await TenantDb.concepts(FirebaseFirestore.instance)
+    final newWordsSnapshot = await TenantDb.concepts(
+      FirebaseFirestore.instance,
+      tenantId: tenantId,
+    )
         .where('addedAt', isGreaterThan: Timestamp.fromDate(since))
         .get();
 
@@ -1215,7 +1268,7 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
         ? nextLearnTime.add(Duration(days: 1))
         : nextLearnTime;
     // Build query based on category
-    Query query = TenantDb.concepts(FirebaseFirestore.instance);
+    Query query = TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId);
     var snapshot = await query.get();
     if (snapshot.docs.isEmpty) return;
     if (category != 'Random') {
@@ -1223,7 +1276,7 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
       snapshot = await query.get();
       if (snapshot.docs.isEmpty) {
         // If no docs in this category, fallback to all words
-        final allSnapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
+        final allSnapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).get();
         if (allSnapshot.docs.isEmpty) return;
         snapshot = allSnapshot;
       }
@@ -1265,13 +1318,15 @@ Future<void> scheduleDailyTasks(FlutterLocalNotificationsPlugin plugin) async {
 }
 
 Future<void> sendNewWordsNotification(
-    FlutterLocalNotificationsPlugin plugin) async {
+  FlutterLocalNotificationsPlugin plugin, {
+  required String tenantId,
+}) async {
   final ctx = navigatorKey.currentContext!;
   final locale = Localizations.localeOf(ctx);
   final isBengali = locale.languageCode == 'bn';
 
   final since = DateTime.now().subtract(Duration(days: 1));
-  final snapshot = await TenantDb.concepts(FirebaseFirestore.instance)
+  final snapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
       .where('addedAt', isGreaterThan: Timestamp.fromDate(since))
       .get();
 
@@ -1305,8 +1360,10 @@ Future<void> sendNewWordsNotification(
 }
 
 Future<void> sendLearnWordNotification(
-    FlutterLocalNotificationsPlugin plugin) async {
-  final snapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
+  FlutterLocalNotificationsPlugin plugin, {
+  required String tenantId,
+}) async {
+  final snapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).get();
   if (snapshot.docs.isEmpty) return;
   final docs = snapshot.docs..shuffle();
   final pick = docs.first;

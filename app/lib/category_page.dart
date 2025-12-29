@@ -8,6 +8,7 @@ import 'video_viewer_page.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'package:provider/provider.dart';
+import 'tenancy/tenant_scope.dart';
 import 'services/favorites_repository.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 
@@ -39,6 +40,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tenantId = context.watch<TenantScope>().tenantId;
     return ScrollConfiguration(
       behavior: _NoGlowBehavior(),
       child: NestedScrollView(
@@ -50,7 +52,7 @@ class _CategoryPageState extends State<CategoryPage> {
         // Category grid sliver replaced with StreamBuilder
         SliverToBoxAdapter(
           child: StreamBuilder<QuerySnapshot>(
-            stream: TenantDb.concepts(FirebaseFirestore.instance).snapshots(),
+            stream: TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
@@ -158,7 +160,7 @@ class _CategoryPageState extends State<CategoryPage> {
           );
         }
         return StreamBuilder<QuerySnapshot>(
-          stream: TenantDb.concepts(FirebaseFirestore.instance)
+          stream: TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
               .where('category', isEqualTo: selectedCategory)
               .snapshots(),
           builder: (context, snapshot) {

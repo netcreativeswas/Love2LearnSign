@@ -4,6 +4,7 @@ import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'quiz_page.dart'; // Use unified quiz page
 import 'l10n/dynamic_l10n.dart';
 import 'l10n/dynamic_l10n.dart';
+import 'tenancy/tenant_scope.dart';
 import 'package:provider/provider.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 
@@ -23,8 +24,8 @@ class QuizCategoryListPage extends StatelessWidget {
     this.useMainCategoriesOnly = true,
   });
 
-  Future<Map<String, int>> fetchCategories() async {
-    final snapshot = await TenantDb.concepts(FirebaseFirestore.instance).get();
+  Future<Map<String, int>> fetchCategories({required String tenantId}) async {
+    final snapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).get();
     final Map<String, int> categoryCount = {};
 
     for (final doc in snapshot.docs) {
@@ -50,6 +51,7 @@ class QuizCategoryListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tenantId = context.watch<TenantScope>().tenantId;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -64,7 +66,7 @@ class QuizCategoryListPage extends StatelessWidget {
         ),
       ),
       body: FutureBuilder<Map<String, int>>(
-        future: fetchCategories(),
+        future: fetchCategories(tenantId: tenantId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

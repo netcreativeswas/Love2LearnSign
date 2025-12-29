@@ -21,6 +21,8 @@ class EditWordPage extends StatefulWidget {
   final bool embedded;
   final VoidCallback? onSaved;
   final VoidCallback? onDeleted;
+  final String tenantId;
+  final String signLangId;
 
   const EditWordPage({
     super.key,
@@ -29,6 +31,8 @@ class EditWordPage extends StatefulWidget {
     this.embedded = false,
     this.onSaved,
     this.onDeleted,
+    this.tenantId = TenantDb.defaultTenantId,
+    this.signLangId = TenantDb.defaultSignLangId,
   });
 
   @override
@@ -42,6 +46,8 @@ class EditWordView extends StatelessWidget {
   final bool embedded;
   final VoidCallback? onSaved;
   final VoidCallback? onDeleted;
+  final String tenantId;
+  final String signLangId;
 
   const EditWordView({
     super.key,
@@ -50,6 +56,8 @@ class EditWordView extends StatelessWidget {
     required this.embedded,
     this.onSaved,
     this.onDeleted,
+    this.tenantId = TenantDb.defaultTenantId,
+    this.signLangId = TenantDb.defaultSignLangId,
   });
 
   @override
@@ -60,6 +68,8 @@ class EditWordView extends StatelessWidget {
       embedded: embedded,
       onSaved: onSaved,
       onDeleted: onDeleted,
+      tenantId: tenantId,
+      signLangId: signLangId,
     );
   }
 }
@@ -156,7 +166,7 @@ class _EditWordPageState extends State<EditWordPage> {
   // Use the default Storage bucket configured by Firebase.initializeApp(...)
   Reference _storageRoot() => FirebaseStorage.instance.ref();
 
-  final WordsRepository _repo = WordsRepository();
+  late final WordsRepository _repo;
 
   Future<String> _putBytes({
     required Uint8List bytes,
@@ -235,6 +245,7 @@ class _EditWordPageState extends State<EditWordPage> {
   @override
   void initState() {
     super.initState();
+    _repo = WordsRepository(tenantId: widget.tenantId, signLangId: widget.signLangId);
     // Prepare sorted categories/subcategories (same as AddWordPage)
     final keys = _categoryMap.keys.toList()..sort((a, b) => a.compareTo(b));
     final map = <String, List<String>>{};

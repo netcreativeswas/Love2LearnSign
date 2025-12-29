@@ -14,6 +14,7 @@ import 'services/share_utils.dart';
 import 'theme.dart';
 import 'widgets/fullscreen_video_player.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
+import 'tenancy/tenant_scope.dart';
 import 'services/ad_service.dart';
 import 'services/session_counter_service.dart';
 import 'services/premium_service.dart';
@@ -258,7 +259,12 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     //   }
     // }
 
-    final doc = await TenantDb.conceptDoc(FirebaseFirestore.instance, widget.wordId).get();
+    final tenantId = context.read<TenantScope>().tenantId;
+    final doc = await TenantDb.conceptDoc(
+      FirebaseFirestore.instance,
+      widget.wordId,
+      tenantId: tenantId,
+    ).get();
     
     // Check again after async operation
     if (_isDisposed || !mounted) return;
@@ -272,7 +278,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     // Determine if "Learn Also" should be shown: only if there is at least one other word in the same category
     if (_categoryMain.isNotEmpty) {
       try {
-        final snap = await TenantDb.concepts(FirebaseFirestore.instance)
+        final snap = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
             .where('category_main', isEqualTo: _categoryMain)
             .limit(2)
             .get();
@@ -418,7 +424,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     if (_categoryMain.isEmpty) return;
     
     try {
-      final snapshot = await TenantDb.concepts(FirebaseFirestore.instance)
+      final tenantId = context.read<TenantScope>().tenantId;
+      final snapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
           .where('category_main', isEqualTo: _categoryMain)
           .get();
       
@@ -1637,11 +1644,12 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
 
   // Helper method to find the first existing antonym document
   Future<DocumentSnapshot?> _findAntonymDocument() async {
+    final tenantId = context.read<TenantScope>().tenantId;
     // Try English antonyms first
     if (_englishWordAntonyms.isNotEmpty) {
       for (final word in _englishWordAntonyms) {
         try {
-          final qs = await TenantDb.concepts(FirebaseFirestore.instance)
+          final qs = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
               .where('english_lower', isEqualTo: word.toLowerCase())
               .limit(1)
               .get();
@@ -1656,7 +1664,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     if (_bengaliWordAntonyms.isNotEmpty) {
       for (final word in _bengaliWordAntonyms) {
         try {
-          final querySnapshot = await TenantDb.concepts(FirebaseFirestore.instance)
+          final querySnapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
               .where('bengali', isEqualTo: word)
               .limit(1)
               .get();

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'video_viewer_page.dart';
+import 'tenancy/tenant_scope.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -21,6 +22,7 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final history = context.watch<HistoryRepository>().value;
+    final tenantId = context.watch<TenantScope>().tenantId;
     return Builder(builder: (context) {
         if (history.isEmpty) {
           return Center(
@@ -33,7 +35,7 @@ class _HistoryPageState extends State<HistoryPage> {
         return Stack(
           children: [
             FutureBuilder<QuerySnapshot>(
-              future: TenantDb.concepts(FirebaseFirestore.instance)
+              future: TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
                   .where(FieldPath.documentId, whereIn: history)
                   .get(),
               builder: (context, snapshot) {

@@ -7,11 +7,19 @@ import 'package:provider/provider.dart';
 
 import 'edit_word_page.dart';
 import 'words_repository.dart';
+import '../tenancy/tenant_db.dart';
 
 class WordsListPage extends StatefulWidget {
   final String? userRoleOverride; // for dashboard editor flow (no AuthProvider)
+  final String tenantId;
+  final String signLangId;
 
-  const WordsListPage({super.key, this.userRoleOverride});
+  const WordsListPage({
+    super.key,
+    this.userRoleOverride,
+    this.tenantId = TenantDb.defaultTenantId,
+    this.signLangId = TenantDb.defaultSignLangId,
+  });
 
   @override
   State<WordsListPage> createState() => _WordsListPageState();
@@ -22,7 +30,7 @@ class _WordsListPageState extends State<WordsListPage> {
   static const int pageSize = 30;
   static const int minQueryChars = 2;
 
-  final WordsRepository _repo = WordsRepository();
+  late final WordsRepository _repo;
   final ScrollController _scroll = ScrollController();
 
   Timer? _debounce;
@@ -42,6 +50,7 @@ class _WordsListPageState extends State<WordsListPage> {
   @override
   void initState() {
     super.initState();
+    _repo = WordsRepository(tenantId: widget.tenantId, signLangId: widget.signLangId);
     _scroll.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadCount();

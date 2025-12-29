@@ -6,6 +6,8 @@ import 'admin_home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:overlay_support/overlay_support.dart';
 import 'user_role_service.dart';
+import 'package:provider/provider.dart';
+import 'tenancy/dashboard_tenant_scope.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,9 +16,14 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  final tenantScope = await DashboardTenantScope.create();
+
   runApp(
     OverlaySupport.global(
-      child: MyApp(),
+      child: ChangeNotifierProvider<DashboardTenantScope>.value(
+        value: tenantScope,
+        child: const MyApp(),
+      ),
     ),
   );
 }
@@ -25,199 +32,12 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    // Color schemes per design guide
-    const lightScheme = ColorScheme(
-      brightness: Brightness.light,
-      primary: Color(0xFF232F34),
-      onPrimary: Color(0xFFFFFFFF),
-      secondary: Color(0xFFF9AA33),
-      // Match website `--l2l-on-accent` (globals.css): dark text on accent.
-      onSecondary: Color(0xFF232F34),
-      error: Color(0xFFFF5757),
-      onError: Color(0xFFFFFFFF),
-      surfaceTint: Color(0xFFE4E1DD),
-      surface: Color(0xFFFFFFFF),
-      onSurface: Color(0xFF232F34),
-    );
-
-    const darkScheme = ColorScheme(
-      brightness: Brightness.dark,
-      primary: Color(0xFF90A4AE),
-      onPrimary: Color(0xFF232F34),
-      secondary: Color(0xFFF9AA33),
-      // Match website `--l2l-on-accent` (globals.css): dark text on accent.
-      onSecondary: Color(0xFF232F34),
-      error: Color(0xFFFF5757),
-      onError: Color(0xFF232F34),
-      surfaceTint: Color(0xFF181B1F),
-      surface: Color(0xFF232F34),
-      onSurface: Color(0xFFFFFFFF),
-    );
-
-    final baseText = Typography.material2021().black.apply(
-          bodyColor: lightScheme.onSurface,
-          displayColor: lightScheme.onSurface,
-        );
+    final scope = context.watch<DashboardTenantScope>();
 
     return MaterialApp(
-      title: 'Love to Learn Sign Dashboard',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: lightScheme,
-        scaffoldBackgroundColor: const Color(0xFFE4E1DD),
-        appBarTheme: AppBarTheme(
-          backgroundColor: lightScheme.primary,
-          foregroundColor: lightScheme.onPrimary,
-          elevation: 0,
-          titleTextStyle: TextStyle(
-            color: lightScheme.onPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-          toolbarTextStyle: TextStyle(
-            color: lightScheme.onPrimary,
-            fontSize: 12,
-          ),
-          iconTheme: IconThemeData(color: lightScheme.onPrimary),
-          actionsIconTheme: IconThemeData(color: lightScheme.onPrimary),
-        ),
-        textTheme: baseText.copyWith(
-          titleLarge: TextStyle(
-            color: lightScheme.primary,
-            fontWeight: FontWeight.w700,
-          ),
-          bodyMedium: TextStyle(color: lightScheme.onSurface),
-          bodySmall:
-              TextStyle(color: lightScheme.onSurface.withValues(alpha: 0.8)),
-        ),
-        cardTheme: CardThemeData(
-          color: lightScheme.surface,
-          elevation: 0,
-          shadowColor: const Color(0x1F000000),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          margin: const EdgeInsets.symmetric(vertical: 8),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: lightScheme.secondary,
-            foregroundColor: lightScheme.onSecondary,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            side: BorderSide(color: lightScheme.onSurface.withValues(alpha: 0.22)),
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ),
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: lightScheme.secondary,
-          foregroundColor: lightScheme.onSecondary,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          labelStyle: TextStyle(
-              color: lightScheme.onSurface.withValues(alpha: 0.9),
-              fontSize: 12),
-          hintStyle:
-              TextStyle(color: lightScheme.onSurface.withValues(alpha: 0.6)),
-          filled: true,
-          fillColor: lightScheme.surface.withValues(alpha: 0.95),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-                color: lightScheme.onSurface.withValues(alpha: 0.15)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: lightScheme.secondary, width: 2),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: lightScheme.error),
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-        iconTheme: IconThemeData(color: lightScheme.primary),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: darkScheme,
-        scaffoldBackgroundColor: const Color(0xFF181B1F),
-        appBarTheme: AppBarTheme(
-          backgroundColor: darkScheme.primary,
-          foregroundColor: darkScheme.onPrimary,
-          elevation: 0,
-          titleTextStyle: TextStyle(
-            color: darkScheme.onPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-          toolbarTextStyle: TextStyle(
-            color: darkScheme.onPrimary,
-            fontSize: 12,
-          ),
-          iconTheme: IconThemeData(color: darkScheme.onPrimary),
-          actionsIconTheme: IconThemeData(color: darkScheme.onPrimary),
-        ),
-        cardTheme: CardThemeData(
-          color: darkScheme.surface,
-          elevation: 0,
-          shadowColor: const Color(0x1F000000),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: darkScheme.secondary,
-            foregroundColor: darkScheme.onSecondary,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            side: BorderSide(color: darkScheme.onSurface.withValues(alpha: 0.26)),
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ),
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: darkScheme.secondary,
-          foregroundColor: darkScheme.onSecondary,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          labelStyle: TextStyle(
-              color: darkScheme.onSurface.withValues(alpha: 0.9), fontSize: 12),
-          hintStyle:
-              TextStyle(color: darkScheme.onSurface.withValues(alpha: 0.6)),
-          filled: true,
-          fillColor: darkScheme.surface.withValues(alpha: 0.95),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide:
-                BorderSide(color: darkScheme.onSurface.withValues(alpha: 0.15)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: darkScheme.secondary, width: 2),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: darkScheme.error),
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-        iconTheme: IconThemeData(color: darkScheme.primary),
-      ),
+      title: scope.displayName,
+      theme: scope.themeFor(Brightness.light),
+      darkTheme: scope.themeFor(Brightness.dark),
       home: const AuthGate(),
     );
   }

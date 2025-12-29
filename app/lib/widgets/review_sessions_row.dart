@@ -9,6 +9,7 @@ import 'package:love_to_learn_sign/services/favorites_repository.dart';
 import 'package:love_to_learn_sign/flashcard_page.dart';
 import 'package:love_to_learn_sign/theme.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
+import 'package:love_to_learn_sign/tenancy/tenant_scope.dart';
 
 
 /// Row of upcoming review sessions with an integrated bottom drawer that lists words.
@@ -142,13 +143,14 @@ class _ReviewSessionsRowState extends State<ReviewSessionsRow> {
           maxChildSize: 0.95,
           expand: false,
           builder: (context, scrollController) {
+            final tenantId = context.read<TenantScope>().tenantId;
             Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _fetchDocs(List<String> allIds) async {
               final chunks = <List<String>>[];
               for (int i = 0; i < allIds.length; i += 10) {
                 chunks.add(allIds.sublist(i, (i + 10 > allIds.length) ? allIds.length : i + 10));
               }
               final snaps = await Future.wait(chunks.map((chunk) =>
-                  TenantDb.concepts(FirebaseFirestore.instance)
+                  TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
                       .where(FieldPath.documentId, whereIn: chunk)
                       .get()));
               final docs = snaps.expand((s) => s.docs).toList();

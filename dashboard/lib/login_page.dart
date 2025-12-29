@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:provider/provider.dart';
+import 'tenancy/dashboard_tenant_scope.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -87,7 +88,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Love to Learn Sign Dashboard')),
+    appBar: AppBar(title: Text(context.watch<DashboardTenantScope>().displayName)),
     body: SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(

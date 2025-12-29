@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'tenancy/tenant_scope.dart';
 import 'services/favorites_repository.dart';
 import 'video_viewer_page.dart';
 import 'widgets/custom_search_bar.dart';
@@ -60,6 +61,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tenantId = context.watch<TenantScope>().tenantId;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Column(
@@ -79,7 +81,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
               builder: (context, repo, _) {
                 final ids = repo.value;
                 return StreamBuilder<QuerySnapshot>(
-                  stream: TenantDb.concepts(FirebaseFirestore.instance).snapshots(),
+                  stream: TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).snapshots(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 

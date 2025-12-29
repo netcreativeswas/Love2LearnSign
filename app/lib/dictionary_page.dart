@@ -9,6 +9,7 @@ import 'widgets/custom_search_bar.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
+import 'tenancy/tenant_scope.dart';
 import 'widgets/main_app_bar.dart';
 import 'widgets/main_btm_nav_bar.dart';
 import 'widgets/main_drawer.dart';
@@ -245,6 +246,7 @@ class _DictionaryPageState extends State<DictionaryPage> {
   @override
   Widget build(BuildContext context) {
     final locale = Provider.of<LocaleProvider>(context).locale;
+    final tenantId = context.watch<TenantScope>().tenantId;
     final double topPadding = MediaQuery.of(context).padding.top;
     final screenHeight = MediaQuery.of(context).size.height;
     final initialChildSize = 0.45 - (20 / screenHeight);
@@ -370,7 +372,7 @@ class _DictionaryPageState extends State<DictionaryPage> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4.0),
                           child: StreamBuilder<QuerySnapshot>(
-                            stream: TenantDb.concepts(FirebaseFirestore.instance).snapshots(),
+                            stream: TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).snapshots(),
                             builder: (context, snapshot) {
                               if (!snapshot.hasData) {
                                 return const Center(child: CircularProgressIndicator());
@@ -595,7 +597,7 @@ class _DictionaryPageState extends State<DictionaryPage> {
                                     }
                                     
                                     return StreamBuilder<QuerySnapshot>(
-                                    stream: TenantDb.concepts(FirebaseFirestore.instance)
+                                    stream: TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
                                       .where('category_main', isEqualTo: _selectedCategory)
                                       .snapshots(),
                                   builder: (context, snapshot) {
@@ -774,7 +776,8 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
     setState(() => _isLoading = true);
     
     try {
-      Query query = TenantDb.concepts(FirebaseFirestore.instance);
+      final tenantId = context.read<TenantScope>().tenantId;
+      Query query = TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId);
       
       // Apply category filter
       if (widget.selectedCategory.isNotEmpty && widget.selectedCategory != 'All') {
@@ -1198,7 +1201,10 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
       // Search mode: filter all words, sort/group by current sortBy/ascending
     return [
       StreamBuilder<QuerySnapshot>(
-          stream: TenantDb.concepts(FirebaseFirestore.instance).snapshots(),
+          stream: TenantDb.concepts(
+            FirebaseFirestore.instance,
+            tenantId: context.watch<TenantScope>().tenantId,
+          ).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());

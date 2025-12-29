@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../tenancy/concept_text.dart';
+
 class DictionaryVariant {
   final String label;
   final String videoUrl;
@@ -62,6 +64,14 @@ class DictionaryWordDoc {
     );
   }
 
+  /// New schema (preferred): labels map, with legacy fallback.
+  Map<String, String> get labels => ConceptText.stringMap(data['labels']);
+
+  /// Convenience: get a label for a given language code.
+  /// Falls back to English then legacy fields.
+  String labelFor(String lang, {String fallbackLang = 'en'}) =>
+      ConceptText.labelFor(data, lang: lang, fallbackLang: fallbackLang);
+
   String get english => (data['english'] ?? '').toString();
   String get bengali => (data['bengali'] ?? '').toString();
   String get englishNote => (data['englishNote'] ?? '').toString();
@@ -78,6 +88,10 @@ class DictionaryWordDoc {
       (data['englishWordAntonyms'] is List) ? List<String>.from(data['englishWordAntonyms']) : const <String>[];
   List<String> get bengaliWordAntonyms =>
       (data['bengaliWordAntonyms'] is List) ? List<String>.from(data['bengaliWordAntonyms']) : const <String>[];
+
+  /// New schema: synonyms/antonyms per language, with legacy fallback.
+  List<String> synonymsFor(String lang) => ConceptText.synonymsFor(data, lang: lang);
+  List<String> antonymsFor(String lang) => ConceptText.antonymsFor(data, lang: lang);
 
   List<Map<String, dynamic>> get categories {
     final raw = data['categories'];
