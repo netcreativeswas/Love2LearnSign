@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import { sendPasswordResetEmail, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase_client";
 
@@ -63,20 +65,60 @@ export default function SignInPage() {
 
   return (
     <main className="flex-1">
-      <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:py-14">
-        <div className="mx-auto w-full max-w-md">
-          <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-          <div className="mb-5 space-y-2 text-left">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">
-              Sign In
-            </h2>
-            <p className="text-sm text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
-              This area is for dashboard users only. If you don’t have an
-              account, please contact support.
-            </p>
-          </div>
+      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
+        <div className="grid gap-8 md:grid-cols-[280px_1fr]">
+          {/* Left: Dashboard-style sidebar (desktop). On mobile it becomes a compact header row. */}
+          <aside className="rounded-2xl border border-border bg-surface p-5 md:sticky md:top-6 md:h-[calc(100vh-48px)]">
+            <Link href="/" className="group flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-muted">
+              <Image
+                src="/brand/logo.png"
+                alt="Love to Learn Sign"
+                width={44}
+                height={44}
+                className="rounded-full object-cover"
+                priority
+              />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-foreground">Love to Learn Sign</div>
+                <div className="truncate text-xs text-muted-foreground">Dashboard</div>
+              </div>
+            </Link>
 
-          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="mt-4 space-y-1">
+              <div className="rounded-xl bg-muted px-3 py-2 text-sm font-medium text-foreground/90">
+                Sign In
+              </div>
+              <div className="rounded-xl px-3 py-2 text-sm text-muted-foreground">
+                Admin access only
+              </div>
+            </div>
+
+            <div className="mt-6 border-t border-border pt-4">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-foreground"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+                Back to site
+              </Link>
+            </div>
+          </aside>
+
+          {/* Right: message + form */}
+          <section className="flex flex-col items-center justify-start">
+            <div className="w-full max-w-md">
+              {/* Message OUTSIDE the card, centered, fully visible */}
+              <div className="mb-6 text-center">
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sign In</h1>
+                <p className="mt-2 text-base text-muted-foreground">
+                  This area is for dashboard users only. If you don’t have an account, please contact support.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+                <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground/90" htmlFor="email">
                 Email
@@ -179,9 +221,11 @@ export default function SignInPage() {
                 {loading ? "Signing in…" : "Sign In"}
               </button>
             </div>
-          </form>
+                </form>
+              </div>
+            </div>
+          </section>
         </div>
-      </div>
       </div>
     </main>
   );

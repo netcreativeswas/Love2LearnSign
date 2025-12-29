@@ -24,11 +24,18 @@ class AdminHome extends StatefulWidget {
 
 class _AdminHomeState extends State<AdminHome> {
   int _selectedIndex = 0;
+  bool _isSigningOut = false;
 
   Future<void> _signOut() async {
-    // Avoid showing the Flutter login screen briefly inside the iframe.
-    WebBridge.notifySignedOut();
-    await FirebaseAuth.instance.signOut();
+    if (_isSigningOut) return;
+    setState(() => _isSigningOut = true);
+    try {
+      await FirebaseAuth.instance.signOut();
+      // Tell the parent to sign out + redirect (prevents bounce / flicker).
+      WebBridge.notifySignedOut();
+    } finally {
+      if (mounted) setState(() => _isSigningOut = false);
+    }
   }
 
   @override
@@ -37,217 +44,358 @@ class _AdminHomeState extends State<AdminHome> {
     final isAdmin = widget.userRole == UserRoleService.roleAdmin;
     final isEditor = widget.userRole == UserRoleService.roleEditor;
 
-    // Editor: Only access to AddWordPage (no navigation drawer)
-    if (isEditor) {
-      return L2LLayoutScope.dashboard(
-        child: Scaffold(
-          appBar: AppBar(
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.network(
-                  'icons/Icon-512.png',
-                  height: 40,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 8),
-                const Text('Love to Learn Sign Dashboard'),
-                const SizedBox(width: 8),
-                Chip(
-                  label: const Text('Editor', style: TextStyle(fontSize: 11)),
-                  backgroundColor: Colors.orange.withValues(alpha: 0.2),
-                ),
-              ],
-            ),
-            actions: [
-              IconButton(onPressed: _signOut, icon: const Icon(Icons.logout)),
-            ],
-          ),
-          body: const DashboardContent(
-            child: AddWordPage(),
-          ), // Editors ONLY see AddWordPage - NO access to admin dashboard
+    if (!isAdmin && !isEditor) {
+      // Fallback: should not reach here if role checking is correct
+      return const Scaffold(
+        body: Center(
+          child: Text('Invalid role configuration'),
         ),
       );
     }
 
-    // Admin: Full access with navigation drawer
-    if (isAdmin) {
-      return ChangeNotifierProvider(
-        create: (_) => AuthProvider(),
-        child: L2LLayoutScope.dashboard(
-          child: Scaffold(
-            appBar: AppBar(
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.network(
-                    'icons/Icon-512.png',
-                    height: 40,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('Love to Learn Sign Dashboard'),
-                  const SizedBox(width: 8),
-                  Chip(
-                    label: const Text('Admin', style: TextStyle(fontSize: 11)),
-                    backgroundColor: Colors.green.withValues(alpha: 0.2),
-                  ),
-                ],
-              ),
-              actions: [
-                IconButton(onPressed: _signOut, icon: const Icon(Icons.logout)),
-              ],
-            ),
-            drawer: isDesktop
-                ? null
-                : Drawer(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
-                      children: [
-                        DrawerHeader(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Text(
-                                'Admin Menu',
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onPrimary,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Full Access',
-                                style: TextStyle(
-                                  color:
-                                      Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8),
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.dashboard),
-                          title: const Text('Dashboard'),
-                          selected: _selectedIndex == 0,
-                          onTap: () {
-                            setState(() => _selectedIndex = 0);
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.add),
-                          title: const Text('Add Word'),
-                          selected: _selectedIndex == 1,
-                          onTap: () {
-                            setState(() => _selectedIndex = 1);
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.manage_accounts),
-                          title: const Text('Admin Panel'),
-                          selected: _selectedIndex == 2,
-                          onTap: () {
-                            setState(() => _selectedIndex = 2);
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.analytics),
-                          title: const Text('Search Analytics'),
-                          selected: _selectedIndex == 3,
-                          onTap: () {
-                            setState(() => _selectedIndex = 3);
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.list_alt),
-                          title: const Text('Words List'),
-                          selected: _selectedIndex == 4,
-                          onTap: () {
-                            setState(() => _selectedIndex = 4);
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                      ],
+    final items = _navItemsForRole(isAdmin: isAdmin, isEditor: isEditor);
+    final selectedIndex = items.isEmpty
+        ? 0
+        : (_selectedIndex.clamp(0, items.length - 1));
+
+    return ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: L2LLayoutScope.dashboard(
+        child: Scaffold(
+          appBar: isDesktop
+              ? null
+              : AppBar(
+                  // Minimal header (mobile) only to provide a hamburger for the Drawer.
+                  title: Text(items.isNotEmpty ? items[selectedIndex].label : 'Dashboard'),
+                  actions: const [],
+                ),
+          drawer: isDesktop
+              ? null
+              : Drawer(
+                  child: SafeArea(
+                    child: _DashboardSidebar(
+                      items: items,
+                      selectedIndex: selectedIndex,
+                      onSelect: (i) {
+                        setState(() => _selectedIndex = i);
+                        Navigator.of(context).pop(); // close drawer
+                      },
+                      onLogout: _signOut,
+                      signingOut: _isSigningOut,
                     ),
                   ),
-            body: isDesktop
-                ? Row(
+                ),
+          body: Row(
+            children: [
+              if (isDesktop)
+                _DashboardSidebar(
+                  items: items,
+                  selectedIndex: selectedIndex,
+                  onSelect: (i) => setState(() => _selectedIndex = i),
+                  onLogout: _signOut,
+                  signingOut: _isSigningOut,
+                ),
+              if (isDesktop) const VerticalDivider(width: 1),
+              Expanded(
+                child: DashboardContent(
+                  child: items.isEmpty ? const SizedBox.shrink() : items[selectedIndex].builder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+  }
+}
+
+class _NavItem {
+  final String label;
+  final IconData icon;
+  final Widget Function() builder;
+  const _NavItem({required this.label, required this.icon, required this.builder});
+}
+
+List<_NavItem> _navItemsForRole({required bool isAdmin, required bool isEditor}) {
+  if (isEditor) {
+    return const [
+      _NavItem(label: 'Add Word', icon: Icons.add_circle_outline, builder: AddWordPage.new),
+    ];
+  }
+
+  if (isAdmin) {
+    return [
+      const _NavItem(
+        label: 'Dashboard',
+        icon: Icons.dashboard_outlined,
+        builder: AdminDashboardPage.new,
+      ),
+      const _NavItem(
+        label: 'Add Word',
+        icon: Icons.add_circle_outline,
+        builder: AddWordPage.new,
+      ),
+      const _NavItem(
+        label: 'Admin Panel',
+        icon: Icons.manage_accounts_outlined,
+        builder: AdminPanelPage.new,
+      ),
+      const _NavItem(
+        label: 'Search Analytics',
+        icon: Icons.analytics_outlined,
+        builder: SearchAnalyticsPage.new,
+      ),
+      _NavItem(
+        label: 'Words List',
+        icon: Icons.list_alt_outlined,
+        builder: () => const WordsListPage(userRoleOverride: UserRoleService.roleAdmin),
+      ),
+    ];
+  }
+
+  return const [];
+}
+
+class _DashboardSidebar extends StatelessWidget {
+  final List<_NavItem> items;
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+  final VoidCallback onLogout;
+  final bool signingOut;
+
+  const _DashboardSidebar({
+    required this.items,
+    required this.selectedIndex,
+    required this.onSelect,
+    required this.onLogout,
+    required this.signingOut,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+    final displayName = (auth.displayName ?? user?.displayName ?? 'Dashboard User').trim();
+    final email = (user?.email ?? '').trim();
+    final roles = auth.userRoles;
+
+    final initials = _initialsFrom(displayName.isNotEmpty ? displayName : email);
+
+    return Container(
+      width: 288,
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border(
+          right: BorderSide(color: scheme.onSurface.withValues(alpha: 0.10)),
+        ),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    'icons/Icon-512.png',
+                    width: 36,
+                    height: 36,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Love to Learn Sign',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              children: [
+                for (int i = 0; i < items.length; i++)
+                  _SidebarItem(
+                    label: items[i].label,
+                    icon: items[i].icon,
+                    selected: i == selectedIndex,
+                    onTap: () => onSelect(i),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: scheme.surface.withValues(alpha: 0.98),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: scheme.onSurface.withValues(alpha: 0.12)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      NavigationRail(
-                        selectedIndex: _selectedIndex,
-                        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-                        labelType: NavigationRailLabelType.all,
-                        destinations: const [
-                          NavigationRailDestination(
-                            icon: Icon(Icons.dashboard),
-                            label: Text('Dashboard'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.add),
-                            label: Text('Add Word'),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: scheme.primary.withValues(alpha: 0.10),
+                            foregroundColor: scheme.primary,
+                            child: Text(
+                              initials,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.manage_accounts),
-                            label: Text('Admin Panel'),
                           ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.analytics),
-                            label: Text('Analytics'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.list_alt),
-                            label: Text('Words List'),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName.isEmpty ? 'Dashboard User' : displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                if (email.isNotEmpty)
+                                  Text(
+                                    email,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: scheme.onSurface.withValues(alpha: 0.70),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const VerticalDivider(width: 1),
-                      Expanded(
-                        child: DashboardContent(
-                          child: _getSelectedPage(_selectedIndex),
+                      if (roles.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: roles
+                              .map(
+                                (r) => Chip(
+                                  label: Text(
+                                    r,
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              )
+                              .toList(),
                         ),
-                      ),
+                      ],
                     ],
-                  )
-                : DashboardContent(
-                    child: _getSelectedPage(_selectedIndex),
                   ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: signingOut ? null : onLogout,
+                    icon: signingOut
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.logout),
+                    label: Text(signingOut ? 'Signing out…' : 'Logout'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: scheme.secondary,
+                      foregroundColor: scheme.onSecondary,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    }
-
-    // Fallback: should not reach here if role checking is correct
-    return const Scaffold(
-      body: Center(
-        child: Text('Invalid role configuration'),
+        ],
       ),
     );
   }
 
-  Widget _getSelectedPage(int index) {
-    switch (index) {
-      case 0:
-        return const AdminDashboardPage(); // Admin-only dashboard
-      case 1:
-        return const AddWordPage(); // Add Word page (accessible to both admin and editor)
-      case 2:
-        return const AdminPanelPage();
-      case 3:
-        return const SearchAnalyticsPage();
-      case 4:
-        return WordsListPage(userRoleOverride: widget.userRole);
-      default:
-        return const AdminDashboardPage();
-    }
+  static String _initialsFrom(String s) {
+    final parts = s.trim().split(RegExp(r'\\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    final first = parts.first;
+    final last = parts.length > 1 ? parts.last : '';
+    final a = first.isNotEmpty ? first[0] : '';
+    final b = last.isNotEmpty ? last[0] : '';
+    final out = (a + b).toUpperCase();
+    return out.isEmpty ? '?' : out;
+  }
+}
+
+class _SidebarItem extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SidebarItem({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bg = selected ? scheme.secondary.withValues(alpha: 0.18) : Colors.transparent;
+    final fg = selected ? scheme.secondary : scheme.onSurface.withValues(alpha: 0.85);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: fg),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fg,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

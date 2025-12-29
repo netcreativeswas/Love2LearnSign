@@ -31,7 +31,8 @@ class MyApp extends StatelessWidget {
       primary: Color(0xFF232F34),
       onPrimary: Color(0xFFFFFFFF),
       secondary: Color(0xFFF9AA33),
-      onSecondary: Color(0xFFFFFFFF),
+      // Match website `--l2l-on-accent` (globals.css): dark text on accent.
+      onSecondary: Color(0xFF232F34),
       error: Color(0xFFFF5757),
       onError: Color(0xFFFFFFFF),
       surfaceTint: Color(0xFFE4E1DD),
@@ -44,7 +45,8 @@ class MyApp extends StatelessWidget {
       primary: Color(0xFF90A4AE),
       onPrimary: Color(0xFF232F34),
       secondary: Color(0xFFF9AA33),
-      onSecondary: Color(0xFFFFFFFF),
+      // Match website `--l2l-on-accent` (globals.css): dark text on accent.
+      onSecondary: Color(0xFF232F34),
       error: Color(0xFFFF5757),
       onError: Color(0xFF232F34),
       surfaceTint: Color(0xFF181B1F),

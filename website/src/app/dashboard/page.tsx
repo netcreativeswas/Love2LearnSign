@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase_client";
 
 export default function DashboardWrapper() {
@@ -23,10 +23,16 @@ export default function DashboardWrapper() {
   }, [router]);
 
   useEffect(() => {
-    function onMessage(ev: MessageEvent) {
+    async function onMessage(ev: MessageEvent) {
       const data = ev.data as any;
       if (data && typeof data === "object" && data.type === "SIGNED_OUT") {
         setForceHide(true);
+        // Ensure the parent window is actually signed out too (prevents bounce back to /dashboard).
+        try {
+          await signOut(auth);
+        } catch (_) {
+          // ignore
+        }
         router.replace("/sign-in");
       }
     }

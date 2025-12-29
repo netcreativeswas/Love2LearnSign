@@ -39,10 +39,26 @@ function ContactPageContent({ locale }: { locale: Locale }) {
         <div className="grid gap-6">
           <SectionCard title={t("contact.emailSupport.title")}>
             <p>
-              {t("contact.emailSupport.text", {
-                appName: siteConfig.appName,
-                email: siteConfig.supportEmail,
-              })}
+              {(() => {
+                const email = siteConfig.supportEmail;
+                const text = t("contact.emailSupport.text", {
+                  appName: siteConfig.appName,
+                  email,
+                });
+                if (typeof text !== "string" || !email || !text.includes(email)) {
+                  return text;
+                }
+                const [before, after] = text.split(email);
+                return (
+                  <>
+                    {before}
+                    <a className="font-semibold hover:underline" href={`mailto:${email}`}>
+                      {email}
+                    </a>
+                    {after}
+                  </>
+                );
+              })()}
             </p>
             <p className="text-muted-foreground">
               {t("contact.emailSupport.note")}
