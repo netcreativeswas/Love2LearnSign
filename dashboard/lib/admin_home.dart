@@ -11,6 +11,7 @@ import 'user_role_service.dart';
 import 'admin_dashboard_page.dart';
 import 'widgets/dashboard_content.dart';
 import 'package:l2l_shared/words_admin/words_list_page.dart';
+import 'web_bridge.dart';
 
 class AdminHome extends StatefulWidget {
   final String? userRole;
@@ -24,7 +25,11 @@ class AdminHome extends StatefulWidget {
 class _AdminHomeState extends State<AdminHome> {
   int _selectedIndex = 0;
 
-  Future<void> _signOut() => FirebaseAuth.instance.signOut();
+  Future<void> _signOut() async {
+    // Avoid showing the Flutter login screen briefly inside the iframe.
+    WebBridge.notifySignedOut();
+    await FirebaseAuth.instance.signOut();
+  }
 
   @override
   Widget build(BuildContext context) {

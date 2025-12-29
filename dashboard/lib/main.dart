@@ -60,6 +60,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Love to Learn Sign Dashboard',
       theme: ThemeData(
+        useMaterial3: true,
         colorScheme: lightScheme,
         scaffoldBackgroundColor: const Color(0xFFE4E1DD),
         appBarTheme: AppBarTheme(
@@ -89,24 +90,32 @@ class MyApp extends StatelessWidget {
         ),
         cardTheme: CardThemeData(
           color: lightScheme.surface,
-          elevation: 2,
+          elevation: 0,
           shadowColor: const Color(0x1F000000),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           margin: const EdgeInsets.symmetric(vertical: 8),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: lightScheme.secondary,
-            foregroundColor: Colors.black,
+            foregroundColor: lightScheme.onSecondary,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            side: BorderSide(color: lightScheme.onSurface.withValues(alpha: 0.22)),
             textStyle: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
         floatingActionButtonTheme: FloatingActionButtonThemeData(
           backgroundColor: lightScheme.secondary,
-          foregroundColor: Colors.black,
+          foregroundColor: lightScheme.onSecondary,
         ),
         inputDecorationTheme: InputDecorationTheme(
           labelStyle: TextStyle(
@@ -115,18 +124,18 @@ class MyApp extends StatelessWidget {
           hintStyle:
               TextStyle(color: lightScheme.onSurface.withValues(alpha: 0.6)),
           filled: true,
-          fillColor: lightScheme.surface,
+          fillColor: lightScheme.surface.withValues(alpha: 0.95),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(
                 color: lightScheme.onSurface.withValues(alpha: 0.15)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: lightScheme.primary, width: 1.4),
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: lightScheme.secondary, width: 2),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: lightScheme.error),
           ),
           contentPadding:
@@ -135,6 +144,7 @@ class MyApp extends StatelessWidget {
         iconTheme: IconThemeData(color: lightScheme.primary),
       ),
       darkTheme: ThemeData(
+        useMaterial3: true,
         colorScheme: darkScheme,
         scaffoldBackgroundColor: const Color(0xFF181B1F),
         appBarTheme: AppBarTheme(
@@ -155,23 +165,31 @@ class MyApp extends StatelessWidget {
         ),
         cardTheme: CardThemeData(
           color: darkScheme.surface,
-          elevation: 2,
+          elevation: 0,
           shadowColor: const Color(0x1F000000),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: darkScheme.secondary,
-            foregroundColor: Colors.black,
+            foregroundColor: darkScheme.onSecondary,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            side: BorderSide(color: darkScheme.onSurface.withValues(alpha: 0.26)),
             textStyle: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
         floatingActionButtonTheme: FloatingActionButtonThemeData(
           backgroundColor: darkScheme.secondary,
-          foregroundColor: Colors.black,
+          foregroundColor: darkScheme.onSecondary,
         ),
         inputDecorationTheme: InputDecorationTheme(
           labelStyle: TextStyle(
@@ -179,18 +197,18 @@ class MyApp extends StatelessWidget {
           hintStyle:
               TextStyle(color: darkScheme.onSurface.withValues(alpha: 0.6)),
           filled: true,
-          fillColor: darkScheme.surface,
+          fillColor: darkScheme.surface.withValues(alpha: 0.95),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(14),
             borderSide:
                 BorderSide(color: darkScheme.onSurface.withValues(alpha: 0.15)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: darkScheme.primary, width: 1.4),
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: darkScheme.secondary, width: 2),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: darkScheme.error),
           ),
           contentPadding:

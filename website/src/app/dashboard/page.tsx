@@ -9,6 +9,7 @@ export default function DashboardWrapper() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [authed, setAuthed] = useState(false);
+  const [forceHide, setForceHide] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -19,6 +20,18 @@ export default function DashboardWrapper() {
       }
     });
     return () => unsub();
+  }, [router]);
+
+  useEffect(() => {
+    function onMessage(ev: MessageEvent) {
+      const data = ev.data as any;
+      if (data && typeof data === "object" && data.type === "SIGNED_OUT") {
+        setForceHide(true);
+        router.replace("/sign-in");
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, [router]);
 
   if (!ready) {
@@ -33,6 +46,10 @@ export default function DashboardWrapper() {
 
   if (!authed) {
     // Redirect handled in effect; render nothing to avoid flicker.
+    return null;
+  }
+
+  if (forceHide) {
     return null;
   }
 
