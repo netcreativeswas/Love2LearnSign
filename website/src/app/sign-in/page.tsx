@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sendPasswordResetEmail, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase_client";
-import { PageShell } from "@/components/PageShell";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -63,9 +62,10 @@ export default function SignInPage() {
   }
 
   return (
-    <PageShell title="Sign In">
-      <div className="mx-auto w-full max-w-md">
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+    <main className="flex-1">
+      <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:py-14">
+        <div className="mx-auto w-full max-w-md">
+          <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
           <div className="mb-5 space-y-2 text-left">
             <h2 className="text-xl font-semibold tracking-tight text-foreground">
               Sign In
@@ -182,7 +182,8 @@ export default function SignInPage() {
           </form>
         </div>
       </div>
-    </PageShell>
+      </div>
+    </main>
   );
 }
 
