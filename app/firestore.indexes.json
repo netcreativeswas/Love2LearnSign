@@ -30,7 +30,7 @@
     },
     {
       "collectionGroup": "entitlements",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "active",
@@ -38,6 +38,10 @@
         },
         {
           "fieldPath": "tenantId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
           "order": "ASCENDING"
         }
       ]
