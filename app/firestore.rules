@@ -96,7 +96,8 @@ service cloud.firestore {
     // Per-tenant premium entitlements (Option A co-brand SaaS).
     match /users/{userId}/entitlements/{tenantId} {
       // User can read their own entitlements; platform admins can read for diagnostics.
-      allow read: if request.auth != null && (request.auth.uid == userId || isPlatformAdmin());
+      // Also allow global admins (custom claims) to read entitlements for diagnostics/metrics.
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin() || isPlatformAdmin());
       // Only server (Admin SDK) should write entitlements. Allow platform admin writes for emergency fixes.
       allow create, update, delete: if isPlatformAdmin();
     }
