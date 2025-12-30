@@ -1,5 +1,8 @@
+ "use client";
+
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 // Firebase web config for project: love2learnsign-1914ce
 // These values are not secrets, but must be correct.
@@ -18,5 +21,7 @@ export const firebaseApp = getApps().length
   : initializeApp(firebaseConfig);
 
 export const auth = getAuth(firebaseApp);
+
+export const db = getFirestore(firebaseApp);
 
 
