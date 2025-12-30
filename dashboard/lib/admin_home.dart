@@ -14,6 +14,7 @@ import 'web_bridge.dart';
 import 'tenancy/dashboard_tenant_scope.dart';
 import 'tenancy/tenant_switcher_page.dart';
 import 'owner/owner_home_page.dart';
+import 'debug/agent_debug_log.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -25,6 +26,7 @@ class AdminHome extends StatefulWidget {
 class _AdminHomeState extends State<AdminHome> {
   int _selectedIndex = 0;
   bool _isSigningOut = false;
+  static bool _didLogNavOnce = false;
 
   Future<void> _signOut() async {
     if (_isSigningOut) return;
@@ -51,6 +53,28 @@ class _AdminHomeState extends State<AdminHome> {
       isEditor: isEditor,
       isPlatformAdmin: tenantScope.isPlatformAdmin,
     );
+
+    if (!_didLogNavOnce) {
+      _didLogNavOnce = true;
+      // #region agent log
+      DebugLog.log({
+        'sessionId': 'debug-session',
+        'runId': 'dash-access-pre',
+        'hypothesisId': 'H5',
+        'location': 'dashboard/admin_home.dart:build',
+        'message': 'AdminHome computed nav',
+        'data': {
+          'tenantId': tenantScope.tenantId,
+          'role': role,
+          'isPlatformAdmin': tenantScope.isPlatformAdmin,
+          'isAdmin': isAdmin,
+          'isEditor': isEditor,
+          'navLabels': items.map((x) => x.label).toList(),
+        },
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      // #endregion
+    }
     final selectedIndex = items.isEmpty
         ? 0
         : (_selectedIndex.clamp(0, items.length - 1));

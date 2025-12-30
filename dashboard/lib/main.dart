@@ -8,6 +8,7 @@ import 'package:overlay_support/overlay_support.dart';
 import 'package:provider/provider.dart';
 import 'tenancy/dashboard_tenant_scope.dart';
 import 'tenancy/tenant_switcher_page.dart';
+import 'debug/agent_debug_log.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -84,6 +85,20 @@ class _DashboardTenantGateState extends State<DashboardTenantGate> {
 
   Future<void> _bootstrap() async {
     final scope = context.read<DashboardTenantScope>();
+    // #region agent log
+    DebugLog.log({
+      'sessionId': 'debug-session',
+      'runId': 'dash-access-pre',
+      'hypothesisId': 'H1',
+      'location': 'dashboard/main.dart:DashboardTenantGate:_bootstrap',
+      'message': 'bootstrap start',
+      'data': {
+        'url': Uri.base.toString(),
+        'uidSuffix': widget.user.uid.substring(widget.user.uid.length - 6),
+      },
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
     await scope.loadAccessForUser(widget.user.uid);
     if (!mounted) return;
     setState(() => _loading = false);

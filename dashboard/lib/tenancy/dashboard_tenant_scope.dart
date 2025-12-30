@@ -7,6 +7,7 @@ import 'package:l2l_shared/tenancy/app_config.dart';
 import 'package:l2l_shared/tenancy/tenant_config.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'dart:html' as html;
+import '../debug/agent_debug_log.dart';
 
 class TenantAccess {
   final String role;
@@ -98,6 +99,23 @@ class DashboardTenantScope extends ChangeNotifier {
     _selectedTenantRole = null;
     notifyListeners();
 
+    // #region agent log
+    DebugLog.log({
+      'sessionId': 'debug-session',
+      'runId': 'dash-access-pre',
+      'hypothesisId': 'H1',
+      'location': 'dashboard/dashboard_tenant_scope.dart:loadAccessForUser:start',
+      'message': 'loadAccessForUser start',
+      'data': {
+        'uidSuffix': uid.isNotEmpty ? uid.substring(uid.length - 6) : '',
+        'uidLen': uid.length,
+        'tenantIdBefore': _tenantId,
+        'appIdBefore': _appId,
+      },
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
+
     // 1) Load userTenants/{uid}
     try {
       final snap = await db.collection('userTenants').doc(uid).get();
@@ -117,6 +135,22 @@ class DashboardTenantScope extends ChangeNotifier {
           }
         }
       }
+
+      // #region agent log
+      DebugLog.log({
+        'sessionId': 'debug-session',
+        'runId': 'dash-access-pre',
+        'hypothesisId': 'H2',
+        'location': 'dashboard/dashboard_tenant_scope.dart:loadAccessForUser:userTenants',
+        'message': 'userTenants loaded',
+        'data': {
+          'docExists': snap.exists,
+          'tenantCount': _accessibleTenants.length,
+          'tenantIds': _accessibleTenants.keys.take(5).toList(),
+        },
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      // #endregion
     } catch (_) {
       // If this fails (e.g., rules not deployed yet), treat as no access.
     }
@@ -126,6 +160,19 @@ class DashboardTenantScope extends ChangeNotifier {
     try {
       final platformSnap = await db.collection('platform').doc('platform').collection('members').doc(uid).get();
       _isPlatformAdmin = platformSnap.exists;
+      // #region agent log
+      DebugLog.log({
+        'sessionId': 'debug-session',
+        'runId': 'dash-access-pre',
+        'hypothesisId': 'H3',
+        'location': 'dashboard/dashboard_tenant_scope.dart:loadAccessForUser:platform',
+        'message': 'platform membership checked',
+        'data': {
+          'platformDocExists': platformSnap.exists,
+        },
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      // #endregion
     } catch (_) {
       _isPlatformAdmin = false;
     }
@@ -150,6 +197,24 @@ class DashboardTenantScope extends ChangeNotifier {
     await refreshFromFirestore(firestore: db);
 
     _accessLoaded = true;
+
+    // #region agent log
+    DebugLog.log({
+      'sessionId': 'debug-session',
+      'runId': 'dash-access-pre',
+      'hypothesisId': 'H4',
+      'location': 'dashboard/dashboard_tenant_scope.dart:loadAccessForUser:done',
+      'message': 'loadAccessForUser done',
+      'data': {
+        'tenantId': _tenantId,
+        'selectedTenantRole': _selectedTenantRole,
+        'isPlatformAdmin': _isPlatformAdmin,
+        'tenantCount': _accessibleTenants.length,
+        'needsTenantPick': needsTenantPick,
+      },
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // #endregion
     notifyListeners();
   }
 
