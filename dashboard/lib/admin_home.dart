@@ -291,13 +291,22 @@ class _DashboardSidebar extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               children: [
-                for (int i = 0; i < items.length; i++)
+                for (int i = 0; i < items.length; i++) ...[
+                  if (items[i].label == 'Owner') ...[
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Divider(height: 1),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   _SidebarItem(
                     label: items[i].label,
                     icon: items[i].icon,
                     selected: i == selectedIndex,
                     onTap: () => onSelect(i),
                   ),
+                ],
               ],
             ),
           ),

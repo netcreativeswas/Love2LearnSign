@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../tenancy/dashboard_tenant_scope.dart';
 
 class MonetizationConfigPage extends StatefulWidget {
-  const MonetizationConfigPage({super.key});
+  final bool embedded;
+
+  const MonetizationConfigPage({super.key, this.embedded = false});
 
   @override
   State<MonetizationConfigPage> createState() => _MonetizationConfigPageState();
@@ -180,76 +182,87 @@ class _MonetizationConfigPageState extends State<MonetizationConfigPage> {
     final theme = Theme.of(context);
     final tenantId = tenantScope.tenantId;
 
+    final body = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text('Tenant: $tenantId', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 12),
+              if (_error != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('AdMob ad unit IDs',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    _field(_interstitialAndroid, 'Interstitial (Android)'),
+                    _field(_rewardedAndroid, 'Rewarded (Android)'),
+                    _field(_interstitialIOS, 'Interstitial (iOS)'),
+                    _field(_rewardedIOS, 'Rewarded (iOS)'),
+                    const SizedBox(height: 18),
+                    Text('IAP product IDs (separate SKUs per tenant)',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    _field(_monthlyAndroid, 'Monthly productId (Android)'),
+                    _field(_yearlyAndroid, 'Yearly productId (Android)'),
+                    _field(_monthlyIOS, 'Monthly productId (iOS)'),
+                    _field(_yearlyIOS, 'Yearly productId (iOS)'),
+                    const SizedBox(height: 18),
+                    Text('Payout (optional)',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    _field(_partnerName, 'Partner name'),
+                    _field(_payoutPercent, 'Payout percent', hint: 'e.g. 30'),
+                    _field(_payoutMode, 'Payout mode',
+                        hint: 'manual | invoice | revenue_share'),
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save),
+                      label: Text(_saving ? 'Saving...' : 'Save'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+
+    if (widget.embedded) return body;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Monetization config'),
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: theme.colorScheme.onPrimary,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Text('Tenant: $tenantId', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 12),
-                if (_error != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _error!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onErrorContainer,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text('AdMob ad unit IDs', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 8),
-                      _field(_interstitialAndroid, 'Interstitial (Android)'),
-                      _field(_rewardedAndroid, 'Rewarded (Android)'),
-                      _field(_interstitialIOS, 'Interstitial (iOS)'),
-                      _field(_rewardedIOS, 'Rewarded (iOS)'),
-                      const SizedBox(height: 18),
-                      Text('IAP product IDs (separate SKUs per tenant)', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 8),
-                      _field(_monthlyAndroid, 'Monthly productId (Android)'),
-                      _field(_yearlyAndroid, 'Yearly productId (Android)'),
-                      _field(_monthlyIOS, 'Monthly productId (iOS)'),
-                      _field(_yearlyIOS, 'Yearly productId (iOS)'),
-                      const SizedBox(height: 18),
-                      Text('Payout (optional)', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 8),
-                      _field(_partnerName, 'Partner name'),
-                      _field(_payoutPercent, 'Payout percent', hint: 'e.g. 30'),
-                      _field(_payoutMode, 'Payout mode', hint: 'manual | invoice | revenue_share'),
-                      const SizedBox(height: 18),
-                      FilledButton.icon(
-                        onPressed: _saving ? null : _save,
-                        icon: _saving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.save),
-                        label: Text(_saving ? 'Saving...' : 'Save'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+      body: body,
     );
   }
 }

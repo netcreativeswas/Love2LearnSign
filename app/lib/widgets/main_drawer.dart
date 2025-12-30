@@ -77,6 +77,12 @@ class MainDrawerWidget extends StatelessWidget {
         final displayName = authProvider.displayName ?? authProvider.user?.email?.split('@')[0] ?? 'User';
         final isAdmin = authProvider.isAdmin;
         final isEditor = authProvider.isEditor;
+        final displayRoles = isAdmin
+            ? userRoles.where((r) {
+                final lower = r.toLowerCase();
+                return lower != 'freeuser' && lower != 'paiduser' && lower != 'premium';
+              }).toList()
+            : userRoles;
         
     return Drawer(
       child: Container(
@@ -160,12 +166,12 @@ class MainDrawerWidget extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (userRoles.isNotEmpty) ...[
+                          if (displayRoles.isNotEmpty) ...[
                             const SizedBox(height: 12),
                           Wrap(
                               spacing: 6,
                               runSpacing: 6,
-                              children: userRoles.map((role) {
+                              children: displayRoles.map((role) {
                                 final badgeColor = _roleBadgeColor(role);
                                 final label = _formatRoleLabel(role);
 

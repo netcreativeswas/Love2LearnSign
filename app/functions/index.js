@@ -22,6 +22,7 @@ const ANDROID_PACKAGE_NAME = "com.love2learnsign.app";
 /**
  * Normalize roles so premium state is consistent across Firestore + Custom Claims.
  * Rule: `paidUser` and `freeUser` are mutually exclusive.
+ * Rule: `admin` implies `paidUser`.
  * - If `paidUser` is present => remove `freeUser`
  * - Otherwise => ensure `freeUser` is present (baseline role for non-premium users)
  *
@@ -34,6 +35,11 @@ function normalizeRoles(inputRoles) {
       .map((r) => String(r).trim())
       .filter((r) => r.length > 0)
   );
+
+  // Admins are always premium (global) for the co-brand SaaS model.
+  if (set.has("admin")) {
+    set.add("paidUser");
+  }
 
   if (set.has("paidUser")) {
     set.delete("freeUser");
@@ -284,17 +290,20 @@ exports.updateUserRoles = onDocumentUpdated(
     const newRoles = Array.isArray(afterData.roles) ? afterData.roles : [];
     const oldRoles = Array.isArray(beforeData.roles) ? beforeData.roles : [];
     const normalizedRoles = normalizeRoles(newRoles);
+    const normalizedDiffers =
+      JSON.stringify([...normalizedRoles].sort()) !==
+      JSON.stringify([...newRoles].map((r) => String(r)).sort());
 
     console.log(`🔍 updateUserRoles: Document ID: ${documentId}, UID: ${uid}`);
     console.log(`🔍 updateUserRoles: Old roles:`, oldRoles);
     console.log(`🔍 updateUserRoles: New roles:`, newRoles);
-    if (JSON.stringify([...normalizedRoles].sort()) !== JSON.stringify([...newRoles].map((r) => String(r)).sort())) {
+    if (normalizedDiffers) {
       console.log(`ℹ️ updateUserRoles: Normalized roles (enforcing freeUser/paidUser exclusivity):`, normalizedRoles);
     }
 
     // Always update Custom Claims to ensure they match Firestore (even if empty)
     if (newRoles.length === 0) {
-      console.log(`ℹ️ updateUserRoles: Roles list is empty for user ${uid}, clearing Custom Claims roles`);
+      console.log(`ℹ️ updateUserRoles: Roles list is empty for user ${uid} (baseline roles will be applied)`);
     }
 
     // Check if roles changed
@@ -303,6 +312,12 @@ exports.updateUserRoles = onDocumentUpdated(
       JSON.stringify([...normalizeRoles(oldRoles)].sort());
 
     try {
+      // Optional (recommended): write normalized roles back to Firestore so Admin Panel never shows a non-normalized mix.
+      // Idempotent: second trigger run will see roles already normalized and will not rewrite.
+      if (normalizedDiffers) {
+        await event.data.after.ref.update({ roles: normalizedRoles });
+      }
+
       console.log(`🔄 updateUserRoles: Setting Custom Claims for user ${uid} with roles:`, normalizedRoles);
 
       // Update Custom Claims using the UID from document data

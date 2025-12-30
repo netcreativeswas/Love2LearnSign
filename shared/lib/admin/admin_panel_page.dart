@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:l2l_shared/auth/auth_provider.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
 import 'package:l2l_shared/theme_extensions.dart';
+import 'package:l2l_shared/utils/countries.dart' as shared_countries;
 import 'package:provider/provider.dart';
 
 class AdminPanelPage extends StatefulWidget {
@@ -53,8 +54,9 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           if (r.trim().isNotEmpty) r.trim(),
       };
 
+      final isAdmin = set.contains('admin');
       final isPremium =
-          _hasActiveSubscription(data) || set.contains('paidUser');
+          isAdmin || _hasActiveSubscription(data) || set.contains('paidUser');
 
       if (isPremium) {
         set.add('paidUser');
@@ -469,8 +471,14 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
   // Save user roles to Firestore (no email sent)
   // Automatically approves user if roles are assigned (and user was not already approved)
   // If noteToUpdate is provided, updates the note field in Firestore
-  Future<void> _saveUserRoles(String userId, List<String> newRoles,
-      {bool? wasApprovedBefore, String? noteToUpdate}) async {
+  Future<void> _saveUserRoles(
+    String userId,
+    List<String> newRoles, {
+    bool? wasApprovedBefore,
+    String? noteToUpdate,
+    String? countryToUpdate,
+    String? userTypeToUpdate,
+  }) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -601,6 +609,15 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
             noteToUpdate.isEmpty ? FieldValue.delete() : noteToUpdate;
         debugPrint(
             '🔍 _saveUserRoles: Updating note: ${noteToUpdate.isEmpty ? "(cleared)" : noteToUpdate}');
+      }
+
+      if (countryToUpdate != null) {
+        final c = countryToUpdate.trim();
+        updateData['country'] = c.isEmpty ? FieldValue.delete() : c;
+      }
+      if (userTypeToUpdate != null) {
+        final t = userTypeToUpdate.trim();
+        updateData['userType'] = t.isEmpty ? FieldValue.delete() : t;
       }
 
       debugPrint('🔍 _saveUserRoles: Update data: $updateData');
@@ -1197,9 +1214,16 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
     }
   }
 
-  void _showRoleDialog(String userIdOrDocId, List<String> currentRoles,
-      String displayName, bool isApproved,
-      {String? note, String? email, String? country}) {
+  void _showRoleDialog(
+    String userIdOrDocId,
+    List<String> currentRoles,
+    String displayName,
+    bool isApproved, {
+    String? note,
+    String? email,
+    String? country,
+    String? userType,
+  }) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAdmin) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1226,11 +1250,88 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
     final selectedRoles = List<String>.from(currentRoles);
     // Local state for note (can be cleared by admin)
     String? currentNote = note;
+    final countryController = TextEditingController(text: (country ?? '').trim());
+    String currentUserType = (userType ?? '').trim(); // hearing | hearing_impaired | ...
 
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) {
+          Future<String?> pickCountry(String initial) async {
+            final result = await showModalBottomSheet<String>(
+              context: dialogContext,
+              isScrollControlled: true,
+              builder: (ctx) {
+                final search = TextEditingController(text: initial);
+                String query = initial.trim().toLowerCase();
+                return StatefulBuilder(
+                  builder: (ctx, setSheetState) {
+                    final items = shared_countries.countries.where((c) {
+                      if (query.isEmpty) return true;
+                      return c.toLowerCase().contains(query);
+                    }).toList();
+
+                    return SafeArea(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          top: 16,
+                          bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Select country',
+                                    style: Theme.of(ctx)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => Navigator.of(ctx).pop(null),
+                                  icon: const Icon(Icons.close),
+                                ),
+                              ],
+                            ),
+                            TextField(
+                              controller: search,
+                              decoration: const InputDecoration(
+                                labelText: 'Search',
+                                prefixIcon: Icon(Icons.search),
+                              ),
+                              onChanged: (v) => setSheetState(
+                                  () => query = v.trim().toLowerCase()),
+                            ),
+                            const SizedBox(height: 12),
+                            Flexible(
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: items.length,
+                                itemBuilder: (ctx, i) => ListTile(
+                                  title: Text(items[i]),
+                                  onTap: () =>
+                                      Navigator.of(ctx).pop(items[i]),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+            return result;
+          }
+
+          return AlertDialog(
           title: Text('Manage Roles for $displayName'),
           content: SingleChildScrollView(
             child: Column(
@@ -1365,6 +1466,61 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                 const Divider(),
                 const SizedBox(height: 8),
                 Text(
+                  'User info:',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: countryController,
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText: 'Country',
+                          suffixIcon: countryController.text.trim().isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Clear country',
+                                  onPressed: () {
+                                    setDialogState(() => countryController.text = '');
+                                  },
+                                  icon: const Icon(Icons.clear),
+                                ),
+                        ),
+                        onTap: () async {
+                          final selected = await pickCountry(countryController.text);
+                          if (selected == null) return;
+                          setDialogState(() => countryController.text = selected);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Pick country',
+                      onPressed: () async {
+                        final selected = await pickCountry(countryController.text);
+                        if (selected == null) return;
+                        setDialogState(() => countryController.text = selected);
+                      },
+                      icon: const Icon(Icons.public),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: currentUserType.isEmpty ? null : currentUserType,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  items: const [
+                    DropdownMenuItem(value: 'hearing', child: Text('Hearing')),
+                    DropdownMenuItem(value: 'hearing_impaired', child: Text('Deaf / Hearing impaired')),
+                  ],
+                  onChanged: (v) => setDialogState(() => currentUserType = (v ?? '').trim()),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
                   'Available Roles:',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
@@ -1423,7 +1579,9 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                         }
                         await _saveUserRoles(userId, selectedRoles,
                             wasApprovedBefore: isApproved,
-                            noteToUpdate: noteToUpdate);
+                            noteToUpdate: noteToUpdate,
+                            countryToUpdate: countryController.text,
+                            userTypeToUpdate: currentUserType);
                       } catch (e) {
                         debugPrint('❌ Error in Save User Settings button: $e');
                       }
@@ -1448,7 +1606,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
               ),
             ),
           ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -2062,6 +2221,12 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                                                               as String?,
                                                           email: email,
                                                           country: country,
+                                                          userType: data['userType']
+                                                                  as String? ??
+                                                              data['hearingStatus']
+                                                                  as String? ??
+                                                              data['hearing_status']
+                                                                  as String?,
                                                         );
                                                       },
                                                     ),
@@ -2755,6 +2920,9 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                                   note: data['note'] as String?,
                                   email: email,
                                   country: country,
+                                  userType: data['userType'] as String? ??
+                                      data['hearingStatus'] as String? ??
+                                      data['hearing_status'] as String?,
                                 );
                               },
                             ),

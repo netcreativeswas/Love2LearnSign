@@ -9,6 +9,33 @@ class CreateTenantPage extends StatefulWidget {
 }
 
 class _CreateTenantPageState extends State<CreateTenantPage> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create tenant / app'),
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
+      ),
+      body: const CreateTenantForm(),
+    );
+  }
+}
+
+class CreateTenantForm extends StatefulWidget {
+  final EdgeInsets padding;
+
+  const CreateTenantForm({
+    super.key,
+    this.padding = const EdgeInsets.all(16),
+  });
+
+  @override
+  State<CreateTenantForm> createState() => _CreateTenantFormState();
+}
+
+class _CreateTenantFormState extends State<CreateTenantForm> {
   final _tenantId = TextEditingController();
   final _tenantName = TextEditingController();
   final _signLangId = TextEditingController();
@@ -119,15 +146,9 @@ class _CreateTenantPageState extends State<CreateTenantPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create tenant / app'),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+    return ListView(
+      padding: widget.padding,
+      children: [
           Text('Tenant', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
           TextField(controller: _tenantId, decoration: const InputDecoration(labelText: 'tenantId (e.g. l2l-bdsl)')),
@@ -164,8 +185,7 @@ class _CreateTenantPageState extends State<CreateTenantPage> {
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Text('Save'),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
