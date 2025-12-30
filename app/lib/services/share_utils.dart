@@ -76,11 +76,17 @@ class ShareService {
     String? bengali,
     String? tenantId,
     String? signLangId,
+    String? uiLocale,
   }) async {
     final base = Uri.parse('https://love2learnsign.com/word/$wordId');
     final qp = <String, String>{
       if (tenantId != null && tenantId.trim().isNotEmpty) 'tenant': tenantId.trim(),
       if (signLangId != null && signLangId.trim().isNotEmpty) 'lang': signLangId.trim(),
+      // Website UI language (optional). We only include it when non-English to keep links short.
+      if (uiLocale != null &&
+          uiLocale.trim().isNotEmpty &&
+          uiLocale.trim().toLowerCase() != 'en')
+        'ui': uiLocale.trim().toLowerCase(),
     };
     final url = qp.isEmpty ? base.toString() : base.replace(queryParameters: qp).toString();
     final hasTitle = (english != null && english.trim().isNotEmpty) ||

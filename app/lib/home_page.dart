@@ -1159,12 +1159,14 @@ class _MiniatureMenu extends StatelessWidget {
         switch (value) {
           case _MiniAction.share:
             final scope = context.read<TenantScope>();
+            final uiLocale = context.read<LocaleProvider>().locale.languageCode;
             await ShareService.shareVideo(
               wordId,
               english: english,
               bengali: bengali,
               tenantId: scope.tenantId,
               signLangId: scope.signLangId,
+              uiLocale: uiLocale,
             );
             break;
           case _MiniAction.toggleFavorite:

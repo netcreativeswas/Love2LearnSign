@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { siteConfig } from "@/lib/site-config";
+import { useTranslations } from "@/components/TranslationProvider";
 import {
   DEFAULT_SIGN_LANG_ID,
   DEFAULT_TENANT_ID,
@@ -18,61 +19,14 @@ export default function WordViewerClient({
   wordId,
   tenantId,
   signLangId,
-  uiLocale,
 }: {
   wordId: string;
   tenantId?: string;
   signLangId?: string;
-  uiLocale?: string;
 }) {
+  const { t } = useTranslations();
   const resolvedTenantId = tenantId?.trim() || DEFAULT_TENANT_ID;
   const resolvedSignLangId = signLangId?.trim() || DEFAULT_SIGN_LANG_ID;
-  const isBn = (uiLocale ?? "").toLowerCase().startsWith("bn");
-
-  const t = useMemo(() => {
-    if (!isBn) {
-      return {
-        watchThisSign: "Watch this sign",
-        watchASign: "Watch a sign",
-        getTheApp: "Get the app",
-        betterExperience: "Get a better experience in the app",
-        installBlurb:
-          "Install Love to Learn Sign for faster loading, offline access, favorites, and quizzes.",
-        getItOnGooglePlay: "Get it on Google Play",
-        sharingTip:
-          "Sharing tip: you can forward this page link to friends who don’t have the app installed.",
-        loading: "Loading…",
-        couldNotLoadTitle: "Couldn’t load this word",
-        couldNotLoadFallback: "Failed to load this word.",
-        wordNotFound: "Word not found",
-        wordNotFoundBody:
-          "The link may be wrong, or this word is not public for this tenant.",
-        noVideo: "No video available",
-        noVideoBody: "This word exists but has no video URL yet.",
-        videoUnsupported: "Your browser does not support the video tag.",
-      } as const;
-    }
-    return {
-      watchThisSign: "এই ইশারা দেখুন",
-      watchASign: "একটি ইশারা দেখুন",
-      getTheApp: "অ্যাপ নিন",
-      betterExperience: "অ্যাপে আরও ভালো অভিজ্ঞতা পান",
-      installBlurb:
-        "দ্রুত লোডিং, অফলাইন ব্যবহার, ফেভারিটস এবং কুইজের জন্য Love to Learn Sign অ্যাপটি ইনস্টল করুন।",
-      getItOnGooglePlay: "Google Play থেকে পান",
-      sharingTip:
-        "শেয়ারিং টিপ: যাদের অ্যাপ ইনস্টল নেই তাদেরও এই পেজের লিংক পাঠাতে পারেন।",
-      loading: "লোড হচ্ছে…",
-      couldNotLoadTitle: "শব্দটি লোড করা যায়নি",
-      couldNotLoadFallback: "শব্দটি লোড করা যায়নি।",
-      wordNotFound: "শব্দটি পাওয়া যায়নি",
-      wordNotFoundBody:
-        "লিংকটি ভুল হতে পারে, অথবা এই টেন্যান্টের জন্য শব্দটি পাবলিক নয়।",
-      noVideo: "ভিডিও নেই",
-      noVideoBody: "এই শব্দটি আছে, কিন্তু এখনো কোনো ভিডিও যোগ করা হয়নি।",
-      videoUnsupported: "আপনার ব্রাউজার ভিডিও চালাতে সমর্থ নয়।",
-    } as const;
-  }, [isBn]);
 
   const [loading, setLoading] = useState(true);
   const [concept, setConcept] = useState<PublicConcept | null>(null);
@@ -93,7 +47,7 @@ export default function WordViewerClient({
         setConcept(data);
       } catch (e) {
         if (cancelled) return;
-        const msg = e instanceof Error ? e.message : t.couldNotLoadFallback;
+        const msg = e instanceof Error ? e.message : t("wordPage.couldNotLoadTitle");
         setError(msg);
         setConcept(null);
       } finally {
@@ -134,7 +88,7 @@ export default function WordViewerClient({
             />
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold leading-5">{siteConfig.appName}</div>
-              <div className="truncate text-xs text-muted-foreground">{t.watchASign}</div>
+              <div className="truncate text-xs text-muted-foreground">{t("wordPage.watchASign")}</div>
             </div>
           </Link>
 
@@ -144,7 +98,7 @@ export default function WordViewerClient({
             rel="noreferrer"
             className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm font-semibold text-foreground/90 hover:bg-muted"
           >
-            {t.getTheApp}
+            {t("wordPage.getTheApp")}
             <span aria-hidden="true">→</span>
           </a>
         </div>
@@ -158,10 +112,10 @@ export default function WordViewerClient({
               <div className="box-border h-full rounded-3xl border border-border bg-surface p-4 shadow-sm sm:p-6">
                 <div className="flex h-full flex-col gap-3">
                   <div className="flex-none">
-                    <div className="text-sm font-semibold text-muted-foreground">{t.watchThisSign}</div>
+                    <div className="text-sm font-semibold text-muted-foreground">{t("wordPage.watchThisSign")}</div>
                     {loading ? (
                       <h1 className="mt-1 text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
-                        {t.loading}
+                        {t("wordPage.loading")}
                       </h1>
                     ) : (
                       <div className="mt-1">
@@ -196,25 +150,25 @@ export default function WordViewerClient({
                       ) : error ? (
                         <div className="flex h-full items-center justify-center px-6 text-center">
                           <div>
-                            <div className="text-sm font-semibold">{t.couldNotLoadTitle}</div>
+                            <div className="text-sm font-semibold">{t("wordPage.couldNotLoadTitle")}</div>
                             <div className="mt-1 text-sm text-muted-foreground">{error}</div>
                           </div>
                         </div>
                       ) : !concept ? (
                         <div className="flex h-full items-center justify-center px-6 text-center">
                           <div>
-                            <div className="text-sm font-semibold">{t.wordNotFound}</div>
+                            <div className="text-sm font-semibold">{t("wordPage.wordNotFound")}</div>
                             <div className="mt-1 text-sm text-muted-foreground">
-                              {t.wordNotFoundBody}
+                              {t("wordPage.wordNotFoundBody")}
                             </div>
                           </div>
                         </div>
                       ) : !videoUrl ? (
                         <div className="flex h-full items-center justify-center px-6 text-center">
                           <div>
-                            <div className="text-sm font-semibold">{t.noVideo}</div>
+                            <div className="text-sm font-semibold">{t("wordPage.noVideo")}</div>
                             <div className="mt-1 text-sm text-muted-foreground">
-                              {t.noVideoBody}
+                              {t("wordPage.noVideoBody")}
                             </div>
                           </div>
                         </div>
@@ -227,7 +181,7 @@ export default function WordViewerClient({
                           poster={posterUrl}
                         >
                           <source src={videoUrl} />
-                          {t.videoUnsupported}
+                          {t("wordPage.videoUnsupported")}
                         </video>
                       )}
                     </div>
@@ -239,9 +193,9 @@ export default function WordViewerClient({
             {/* Right: CTA + context */}
             <aside className="lg:min-h-0">
               <div className="box-border rounded-3xl border border-border bg-surface p-4 shadow-sm sm:p-6 lg:sticky lg:top-6">
-                <div className="text-sm font-semibold tracking-tight">{t.betterExperience}</div>
+                <div className="text-sm font-semibold tracking-tight">{t("wordPage.betterExperience")}</div>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t.installBlurb}
+                  {t("wordPage.installBlurb")}
                 </p>
 
                 <div className="mt-2 sm:mt-4">
@@ -253,7 +207,7 @@ export default function WordViewerClient({
                   >
                     <Image
                       src="/icons/google-play-download.png"
-                      alt={t.getItOnGooglePlay}
+                      alt={t("wordPage.getItOnGooglePlay")}
                       width={170}
                       height={56}
                       className="h-auto w-auto"
@@ -262,7 +216,7 @@ export default function WordViewerClient({
                 </div>
 
                 <div className="mt-2 rounded-2xl bg-muted p-3 text-sm text-muted-foreground sm:mt-4 sm:p-4">
-                  {t.sharingTip}
+                  {t("wordPage.sharingTip")}
                 </div>
               </div>
             </aside>

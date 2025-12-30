@@ -8,6 +8,7 @@ import 'package:line_icons/line_icons.dart';
 import '../services/share_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:love_to_learn_sign/tenancy/tenant_scope.dart';
+import 'package:love_to_learn_sign/locale_provider.dart';
 
 class FullscreenVideoPlayer extends StatefulWidget {
   final VideoPlayerController controller;
@@ -406,6 +407,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
                       ),
                       onPressed: () async {
                         final scope = context.read<TenantScope>();
+                        final uiLocale = context.read<LocaleProvider>().locale.languageCode;
                         // Share a deep link to this word; falls back to the system share sheet
                         await ShareService.shareVideo(
                           widget.wordId,
@@ -413,6 +415,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
                           bengali: widget.bengali,
                           tenantId: scope.tenantId,
                           signLangId: scope.signLangId,
+                          uiLocale: uiLocale,
                         );
                       },
                       icon: Icon(IconlyLight.send),

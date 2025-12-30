@@ -112,6 +112,22 @@
     "whatKept": "What data may be kept (and why)",
     "optionalTitle": "Optional: delete some data without deleting your account"
   },
+  "wordPage": {
+    "watchThisSign": "Watch this sign",
+    "watchASign": "Watch a sign",
+    "getTheApp": "Get the app",
+    "betterExperience": "Get a better experience in the app",
+    "installBlurb": "Install Love to Learn Sign for faster loading, offline access, favorites, and quizzes.",
+    "getItOnGooglePlay": "Get it on Google Play",
+    "sharingTip": "Sharing tip: you can forward this page link to friends who don’t have the app installed.",
+    "loading": "Loading…",
+    "couldNotLoadTitle": "Couldn’t load this word",
+    "wordNotFound": "Word not found",
+    "wordNotFoundBody": "The link may be wrong, or this word is not public for this tenant.",
+    "noVideo": "No video available",
+    "noVideoBody": "This word exists but has no video URL yet.",
+    "videoUnsupported": "Your browser does not support the video tag."
+  },
   "notFound": {
     "title": "404",
     "heading": "Page Not Found",

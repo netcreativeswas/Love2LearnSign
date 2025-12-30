@@ -1,4 +1,6 @@
 import WordViewerClient from "./WordViewerClient";
+import { TranslationProvider } from "@/components/TranslationProvider";
+import { defaultLocale, locales, type Locale } from "@/lib/i18n";
 
 export default async function WordPage({
   params,
@@ -17,14 +19,16 @@ export default async function WordPage({
   const tenantId = typeof tenantParam === "string" ? tenantParam : undefined;
   const signLangId = typeof langParam === "string" ? langParam : undefined;
   const uiLocale = typeof uiParam === "string" ? uiParam : undefined;
+  const resolvedLocale = (uiLocale && locales.includes(uiLocale as Locale) ? uiLocale : defaultLocale) as Locale;
 
   return (
-    <WordViewerClient
-      wordId={wordId}
-      tenantId={tenantId}
-      signLangId={signLangId}
-      uiLocale={uiLocale}
-    />
+    <TranslationProvider locale={resolvedLocale}>
+      <WordViewerClient
+        wordId={wordId}
+        tenantId={tenantId}
+        signLangId={signLangId}
+      />
+    </TranslationProvider>
   );
 }
 

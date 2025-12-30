@@ -19,6 +19,7 @@ import 'services/ad_service.dart';
 import 'services/session_counter_service.dart';
 import 'services/premium_service.dart';
 import 'pages/premium_settings_page.dart';
+import 'locale_provider.dart';
 
 
 class VideoViewerPage extends StatefulWidget {
@@ -598,12 +599,14 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
             icon: Icon(Icons.share, color: Theme.of(context).colorScheme.secondary, size: 28,),
             onPressed: () async {
               final scope = context.read<TenantScope>();
+              final uiLocale = context.read<LocaleProvider>().locale.languageCode;
               await ShareService.shareVideo(
                 widget.wordId,
                 english: _english,
                 bengali: _bengali,
                 tenantId: scope.tenantId,
                 signLangId: scope.signLangId,
+                uiLocale: uiLocale,
               );
             },
           ),

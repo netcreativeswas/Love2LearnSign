@@ -10,6 +10,7 @@ import 'package:love_to_learn_sign/flashcard_page.dart';
 import 'package:love_to_learn_sign/theme.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:love_to_learn_sign/tenancy/tenant_scope.dart';
+import 'package:love_to_learn_sign/locale_provider.dart';
 
 
 /// Row of upcoming review sessions with an integrated bottom drawer that lists words.
@@ -286,12 +287,14 @@ class _ReviewSessionsRowState extends State<ReviewSessionsRow> {
                                   icon: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
                                   onPressed: () async {
                                     final scope = context.read<TenantScope>();
+                                    final uiLocale = context.read<LocaleProvider>().locale.languageCode;
                                     await ShareService.shareVideo(
                                       d.id,
                                       english: english,
                                       bengali: bengali,
                                       tenantId: scope.tenantId,
                                       signLangId: scope.signLangId,
+                                      uiLocale: uiLocale,
                                     );
                                   },
                                 ),

@@ -1169,12 +1169,14 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                         icon: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
                         onPressed: () async {
                           final scope = context.read<TenantScope>();
+                          final uiLocale = context.read<LocaleProvider>().locale.languageCode;
                           await ShareService.shareVideo(
                             wordId,
                             english: english,
                             bengali: bengali,
                             tenantId: scope.tenantId,
                             signLangId: scope.signLangId,
+                            uiLocale: uiLocale,
                           );
                         },
                       ),
@@ -1444,12 +1446,14 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                         icon: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
                         onPressed: () async {
                           final scope = context.read<TenantScope>();
+                          final uiLocale = context.read<LocaleProvider>().locale.languageCode;
                           await ShareService.shareVideo(
                             wordId,
                             english: english,
                             bengali: bengali,
                             tenantId: scope.tenantId,
                             signLangId: scope.signLangId,
+                            uiLocale: uiLocale,
                           );
                         },
                       ),
