@@ -123,6 +123,15 @@ service cloud.firestore {
       allow create, update, delete: if isPlatformAdmin();
     }
 
+    // Platform admin membership:
+    // Allow a user to read their own membership doc so the client can detect "Owner" status
+    // without any circular/self-referential rule evaluation.
+    match /platform/platform/members/{uid} {
+      allow get: if request.auth != null && (request.auth.uid == uid || isPlatformAdmin());
+      allow list: if isPlatformAdmin();
+      allow create, update, delete: if isPlatformAdmin();
+    }
+
     match /platform/{doc=**} {
       allow read, write: if isPlatformAdmin();
     }
