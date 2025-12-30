@@ -47,6 +47,26 @@ class TenantDb {
     String tenantId = defaultTenantId,
   }) =>
       tenantDoc(db, tenantId: tenantId).collection('searchAnalytics');
+
+  // --- Monetization (Option A co-brand SaaS) ---
+  static DocumentReference<Map<String, dynamic>> monetizationConfigDoc(
+    FirebaseFirestore db, {
+    String tenantId = defaultTenantId,
+  }) =>
+      tenantDoc(db, tenantId: tenantId).collection('monetization').doc('config');
+
+  static CollectionReference<Map<String, dynamic>> userEntitlements(
+    FirebaseFirestore db,
+    String uid,
+  ) =>
+      db.collection('users').doc(uid).collection('entitlements');
+
+  static DocumentReference<Map<String, dynamic>> userEntitlementDoc(
+    FirebaseFirestore db, {
+    required String uid,
+    required String tenantId,
+  }) =>
+      userEntitlements(db, uid).doc(tenantId);
 }
 
 

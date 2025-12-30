@@ -100,7 +100,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     // Skip ads for paidUser and admin
-    if (authProvider.hasRole('paidUser') || authProvider.hasRole('admin')) {
+    final tenantId = context.read<TenantScope>().tenantId;
+    final isPremium = await PremiumService().isPremiumForTenant(tenantId);
+    if (authProvider.hasRole('admin') || isPremium) {
       return;
     }
 
@@ -139,7 +141,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     // Skip ads for paidUser and admin
-    if (authProvider.hasRole('paidUser') || authProvider.hasRole('admin')) {
+    final tenantId = context.read<TenantScope>().tenantId;
+    final isPremium = await PremiumService().isPremiumForTenant(tenantId);
+    if (authProvider.hasRole('admin') || isPremium) {
       return;
     }
 
@@ -171,7 +175,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
   /// Show premium CTA after interstitial ad
   Future<void> _showPremiumCTA(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.hasRole('paidUser') || authProvider.hasRole('admin')) {
+    final tenantId = context.read<TenantScope>().tenantId;
+    final isPremium = await PremiumService().isPremiumForTenant(tenantId);
+    if (authProvider.hasRole('admin') || isPremium) {
       return; // Don't show CTA for premium users
     }
 

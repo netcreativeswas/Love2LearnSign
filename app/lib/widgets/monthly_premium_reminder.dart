@@ -4,6 +4,7 @@ import '../services/premium_service.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 import '../l10n/dynamic_l10n.dart';
 import '../pages/premium_settings_page.dart';
+import '../tenancy/tenant_scope.dart';
 
 /// Widget to show monthly premium reminder popup
 class MonthlyPremiumReminder extends StatefulWidget {
@@ -28,7 +29,12 @@ class _MonthlyPremiumReminderState extends State<MonthlyPremiumReminder> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     // Don't show if user is premium or admin
-    if (authProvider.hasRole('paidUser') || authProvider.hasRole('admin')) {
+    if (authProvider.hasRole('admin')) {
+      return;
+    }
+    final tenantId = context.read<TenantScope>().tenantId;
+    final isPremium = await _premiumService.isPremiumForTenant(tenantId);
+    if (isPremium) {
       return;
     }
 

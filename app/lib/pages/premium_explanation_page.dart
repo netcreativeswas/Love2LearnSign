@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../services/subscription_service.dart';
 import '../l10n/dynamic_l10n.dart';
 import 'premium_settings_page.dart';
 import '../login_page.dart';
+import '../tenancy/tenant_scope.dart';
 
 class PremiumExplanationPage extends StatefulWidget {
   const PremiumExplanationPage({super.key});
@@ -24,7 +26,8 @@ class _PremiumExplanationPageState extends State<PremiumExplanationPage> {
   }
 
   Future<void> _loadProducts() async {
-    await _subscriptionService.loadProducts();
+    final tenantId = context.read<TenantScope>().tenantId;
+    await _subscriptionService.setTenant(tenantId);
     if (mounted) setState(() {});
   }
 

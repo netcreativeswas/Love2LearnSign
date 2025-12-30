@@ -92,6 +92,14 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if false;
     }
+
+    // Per-tenant premium entitlements (Option A co-brand SaaS).
+    match /users/{userId}/entitlements/{tenantId} {
+      // User can read their own entitlements; platform admins can read for diagnostics.
+      allow read: if request.auth != null && (request.auth.uid == userId || isPlatformAdmin());
+      // Only server (Admin SDK) should write entitlements. Allow platform admin writes for emergency fixes.
+      allow create, update, delete: if isPlatformAdmin();
+    }
     
     // Role change logs - admins only (for security audit trail)
     match /roleLogs/{logId} {
@@ -146,6 +154,12 @@ service cloud.firestore {
       match /members/{uid} {
         allow read: if isPlatformAdmin() || (request.auth != null && request.auth.uid == uid) || isTenantEditorOrAbove(tenantId);
         allow write: if isPlatformAdmin() || isTenantEditorOrAbove(tenantId);
+      }
+
+      // Tenant monetization config (Option A). Readable by clients (for ads + IAP), writable by platform admin.
+      match /monetization/{docId} {
+        allow read: if true;
+        allow write: if isPlatformAdmin();
       }
 
       // Tenant-scoped search analytics (v2): allow logging for public tenants (guests),

@@ -369,6 +369,18 @@ void main() async {
   final themeProvider = await ThemeProvider.create();
   final tenantScope = await TenantScope.create();
 
+  // Keep monetization services aligned with the currently selected tenant.
+  // (Option A: per-tenant IAP SKUs + per-tenant AdMob unit IDs)
+  var _lastTenantId = tenantScope.tenantId;
+  tenantScope.addListener(() {
+    final tid = tenantScope.tenantId;
+    if (tid == _lastTenantId) return;
+    _lastTenantId = tid;
+    // Best-effort async updates (no await to avoid blocking UI).
+    AdService().setTenant(tid);
+    SubscriptionService().setTenant(tid);
+  });
+
   // #region agent log
   AgentLogger.log({
     'sessionId': 'debug-session',
@@ -595,6 +607,8 @@ void main() async {
         });
         // #endregion
         await AdService().initialize().timeout(const Duration(seconds: 15));
+        // Ensure AdService uses the currently selected tenant (may differ from default tenant).
+        await AdService().setTenant(tenantScope.tenantId).timeout(const Duration(seconds: 10));
         // #region agent log
         AgentLogger.log({
           'sessionId': 'debug-session',
@@ -637,6 +651,8 @@ void main() async {
         await SubscriptionService()
             .initialize()
             .timeout(const Duration(seconds: 15));
+        // Ensure SubscriptionService loads tenant-specific products (Option A).
+        await SubscriptionService().setTenant(tenantScope.tenantId).timeout(const Duration(seconds: 10));
         // #region agent log
         AgentLogger.log({
           'sessionId': 'debug-session',

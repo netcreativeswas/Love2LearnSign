@@ -3,6 +3,7 @@ const logger = require("firebase-functions/logger");
 
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { GoogleAuth } = require("google-auth-library");
+const crypto = require("crypto");
 const { initializeApp } = require("firebase-admin/app");
 const { getMessaging } = require("firebase-admin/messaging");
 const { getFirestore, FieldValue, FieldPath } = require("firebase-admin/firestore");
@@ -420,7 +421,10 @@ exports.verifyPlaySubscription = onCall(
       throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const { productId, purchaseToken, platform } = request.data || {};
+    const { tenantId, productId, purchaseToken, platform } = request.data || {};
+    if (!tenantId || typeof tenantId !== "string") {
+      throw new HttpsError("invalid-argument", "tenantId is required");
+    }
     if (!productId || typeof productId !== "string") {
       throw new HttpsError("invalid-argument", "productId is required");
     }
@@ -432,6 +436,10 @@ exports.verifyPlaySubscription = onCall(
     }
 
     const uid = request.auth.uid;
+    const tenant = tenantId.trim();
+    if (!tenant) {
+      throw new HttpsError("invalid-argument", "tenantId is required");
+    }
 
     let purchase;
     try {
@@ -449,43 +457,41 @@ exports.verifyPlaySubscription = onCall(
     const renewalDate = expiryTimeMillis ? new Date(expiryTimeMillis) : null;
     const subscriptionType = productId.includes("yearly") ? "yearly" : "monthly";
 
-    const userRef = await findUserDocRefByUid(uid);
+    // Option A: store per-tenant entitlement (source of truth for Premium gating).
+    const purchaseTokenHash = crypto
+      .createHash("sha256")
+      .update(String(purchaseToken))
+      .digest("hex")
+      .substring(0, 32);
 
-    // Always update subscription fields; role assignment depends on active state.
-    const update = {
-      subscription_type: subscriptionType,
-      subscription_start_date: FieldValue.serverTimestamp(),
-      subscription_renewal_date: renewalDate ? renewalDate : null,
-      subscription_platform: "android",
-      last_payment_date: FieldValue.serverTimestamp(),
-      subscription_active: active,
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-
-    // Update Firestore user doc (admin SDK bypasses rules).
-    await userRef.set(update, { merge: true });
-
-    // Update roles in Firestore + Custom Claims
-    const snap = await userRef.get();
-    const data = snap.exists ? snap.data() : {};
-    const currentRoles = Array.isArray(data?.roles) ? data.roles : [];
-    const rolesSet = new Set(currentRoles.map((r) => String(r)));
-    if (active) {
-      rolesSet.add("paidUser");
-    } else {
-      rolesSet.delete("paidUser");
-    }
-    const newRoles = normalizeRoles(Array.from(rolesSet));
-
-    await userRef.set({ roles: newRoles }, { merge: true });
-    await setUserRolesInAuth(uid, newRoles);
+    const entRef = db.collection("users").doc(uid).collection("entitlements").doc(tenant);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(entRef);
+      const createdAt = snap.exists && snap.data()?.createdAt ? snap.data().createdAt : FieldValue.serverTimestamp();
+      tx.set(
+        entRef,
+        {
+          uid,
+          tenantId: tenant,
+          productId,
+          subscriptionType,
+          platform: "android",
+          active,
+          validUntil: renewalDate ? renewalDate : null,
+          purchaseTokenHash,
+          createdAt,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
 
     return {
       success: true,
       active,
       renewalDate: renewalDate ? renewalDate.toISOString() : null,
+      tenantId: tenant,
       productId,
-      roles: newRoles,
     };
   }
 );

@@ -5,6 +5,8 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/tenant_monetization_config.dart';
 
 /// Service for managing in-app purchases and subscriptions
 class SubscriptionService {
@@ -17,17 +19,11 @@ class SubscriptionService {
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   final StreamController<void> _subscriptionChanged = StreamController<void>.broadcast();
   
-  // Product IDs - Replace with your actual product IDs from Google Play Console / App Store Connect
-  static const String _monthlyProductId = 'premium_monthly';
-  static const String _yearlyProductId = 'premium_yearly';
-  
-  // Android product IDs (if different)
-  static const String _monthlyProductIdAndroid = 'premium_monthly';
-  static const String _yearlyProductIdAndroid = 'premium_yearly';
-  
-  // iOS product IDs (if different)
-  static const String _monthlyProductIdIOS = 'premium_monthly';
-  static const String _yearlyProductIdIOS = 'premium_yearly';
+  // Current tenant context (Option A: per-tenant premium).
+  String _tenantId = TenantDb.defaultTenantId;
+  TenantIapProducts _iapProducts = const TenantIapProducts();
+  bool _iapConfigLoaded = false;
+  String? _lastPurchaseTenantId;
 
   bool _isAvailable = false;
   List<ProductDetails> _products = [];
@@ -36,27 +32,30 @@ class SubscriptionService {
   List<ProductDetails> get products => _products;
   Stream<void> get subscriptionChanged => _subscriptionChanged.stream;
   
+  String get _monthlyId => Platform.isAndroid ? _iapProducts.monthlyProductIdAndroid : _iapProducts.monthlyProductIdIOS;
+  String get _yearlyId => Platform.isAndroid ? _iapProducts.yearlyProductIdAndroid : _iapProducts.yearlyProductIdIOS;
+
   ProductDetails? get monthlyProduct {
-    if (_products.isEmpty) return null;
+    final id = _monthlyId.trim();
+    if (id.isEmpty) return null;
     try {
-      return _products.firstWhere(
-        (p) => p.id == _monthlyProductId || p.id == _monthlyProductIdAndroid || p.id == _monthlyProductIdIOS,
-      );
-    } catch (e) {
+      return _products.firstWhere((p) => p.id == id);
+    } catch (_) {
       return null;
     }
   }
-  
+
   ProductDetails? get yearlyProduct {
-    if (_products.isEmpty) return null;
+    final id = _yearlyId.trim();
+    if (id.isEmpty) return null;
     try {
-      return _products.firstWhere(
-        (p) => p.id == _yearlyProductId || p.id == _yearlyProductIdAndroid || p.id == _yearlyProductIdIOS,
-      );
-    } catch (e) {
+      return _products.firstWhere((p) => p.id == id);
+    } catch (_) {
       return null;
     }
   }
+
+  String get tenantId => _tenantId;
 
   /// Initialize the subscription service
   Future<void> initialize() async {
@@ -78,17 +77,70 @@ class SubscriptionService {
     await loadProducts();
   }
 
+  /// Set the current tenant context (per-tenant Premium SKUs).
+  /// Call this whenever the user changes tenant.
+  Future<void> setTenant(String tenantId) async {
+    final next = tenantId.trim();
+    if (next.isEmpty) return;
+    if (_tenantId == next && _iapConfigLoaded) return;
+    _tenantId = next;
+    _iapConfigLoaded = false;
+    await _loadTenantIapConfig();
+    await loadProducts();
+  }
+
+  Future<void> _loadTenantIapConfig() async {
+    try {
+      final snap = await TenantDb.monetizationConfigDoc(
+        _firestore,
+        tenantId: _tenantId,
+      ).get();
+      if (!snap.exists) {
+        // Backward-compatible fallback for the default tenant.
+        if (_tenantId == TenantDb.defaultTenantId) {
+          _iapProducts = const TenantIapProducts(
+            monthlyProductIdAndroid: 'premium_monthly',
+            yearlyProductIdAndroid: 'premium_yearly',
+            monthlyProductIdIOS: 'premium_monthly',
+            yearlyProductIdIOS: 'premium_yearly',
+          );
+        } else {
+          _iapProducts = const TenantIapProducts();
+        }
+        _iapConfigLoaded = true;
+        return;
+      }
+      final cfg = TenantMonetizationConfigDoc.fromSnapshot(snap);
+      _iapProducts = cfg.iapProducts;
+      _iapConfigLoaded = true;
+    } catch (e) {
+      debugPrint('⚠️ Failed to load tenant IAP config (tenantId=$_tenantId): $e');
+      _iapProducts = const TenantIapProducts();
+      _iapConfigLoaded = true;
+    }
+  }
+
   /// Load available products
   Future<void> loadProducts() async {
     if (!_isAvailable) return;
 
-    final Set<String> productIds = {
-      Platform.isAndroid ? _monthlyProductIdAndroid : _monthlyProductIdIOS,
-      Platform.isAndroid ? _yearlyProductIdAndroid : _yearlyProductIdIOS,
-    };
+    if (!_iapConfigLoaded) {
+      await _loadTenantIapConfig();
+    }
+
+    final ids = <String>{
+      _monthlyId.trim(),
+      _yearlyId.trim(),
+    }..removeWhere((s) => s.isEmpty);
+
+    if (ids.isEmpty) {
+      _products = [];
+      debugPrint('ℹ️ No IAP products configured for tenantId=$_tenantId');
+      return;
+    }
 
     try {
-      final ProductDetailsResponse response = await _iap.queryProductDetails(productIds);
+      final ProductDetailsResponse response = await _iap.queryProductDetails(ids);
       
       if (response.error != null) {
         debugPrint('❌ Error loading products: ${response.error}');
@@ -118,6 +170,7 @@ class SubscriptionService {
     }
 
     try {
+      _lastPurchaseTenantId = _tenantId;
       final PurchaseParam purchaseParam = PurchaseParam(
         productDetails: productDetails,
       );
@@ -154,6 +207,7 @@ class SubscriptionService {
     // For Android, use updateSubscription
     if (Platform.isAndroid) {
       try {
+        _lastPurchaseTenantId = _tenantId;
         final PurchaseParam purchaseParam = PurchaseParam(
           productDetails: yearly,
         );
@@ -227,6 +281,7 @@ class SubscriptionService {
 
         final callable = FirebaseFunctions.instance.httpsCallable('verifyPlaySubscription');
         final result = await callable.call(<String, dynamic>{
+          'tenantId': (_lastPurchaseTenantId ?? _tenantId).trim(),
           'productId': purchase.productID,
           'purchaseToken': token,
           'platform': platform,
@@ -285,6 +340,21 @@ class SubscriptionService {
     if (userId == null) return false;
 
     try {
+      // Prefer per-tenant entitlements (Option A).
+      final entSnap = await TenantDb.userEntitlementDoc(
+        _firestore,
+        uid: userId,
+        tenantId: _tenantId,
+      ).get();
+      if (entSnap.exists) {
+        final data = entSnap.data() ?? <String, dynamic>{};
+        final active = data['active'] == true;
+        if (!active) return false;
+        final validUntil = (data['validUntil'] as Timestamp?)?.toDate();
+        if (validUntil == null) return active;
+        return DateTime.now().isBefore(validUntil);
+      }
+
       final doc = await _getUserDocSnapshotByUid(userId);
       if (doc == null || !doc.exists) return false;
       final data = doc.data() as Map<String, dynamic>;
@@ -309,6 +379,32 @@ class SubscriptionService {
     if (userId == null) return null;
 
     try {
+      // Prefer per-tenant entitlements (Option A).
+      final entSnap = await TenantDb.userEntitlementDoc(
+        _firestore,
+        uid: userId,
+        tenantId: _tenantId,
+      ).get();
+      if (entSnap.exists) {
+        final data = entSnap.data() ?? <String, dynamic>{};
+        final productId = (data['productId'] ?? '').toString();
+        final validUntil = (data['validUntil'] as Timestamp?)?.toDate();
+        final active = data['active'] == true && (validUntil == null || DateTime.now().isBefore(validUntil));
+        String? type;
+        final pidLower = productId.toLowerCase();
+        if (pidLower.contains('year')) type = 'yearly';
+        if (pidLower.contains('month')) type = 'monthly';
+        return {
+          'type': type,
+          'start_date': (data['createdAt'] as Timestamp?)?.toDate(),
+          'renewal_date': validUntil,
+          'platform': data['platform']?.toString(),
+          'active': active,
+          'tenantId': _tenantId,
+          'productId': productId,
+        };
+      }
+
       final doc = await _getUserDocSnapshotByUid(userId);
       if (doc == null || !doc.exists) return null;
       final data = doc.data() as Map<String, dynamic>;

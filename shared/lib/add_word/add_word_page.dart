@@ -13,6 +13,7 @@ import 'package:overlay_support/overlay_support.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/tenant_config.dart';
 import 'package:l2l_shared/tenancy/tenant_storage_paths.dart';
 import 'style.dart';
 
@@ -69,22 +70,18 @@ class _AddWordPageState extends State<AddWordPage> {
   final List<Map<String, String>> _selectedCategories = [];
   double _uploadProgress = 0.0;
   List<double> _variantUploadProgress = [];
-  final TextEditingController _englishController = TextEditingController();
-  final TextEditingController _bengaliController = TextEditingController();
+  // --- Multi-locale word fields (EN + tenant locales) ---
+  List<String> _uiLocales = const ['en', 'bn'];
+  bool _uiLocalesLoaded = false;
+  final Map<String, TextEditingController> _labelControllers = {};
+  final Map<String, TextEditingController> _noteControllers = {};
+  final Map<String, TextEditingController> _synonymsControllers = {};
+  final Map<String, TextEditingController> _antonymsControllers = {};
   final TextEditingController _videoUrlController = TextEditingController();
   // SD video (main/single)
   final TextEditingController _videoUrlSDController = TextEditingController();
   // HD video (main/single)
   final TextEditingController _videoUrlHDController = TextEditingController();
-  // Note fields for English and Bengali
-  final TextEditingController _englishNoteController = TextEditingController();
-  final TextEditingController _bengaliNoteController = TextEditingController();
-  // New: Synonyms for English and Bengali fields
-  final TextEditingController _englishSynonymsController = TextEditingController();
-  final TextEditingController _bengaliSynonymsController = TextEditingController();
-  // Antonyms for English and Bengali fields
-  final TextEditingController _englishAntonymsController = TextEditingController();
-  final TextEditingController _bengaliAntonymsController = TextEditingController();
   // Image flashcard controller
   final TextEditingController _imageFlashcardUrlController = TextEditingController();
 
@@ -204,6 +201,94 @@ class _AddWordPageState extends State<AddWordPage> {
     }
     _categories = keys;
     _categoryToSubcategories = map;
+
+    // Initialize locale fields (fallback first, then refresh from tenant config).
+    _applyUiLocales(_defaultUiLocalesForTenant(widget.tenantId), markLoaded: false);
+    _loadTenantUiLocales();
+  }
+
+  List<String> _defaultUiLocalesForTenant(String tenantId) {
+    // Backward-compatible default: Bengali tenant shows EN+BN unless overridden by Firestore.
+    if (tenantId == TenantDb.defaultTenantId) return const ['en', 'bn'];
+    return const ['en'];
+  }
+
+  List<String> _normalizeUiLocales(Iterable<String> raw) {
+    final out = <String>[];
+    for (final r in raw) {
+      final s = r.trim().toLowerCase();
+      if (s.isEmpty) continue;
+      if (!out.contains(s)) out.add(s);
+    }
+    if (!out.contains('en')) out.insert(0, 'en');
+    return out.isEmpty ? const ['en'] : out;
+  }
+
+  void _applyUiLocales(List<String> next, {required bool markLoaded}) {
+    final normalized = _normalizeUiLocales(next);
+
+    // Dispose controllers for locales that are being removed.
+    final toRemove = _labelControllers.keys.where((k) => !normalized.contains(k)).toList();
+    for (final k in toRemove) {
+      _labelControllers.remove(k)?.dispose();
+      _noteControllers.remove(k)?.dispose();
+      _synonymsControllers.remove(k)?.dispose();
+      _antonymsControllers.remove(k)?.dispose();
+    }
+
+    // Ensure controllers exist for every locale.
+    for (final lang in normalized) {
+      _labelControllers.putIfAbsent(lang, () => TextEditingController());
+      _noteControllers.putIfAbsent(lang, () => TextEditingController());
+      _synonymsControllers.putIfAbsent(lang, () => TextEditingController());
+      _antonymsControllers.putIfAbsent(lang, () => TextEditingController());
+    }
+
+    setState(() {
+      _uiLocales = normalized;
+      if (markLoaded) _uiLocalesLoaded = true;
+    });
+  }
+
+  Future<void> _loadTenantUiLocales() async {
+    try {
+      final snap = await TenantDb.tenantDoc(
+        FirebaseFirestore.instance,
+        tenantId: widget.tenantId,
+      ).get();
+      if (!snap.exists) return;
+      final cfg = TenantConfigDoc.fromSnapshot(snap);
+      final next = cfg.uiLocales.isNotEmpty ? cfg.uiLocales : _defaultUiLocalesForTenant(widget.tenantId);
+      if (!mounted) return;
+      _applyUiLocales(next, markLoaded: true);
+    } catch (_) {
+      // non-fatal: keep defaults
+    }
+  }
+
+  String _langLabel(String lang) {
+    switch (lang) {
+      case 'en':
+        return 'English';
+      case 'bn':
+        return 'Bengali';
+      case 'vi':
+        return 'Vietnamese';
+      case 'fr':
+        return 'French';
+      default:
+        return lang.toUpperCase();
+    }
+  }
+
+  List<String> _parseCsvList(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty) return const <String>[];
+    return s
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
   }
   // Helper for picking image files (jpg/png) - stores file, no upload
   Future<PlatformFile?> _pickImage({
@@ -777,8 +862,12 @@ class _AddWordPageState extends State<AddWordPage> {
   Future<void> _saveWord() async {
     setState(() => _isLoading = true);
 
-    final english = _englishController.text.trim();
-    final bengali = _bengaliController.text.trim();
+    final labels = <String, String>{};
+    for (final lang in _uiLocales) {
+      final v = (_labelControllers[lang]?.text ?? '').trim();
+      if (v.isNotEmpty) labels[lang] = v;
+    }
+    final english = (labels['en'] ?? '').trim();
 
     final conceptId = english.isEmpty
         ? 'concept-${DateTime.now().millisecondsSinceEpoch}'
@@ -813,27 +902,28 @@ class _AddWordPageState extends State<AddWordPage> {
     final videoThumbnailUrl = uploadedUrls['videoThumbnail'] as String? ?? '';
     final videoThumbnailSmallUrl = uploadedUrls['videoThumbnailSmall'] as String? ?? _videoThumbnailSmallUrlController.text.trim();
     final imageFlashcardUrl = uploadedUrls['imageFlashcard'] as String? ?? _imageFlashcardUrlController.text.trim();
-    // Note fields (optional)
-    final englishNote = _englishNoteController.text.trim();
-    final bengaliNote = _bengaliNoteController.text.trim();
-    // New: Parse English and Bengali synonyms fields
-    final englishWordSynonymsStr = _englishSynonymsController.text.trim();
-    final bengaliWordSynonymsStr = _bengaliSynonymsController.text.trim();
-    final List<String> englishWordSynonyms = englishWordSynonymsStr.isEmpty
-        ? []
-        : englishWordSynonymsStr.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-    final List<String> bengaliWordSynonyms = bengaliWordSynonymsStr.isEmpty
-        ? []
-        : bengaliWordSynonymsStr.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-    // New: Parse English and Bengali antonyms fields
-    final englishWordAntonymsStr = _englishAntonymsController.text.trim();
-    final bengaliWordAntonymsStr = _bengaliAntonymsController.text.trim();
-    final List<String> englishWordAntonyms = englishWordAntonymsStr.isEmpty
-        ? []
-        : englishWordAntonymsStr.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-    final List<String> bengaliWordAntonyms = bengaliWordAntonymsStr.isEmpty
-        ? []
-        : bengaliWordAntonymsStr.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+
+    // Notes/synonyms/antonyms (per locale).
+    final notes = <String, String>{};
+    final synonyms = <String, List<String>>{};
+    final antonyms = <String, List<String>>{};
+    for (final lang in _uiLocales) {
+      final note = (_noteControllers[lang]?.text ?? '').trim();
+      if (note.isNotEmpty) notes[lang] = note;
+      final syn = _parseCsvList(_synonymsControllers[lang]?.text ?? '');
+      if (syn.isNotEmpty) synonyms[lang] = syn;
+      final ant = _parseCsvList(_antonymsControllers[lang]?.text ?? '');
+      if (ant.isNotEmpty) antonyms[lang] = ant;
+    }
+
+    // Legacy field mirrors (EN + BN only).
+    final englishNote = (notes['en'] ?? '').trim();
+    final bengali = (labels['bn'] ?? '').trim();
+    final bengaliNote = (notes['bn'] ?? '').trim();
+    final List<String> englishWordSynonyms = synonyms['en'] ?? const <String>[];
+    final List<String> bengaliWordSynonyms = synonyms['bn'] ?? const <String>[];
+    final List<String> englishWordAntonyms = antonyms['en'] ?? const <String>[];
+    final List<String> bengaliWordAntonyms = antonyms['bn'] ?? const <String>[];
 
     // No required fields: allow saving with whatever is provided
 
@@ -893,37 +983,43 @@ class _AddWordPageState extends State<AddWordPage> {
         'visibility': 'public',
         'signLangIds': [signLangId],
         'defaultSignLangId': signLangId,
-        // Labels (future-proof for UI multi-language)
-        // v1: store as { "en": "Word", "bn": "শব্দ" }
-        'labels': {
-          'en': english,
-          'bn': bengali,
-        },
-        // Optional helper for prefix search (kept separate from labels map)
+        // Multi-language schema
+        // - labels: { "en": "...", "vi": "..." }
+        // - labels_lower: derived
+        // - notes/synonyms/antonyms: per-locale maps
+        'labels': labels,
         'labels_lower': {
-          'en': english.toLowerCase(),
-          'bn': bengali.toLowerCase(),
+          for (final e in labels.entries) e.key: e.value.toLowerCase(),
         },
-        'english': english,
-        'english_lower': english.toLowerCase(),
-        'bengali': bengali,
-        'bengali_lower': bengali.toLowerCase(),
-        'englishNote': englishNote,
-        'bengaliNote': bengaliNote,
+        if (notes.isNotEmpty) 'notes': notes,
+        if (synonyms.isNotEmpty) 'synonyms': synonyms,
+        if (antonyms.isNotEmpty) 'antonyms': antonyms,
         // New schema
         'category_main': categoryMain,
         'category_sub': categorySub.isEmpty ? '' : categorySub,
         'categories': categories, // New schema: list of selections
         'variants': variants,
         'imageFlashcard': imageFlashcardUrl,
-        'englishWordSynonyms': englishWordSynonyms,
-        'bengaliWordSynonyms': bengaliWordSynonyms,
-        'englishWordAntonyms': englishWordAntonyms,
-        'bengaliWordAntonyms': bengaliWordAntonyms,
         'addedAt': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
+
+      // Legacy mirrors (keep existing clients working; only EN/BN).
+      if (english.isNotEmpty) {
+        payload['english'] = english;
+        payload['english_lower'] = english.toLowerCase();
+      }
+      if (bengali.isNotEmpty) {
+        payload['bengali'] = bengali;
+        payload['bengali_lower'] = bengali.toLowerCase();
+      }
+      if (englishNote.isNotEmpty) payload['englishNote'] = englishNote;
+      if (bengaliNote.isNotEmpty) payload['bengaliNote'] = bengaliNote;
+      if (englishWordSynonyms.isNotEmpty) payload['englishWordSynonyms'] = englishWordSynonyms;
+      if (bengaliWordSynonyms.isNotEmpty) payload['bengaliWordSynonyms'] = bengaliWordSynonyms;
+      if (englishWordAntonyms.isNotEmpty) payload['englishWordAntonyms'] = englishWordAntonyms;
+      if (bengaliWordAntonyms.isNotEmpty) payload['bengaliWordAntonyms'] = bengaliWordAntonyms;
       await TenantDb.conceptDoc(FirebaseFirestore.instance, docId, tenantId: tenantId).set(payload);
       await TenantDb.signDoc(
         FirebaseFirestore.instance,
@@ -984,17 +1080,21 @@ class _AddWordPageState extends State<AddWordPage> {
 
     // Reset form fields
     setState(() {
-      _englishController.clear();
-      _bengaliController.clear();
+      for (final c in _labelControllers.values) {
+        c.clear();
+      }
       _videoUrlController.clear();
       _videoUrlSDController.clear();
       _videoUrlHDController.clear();
-      _englishNoteController.clear();
-      _bengaliNoteController.clear();
-      _englishSynonymsController.clear();
-      _bengaliSynonymsController.clear();
-      _englishAntonymsController.clear();
-      _bengaliAntonymsController.clear();
+      for (final c in _noteControllers.values) {
+        c.clear();
+      }
+      for (final c in _synonymsControllers.values) {
+        c.clear();
+      }
+      for (final c in _antonymsControllers.values) {
+        c.clear();
+      }
       _imageFlashcardUrlController.clear();
       _videoThumbnailSmallUrlController.clear();
       _selectedCategory = null;
@@ -1062,17 +1162,21 @@ class _AddWordPageState extends State<AddWordPage> {
 
   @override
   void dispose() {
-    _englishController.dispose();
-    _bengaliController.dispose();
+    for (final c in _labelControllers.values) {
+      c.dispose();
+    }
+    for (final c in _noteControllers.values) {
+      c.dispose();
+    }
+    for (final c in _synonymsControllers.values) {
+      c.dispose();
+    }
+    for (final c in _antonymsControllers.values) {
+      c.dispose();
+    }
     _videoUrlController.dispose();
     _videoUrlSDController.dispose();
     _videoUrlHDController.dispose();
-    _englishNoteController.dispose();
-    _bengaliNoteController.dispose();
-    _englishSynonymsController.dispose();
-    _bengaliSynonymsController.dispose();
-    _englishAntonymsController.dispose();
-    _bengaliAntonymsController.dispose();
     _imageFlashcardUrlController.dispose();
     _videoThumbnailSmallUrlController.dispose();
     // Clear any dynamic controllers in variants
@@ -1122,107 +1226,58 @@ class _AddWordPageState extends State<AddWordPage> {
                       const Text('This word has some variations'),
                     ],
                   ),
-                  // English, Bengali, Category fields
-                  FieldBox(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextField(
-                          controller: _englishController,
-                          decoration: InputDecoration(
-                            labelText: 'English',
-                            labelStyle: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 20.0),
-                          child: TextField(
-                            controller: _englishNoteController,
+                  // Labels / notes / synonyms / antonyms (EN + tenant locales)
+                  for (final lang in _uiLocales)
+                    FieldBox(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: _labelControllers[lang]!,
                             decoration: InputDecoration(
-                              labelText: 'English Note (optional)',
+                              labelText: _langLabel(lang),
                               labelStyle: const TextStyle(fontSize: 12),
-                              hintText: 'e.g. additional context or usage notes',
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 20.0),
-                          child: TextField(
-                            controller: _englishSynonymsController,
-                            decoration: InputDecoration(
-                              labelText: 'English Word Synonyms (comma-separated)',
-                              labelStyle: const TextStyle(fontSize: 12),
-                              hintText: 'e.g. fast, quick, rapid',
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 20.0),
+                            child: TextField(
+                              controller: _noteControllers[lang]!,
+                              decoration: InputDecoration(
+                                labelText: '${_langLabel(lang)} Note (optional)',
+                                labelStyle: const TextStyle(fontSize: 12),
+                                hintText: 'e.g. additional context or usage notes',
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 20.0),
-                          child: TextField(
-                            controller: _englishAntonymsController,
-                            decoration: InputDecoration(
-                              labelText: 'English Word Antonyms (Opposite word) (comma-separated)',
-                              labelStyle: const TextStyle(fontSize: 12),
-                              hintText: 'e.g. slow, sluggish',
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 20.0),
+                            child: TextField(
+                              controller: _synonymsControllers[lang]!,
+                              decoration: InputDecoration(
+                                labelText: '${_langLabel(lang)} Synonyms (comma-separated)',
+                                labelStyle: const TextStyle(fontSize: 12),
+                                hintText: 'e.g. fast, quick, rapid',
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 20.0),
+                            child: TextField(
+                              controller: _antonymsControllers[lang]!,
+                              decoration: InputDecoration(
+                                labelText: '${_langLabel(lang)} Antonyms (comma-separated)',
+                                labelStyle: const TextStyle(fontSize: 12),
+                                hintText: 'e.g. slow, sluggish',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  FieldBox(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextField(
-                          controller: _bengaliController,
-                          decoration: InputDecoration(
-                            labelText: 'Bengali',
-                            labelStyle: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 20.0),
-                          child: TextField(
-                            controller: _bengaliNoteController,
-                            decoration: InputDecoration(
-                              labelText: 'Bengali Note (optional)',
-                              labelStyle: const TextStyle(fontSize: 12),
-                              hintText: 'e.g. additional context or usage notes',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 20.0),
-                          child: TextField(
-                            controller: _bengaliSynonymsController,
-                            decoration: InputDecoration(
-                              labelText: 'Bengali Word Synonyms (comma-separated)',
-                              labelStyle: const TextStyle(fontSize: 12),
-                              hintText: 'e.g. synonyms separated by comma',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 20.0),
-                          child: TextField(
-                            controller: _bengaliAntonymsController,
-                            decoration: InputDecoration(
-                              labelText: 'Bengali Word Antonyms (comma-separated)',
-                              labelStyle: const TextStyle(fontSize: 12),
-                              hintText: 'e.g. antonyms separated by comma',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   // Single Category picker with attached sub-dropdown
                   FieldBox(
                     key: _categoryBlockKey,

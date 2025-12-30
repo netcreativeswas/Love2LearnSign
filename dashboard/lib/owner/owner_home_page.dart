@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'assign_access_page.dart';
 import 'create_tenant_page.dart';
+import 'monetization_config_page.dart';
+import 'monetization_metrics_page.dart';
 
 class OwnerHomePage extends StatelessWidget {
   const OwnerHomePage({super.key});
@@ -33,6 +35,24 @@ class OwnerHomePage extends StatelessWidget {
             icon: Icons.admin_panel_settings_outlined,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const AssignAccessPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _CardAction(
+            title: 'Monetization config',
+            subtitle: 'Configure per-tenant AdMob + IAP product IDs in `tenants/{tenantId}/monetization/config`.',
+            icon: Icons.payments_outlined,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MonetizationConfigPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _CardAction(
+            title: 'Monetization metrics',
+            subtitle: 'View active subscribers per tenant (from entitlements).',
+            icon: Icons.insights_outlined,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MonetizationMetricsPage()),
             ),
           ),
         ],

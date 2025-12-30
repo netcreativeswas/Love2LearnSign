@@ -8,6 +8,7 @@ import '../services/subscription_service.dart';
 import '../services/premium_service.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 import '../l10n/dynamic_l10n.dart';
+import '../tenancy/tenant_scope.dart';
 // PremiumExplanationPage kept for optional marketing/info screens, but purchasing happens here.
 import '../login_page.dart';
 
@@ -61,9 +62,10 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
 
   Future<void> _loadSubscriptionStatus() async {
     setState(() => _isLoading = true);
-    
-    await _subscriptionService.loadProducts();
-    final isPremium = await _premiumService.isPremium();
+
+    final tenantId = context.read<TenantScope>().tenantId;
+    await _subscriptionService.setTenant(tenantId);
+    final isPremium = await _premiumService.isPremiumForTenant(tenantId);
     final subscriptionInfo = await _subscriptionService.getSubscriptionInfo();
 
     if (mounted) {
@@ -78,7 +80,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final isPaidUser = authProvider.hasRole('paidUser');
+    final isAdmin = authProvider.hasRole('admin');
 
     return Scaffold(
       appBar: AppBar(
@@ -97,7 +99,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (isPaidUser || _isPremium) ...[
+                  if (isAdmin || _isPremium) ...[
                     // Already Premium
                     _buildPremiumStatusCard(context),
                     const SizedBox(height: 24),

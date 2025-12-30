@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 
 /// Service for managing premium state and monthly reminders
 class PremiumService {
@@ -16,6 +17,12 @@ class PremiumService {
 
   /// Check if user is premium
   Future<bool> isPremium() async {
+    // Backward-compatible default: treat Premium as tenant-specific and check default tenant.
+    return isPremiumForTenant(TenantDb.defaultTenantId);
+  }
+
+  /// Check if user is premium for a specific tenant (Option A: per-tenant premium).
+  Future<bool> isPremiumForTenant(String tenantId) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return false;
 
@@ -27,27 +34,47 @@ class PremiumService {
       final rolesClaim = claims?['roles'];
       if (rolesClaim is List) {
         final roles = rolesClaim.map((e) => e.toString()).toList();
-        if (roles.contains('paidUser') || roles.contains('admin')) {
+        // Admin is always privileged.
+        if (roles.contains('admin')) {
+          return true;
+        }
+        // Legacy global premium role is only honored for the default tenant.
+        if (tenantId == TenantDb.defaultTenantId && roles.contains('paidUser')) {
           return true;
         }
       }
 
-      // Fallback: Firestore (for older clients / if claims are not set yet).
+      // Option A: per-tenant entitlement doc.
+      final ent = await TenantDb.userEntitlementDoc(
+        _firestore,
+        uid: userId,
+        tenantId: tenantId,
+      ).get();
+      if (ent.exists) {
+        final data = ent.data() ?? <String, dynamic>{};
+        final active = data['active'] == true;
+        if (!active) return false;
+        final validUntil = (data['validUntil'] as Timestamp?)?.toDate();
+        if (validUntil == null) return true;
+        return DateTime.now().isBefore(validUntil);
+      }
+
+      // Fallback: legacy global subscription stored on /users doc.
+      if (tenantId != TenantDb.defaultTenantId) return false;
       final doc = await _getUserDocSnapshotByUid(userId);
       if (doc == null || !doc.exists) return false;
 
       final data = doc.data() as Map<String, dynamic>;
       final roles = List<String>.from(data['roles'] ?? []);
       if (!roles.contains('paidUser')) return false;
-      
-      // Verify subscription is active + not expired
-        final isActive = data['subscription_active'] as bool? ?? false;
-        if (!isActive) return false;
 
-        final renewalDate = (data['subscription_renewal_date'] as Timestamp?)?.toDate();
-        if (renewalDate == null) return false;
+      final isActive = data['subscription_active'] as bool? ?? false;
+      if (!isActive) return false;
 
-        return DateTime.now().isBefore(renewalDate);
+      final renewalDate = (data['subscription_renewal_date'] as Timestamp?)?.toDate();
+      if (renewalDate == null) return false;
+
+      return DateTime.now().isBefore(renewalDate);
     } catch (e) {
       debugPrint('❌ Error checking premium status: $e');
       return false;

@@ -2,7 +2,11 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/tenant_monetization_config.dart';
+import 'premium_service.dart';
 
 // Allow testing production Ad Unit IDs in debug builds:
 // flutter run/build apk --debug --dart-define=FORCE_PROD_ADS=true
@@ -13,6 +17,11 @@ class AdService {
   static final AdService _instance = AdService._internal();
   factory AdService() => _instance;
   AdService._internal();
+
+  // Current tenant context (Option A: per-tenant ad units + per-tenant premium suppression).
+  String _tenantId = TenantDb.defaultTenantId;
+  TenantAdUnits _adUnits = const TenantAdUnits();
+  bool _adConfigLoaded = false;
 
   InterstitialAd? _interstitialAd;
   RewardedAd? _rewardedAd;
@@ -50,7 +59,10 @@ class AdService {
     if (kDebugMode && !_forceProdAds) {
       return _testInterstitialAdUnitId; // Always use test IDs in debug mode
     }
-    // Production mode: use platform-specific IDs
+    // Production mode: prefer per-tenant ad unit IDs (Option A). Fallback to global IDs.
+    final cfg = _adUnits;
+    final fromCfg = Platform.isAndroid ? cfg.interstitialAndroid : cfg.interstitialIOS;
+    if (fromCfg.trim().isNotEmpty) return fromCfg.trim();
     return Platform.isAndroid ? _prodInterstitialAdUnitIdAndroid : _prodInterstitialAdUnitIdIOS;
   }
 
@@ -58,15 +70,54 @@ class AdService {
     if (kDebugMode && !_forceProdAds) {
       return _testRewardedAdUnitId; // Always use test IDs in debug mode
     }
-    // Production mode: use platform-specific IDs
+    // Production mode: prefer per-tenant ad unit IDs (Option A). Fallback to global IDs.
+    final cfg = _adUnits;
+    final fromCfg = Platform.isAndroid ? cfg.rewardedAndroid : cfg.rewardedIOS;
+    if (fromCfg.trim().isNotEmpty) return fromCfg.trim();
     return Platform.isAndroid ? _prodRewardedAdUnitIdAndroid : _prodRewardedAdUnitIdIOS;
   }
 
   /// Initialize Mobile Ads SDK
   Future<void> initialize() async {
     await MobileAds.instance.initialize();
+    await _loadTenantAdConfig();
     _loadInterstitialAd();
     _loadRewardedAd();
+  }
+
+  /// Set current tenant context (Option A). Should be called when tenant changes.
+  Future<void> setTenant(String tenantId) async {
+    final next = tenantId.trim();
+    if (next.isEmpty) return;
+    if (_tenantId == next && _adConfigLoaded) return;
+    _tenantId = next;
+    _adConfigLoaded = false;
+    await _loadTenantAdConfig();
+    // Reload ads so the next requests use the correct ad unit IDs.
+    dispose();
+    _loadInterstitialAd();
+    _loadRewardedAd();
+  }
+
+  Future<void> _loadTenantAdConfig() async {
+    try {
+      final snap = await TenantDb.monetizationConfigDoc(
+        FirebaseFirestore.instance,
+        tenantId: _tenantId,
+      ).get();
+      if (!snap.exists) {
+        _adUnits = const TenantAdUnits();
+        _adConfigLoaded = true;
+        return;
+      }
+      final cfg = TenantMonetizationConfigDoc.fromSnapshot(snap);
+      _adUnits = cfg.adUnits;
+      _adConfigLoaded = true;
+    } catch (e) {
+      debugPrint('⚠️ Failed to load tenant AdMob config (tenantId=$_tenantId): $e');
+      _adUnits = const TenantAdUnits();
+      _adConfigLoaded = true;
+    }
   }
 
   /// Load interstitial ad
@@ -220,7 +271,7 @@ class AdService {
   /// Returns true if ad was shown, false otherwise
   Future<bool> showInterstitialAd() async {
     // Safety net: if the user is premium/admin, never show ads even if UI gating is stale.
-    if (await _adsSuppressedByRole()) {
+    if (await _adsSuppressedForTenant()) {
       debugPrint('ℹ️ Interstitial suppressed for paid/admin user');
       _lastInterstitialShowError = 'suppressed_by_role';
       return false;
@@ -299,7 +350,7 @@ class AdService {
     Function(String)? onError,
   }) async {
     // Paid users should never see ads (including rewarded).
-    if (await _adsSuppressedByRole()) {
+    if (await _adsSuppressedForTenant()) {
       onError?.call('Ads are disabled for premium users.');
       debugPrint('ℹ️ Rewarded suppressed for paid/admin user');
       return false;
@@ -366,12 +417,13 @@ class AdService {
     final claims = tokenResult?.claims;
     final rolesClaim = claims?['roles'];
     final roles = rolesClaim is List ? rolesClaim.map((e) => e.toString()).toList() : <String>[];
-    final suppressed = roles.contains('admin') || roles.contains('paidUser');
+    final suppressed = await _adsSuppressedForTenant();
 
     return {
       'kDebugMode': kDebugMode,
       'forceProdAds': _forceProdAds,
       'adUnitId': _interstitialAdUnitId,
+      'tenantId': _tenantId,
       'ready': ready,
       'loading': _isLoadingInterstitial,
       'retries': _interstitialRetryCount,
@@ -382,7 +434,7 @@ class AdService {
       'lastShowError': _lastInterstitialShowError?.toString(),
       'uid': user?.uid,
       'roles': roles,
-      'suppressedByRole': suppressed,
+      'suppressedByPremiumOrAdmin': suppressed,
     };
   }
 
@@ -412,7 +464,7 @@ class AdService {
     _isRewardedReady = false;
   }
 
-  Future<bool> _adsSuppressedByRole() async {
+  Future<bool> _adsSuppressedForTenant() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return false;
@@ -420,9 +472,10 @@ class AdService {
       final roles = claims?['roles'];
       if (roles is List) {
         final list = roles.map((e) => e.toString()).toList();
-        return list.contains('admin') || list.contains('paidUser');
+        if (list.contains('admin')) return true;
       }
-      return false;
+      // Per-tenant premium.
+      return await PremiumService().isPremiumForTenant(_tenantId);
     } catch (e) {
       debugPrint('Warning: could not check ad suppression role claims: $e');
       return false;
