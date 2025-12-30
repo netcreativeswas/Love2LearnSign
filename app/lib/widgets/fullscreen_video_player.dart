@@ -6,6 +6,8 @@ import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:line_icons/line_icons.dart';
 // removed stale import to arb app_localizations
 import '../services/share_utils.dart';
+import 'package:provider/provider.dart';
+import 'package:love_to_learn_sign/tenancy/tenant_scope.dart';
 
 class FullscreenVideoPlayer extends StatefulWidget {
   final VideoPlayerController controller;
@@ -403,8 +405,15 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
                         foregroundColor: Theme.of(context).colorScheme.primary,
                       ),
                       onPressed: () async {
+                        final scope = context.read<TenantScope>();
                         // Share a deep link to this word; falls back to the system share sheet
-                        await ShareService.shareVideo(widget.wordId);
+                        await ShareService.shareVideo(
+                          widget.wordId,
+                          english: widget.english,
+                          bengali: widget.bengali,
+                          tenantId: scope.tenantId,
+                          signLangId: scope.signLangId,
+                        );
                       },
                       icon: Icon(IconlyLight.send),
                       label: Text(S.of(context)!.share),

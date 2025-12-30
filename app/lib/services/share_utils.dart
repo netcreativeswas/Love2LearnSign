@@ -70,9 +70,19 @@ Future<void> shareOnInstagram(String message) async {
 class ShareService {
   /// Shares a deep link to open the video with [wordId] in the app.
   /// Optional [english] and [bengali] will be included in the message if provided.
-  static Future<void> shareVideo(String wordId,
-      {String? english, String? bengali}) async {
-    final url = 'https://love2learnsign.com/word/$wordId';
+  static Future<void> shareVideo(
+    String wordId, {
+    String? english,
+    String? bengali,
+    String? tenantId,
+    String? signLangId,
+  }) async {
+    final base = Uri.parse('https://love2learnsign.com/word/$wordId');
+    final qp = <String, String>{
+      if (tenantId != null && tenantId.trim().isNotEmpty) 'tenant': tenantId.trim(),
+      if (signLangId != null && signLangId.trim().isNotEmpty) 'lang': signLangId.trim(),
+    };
+    final url = qp.isEmpty ? base.toString() : base.replace(queryParameters: qp).toString();
     final hasTitle = (english != null && english.trim().isNotEmpty) ||
         (bengali != null && bengali.trim().isNotEmpty);
     final title = [english, bengali]

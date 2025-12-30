@@ -1168,10 +1168,13 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                         constraints: const BoxConstraints(),
                         icon: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
                         onPressed: () async {
+                          final scope = context.read<TenantScope>();
                           await ShareService.shareVideo(
                             wordId,
                             english: english,
                             bengali: bengali,
+                            tenantId: scope.tenantId,
+                            signLangId: scope.signLangId,
                           );
                         },
                       ),
@@ -1440,10 +1443,13 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                              constraints: const BoxConstraints(),
                         icon: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
                         onPressed: () async {
+                          final scope = context.read<TenantScope>();
                           await ShareService.shareVideo(
                             wordId,
                             english: english,
                             bengali: bengali,
+                            tenantId: scope.tenantId,
+                            signLangId: scope.signLangId,
                           );
                         },
                       ),

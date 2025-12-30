@@ -597,10 +597,13 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
           IconButton(
             icon: Icon(Icons.share, color: Theme.of(context).colorScheme.secondary, size: 28,),
             onPressed: () async {
+              final scope = context.read<TenantScope>();
               await ShareService.shareVideo(
                 widget.wordId,
                 english: _english,
                 bengali: _bengali,
+                tenantId: scope.tenantId,
+                signLangId: scope.signLangId,
               );
             },
           ),

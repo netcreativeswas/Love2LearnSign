@@ -285,7 +285,14 @@ class _ReviewSessionsRowState extends State<ReviewSessionsRow> {
                                   tooltip: S.of(context)!.share,
                                   icon: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
                                   onPressed: () async {
-                                    await ShareService.shareVideo(d.id, english: english, bengali: bengali);
+                                    final scope = context.read<TenantScope>();
+                                    await ShareService.shareVideo(
+                                      d.id,
+                                      english: english,
+                                      bengali: bengali,
+                                      tenantId: scope.tenantId,
+                                      signLangId: scope.signLangId,
+                                    );
                                   },
                                 ),
                               ],

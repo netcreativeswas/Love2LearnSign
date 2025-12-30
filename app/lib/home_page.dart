@@ -1158,7 +1158,14 @@ class _MiniatureMenu extends StatelessWidget {
       onSelected: (value) async {
         switch (value) {
           case _MiniAction.share:
-            await ShareService.shareVideo(wordId, english: english, bengali: bengali);
+            final scope = context.read<TenantScope>();
+            await ShareService.shareVideo(
+              wordId,
+              english: english,
+              bengali: bengali,
+              tenantId: scope.tenantId,
+              signLangId: scope.signLangId,
+            );
             break;
           case _MiniAction.toggleFavorite:
             final repo = context.read<FavoritesRepository>();
