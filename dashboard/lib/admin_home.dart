@@ -74,6 +74,10 @@ class _AdminHomeState extends State<AdminHome> {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
       // #endregion
+      // ignore: avoid_print
+      print(
+        '[DashDebug] AdminHome nav tenantId=${tenantScope.tenantId} role=$role isPlatformAdmin=${tenantScope.isPlatformAdmin} isAdmin=$isAdmin isEditor=$isEditor nav=${items.map((x) => x.label).toList()}',
+      );
     }
     final selectedIndex = items.isEmpty
         ? 0

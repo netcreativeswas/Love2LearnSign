@@ -151,7 +151,13 @@ class DashboardTenantScope extends ChangeNotifier {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
       // #endregion
-    } catch (_) {
+      // ignore: avoid_print
+      print(
+        '[DashDebug] userTenants docExists=${snap.exists} tenantCount=${_accessibleTenants.length} tenantIds=${_accessibleTenants.keys.toList()}',
+      );
+    } catch (e) {
+      // ignore: avoid_print
+      print('[DashDebug] userTenants read failed: $e');
       // If this fails (e.g., rules not deployed yet), treat as no access.
     }
 
@@ -173,7 +179,11 @@ class DashboardTenantScope extends ChangeNotifier {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
       // #endregion
-    } catch (_) {
+      // ignore: avoid_print
+      print('[DashDebug] platform membership exists=${platformSnap.exists}');
+    } catch (e) {
+      // ignore: avoid_print
+      print('[DashDebug] platform membership read failed: $e');
       _isPlatformAdmin = false;
     }
 
@@ -192,6 +202,10 @@ class DashboardTenantScope extends ChangeNotifier {
     }
 
     _selectedTenantRole = _accessibleTenants[_tenantId]?.role;
+    // ignore: avoid_print
+    print(
+      '[DashDebug] selected tenantId=$_tenantId selectedTenantRole=$_selectedTenantRole isPlatformAdmin=$_isPlatformAdmin',
+    );
 
     // 4) Load tenant/app configs for branding + signLangId.
     await refreshFromFirestore(firestore: db);
