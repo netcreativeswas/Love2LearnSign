@@ -101,6 +101,15 @@ service cloud.firestore {
       // Only server (Admin SDK) should write entitlements. Allow platform admin writes for emergency fixes.
       allow create, update, delete: if isPlatformAdmin();
     }
+
+    // IMPORTANT for collectionGroup('entitlements') queries:
+    // Firestore evaluates collection group queries across ANY parent path that contains a subcollection named "entitlements".
+    // So we must also provide a rule that matches entitlements docs under any parent path (not only /users/{uid}/...).
+    // We keep this READ-ONLY and only for admins/platform admins.
+    match /{parentPath=**}/entitlements/{entitlementId} {
+      allow read: if request.auth != null && (isAdmin() || isPlatformAdmin());
+      allow write: if false;
+    }
     
     // Role change logs - admins only (for security audit trail)
     match /roleLogs/{logId} {

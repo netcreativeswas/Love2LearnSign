@@ -14,7 +14,7 @@ class MonetizationMetricsPage extends StatelessWidget {
 
   const MonetizationMetricsPage({super.key, this.embedded = false});
 
-  static const String _runId = 'post-fix-1';
+  static const String _runId = 'post-fix-2';
 
   // #region agent log
   static String _uidSuffix(String uid) {
