@@ -26,6 +26,12 @@ class DashboardTenantScope extends ChangeNotifier {
   String? _selectedTenantRole;
   bool _isPlatformAdmin = false;
 
+  // Debug visibility into access resolution (safe, no secrets).
+  bool? _userTenantsDocExists;
+  String? _userTenantsError;
+  bool? _platformMemberDocExists;
+  String? _platformMemberError;
+
   String get tenantId => _tenantId;
   String? get appId => _appId;
   AppConfigDoc? get appConfig => _appConfig;
@@ -34,6 +40,10 @@ class DashboardTenantScope extends ChangeNotifier {
   bool get isPlatformAdmin => _isPlatformAdmin;
   List<String> get accessibleTenantIds => _accessibleTenants.keys.toList()..sort();
   String? get selectedTenantRole => _selectedTenantRole;
+  bool? get userTenantsDocExists => _userTenantsDocExists;
+  String? get userTenantsError => _userTenantsError;
+  bool? get platformMemberDocExists => _platformMemberDocExists;
+  String? get platformMemberError => _platformMemberError;
 
   String get signLangId {
     final a = _appConfig?.signLangId.trim() ?? '';
@@ -97,6 +107,10 @@ class DashboardTenantScope extends ChangeNotifier {
     _accessLoaded = false;
     _accessibleTenants.clear();
     _selectedTenantRole = null;
+    _userTenantsDocExists = null;
+    _userTenantsError = null;
+    _platformMemberDocExists = null;
+    _platformMemberError = null;
     notifyListeners();
 
     // #region agent log
@@ -119,6 +133,7 @@ class DashboardTenantScope extends ChangeNotifier {
     // 1) Load userTenants/{uid}
     try {
       final snap = await db.collection('userTenants').doc(uid).get();
+      _userTenantsDocExists = snap.exists;
       final data = snap.data() ?? <String, dynamic>{};
       final tenants = data['tenants'];
       if (tenants is Map) {
@@ -156,6 +171,7 @@ class DashboardTenantScope extends ChangeNotifier {
         '[DashDebug] userTenants docExists=${snap.exists} tenantCount=${_accessibleTenants.length} tenantIds=${_accessibleTenants.keys.toList()}',
       );
     } catch (e) {
+      _userTenantsError = e.toString();
       // ignore: avoid_print
       print('[DashDebug] userTenants read failed: $e');
       // If this fails (e.g., rules not deployed yet), treat as no access.
@@ -166,6 +182,7 @@ class DashboardTenantScope extends ChangeNotifier {
     try {
       final platformSnap = await db.collection('platform').doc('platform').collection('members').doc(uid).get();
       _isPlatformAdmin = platformSnap.exists;
+      _platformMemberDocExists = platformSnap.exists;
       // #region agent log
       DebugLog.log({
         'sessionId': 'debug-session',
@@ -182,6 +199,7 @@ class DashboardTenantScope extends ChangeNotifier {
       // ignore: avoid_print
       print('[DashDebug] platform membership exists=${platformSnap.exists}');
     } catch (e) {
+      _platformMemberError = e.toString();
       // ignore: avoid_print
       print('[DashDebug] platform membership read failed: $e');
       _isPlatformAdmin = false;

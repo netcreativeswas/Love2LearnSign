@@ -311,6 +311,38 @@ class _DashboardSidebar extends StatelessWidget {
               ],
             ),
           ),
+          // Debug panel (temporary): helps confirm platform/tenant role resolution in production.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: scheme.onSurface.withValues(alpha: 0.10)),
+              ),
+              child: Text(
+                [
+                  'Debug access',
+                  'tenantId=${tenant.tenantId}',
+                  'selectedTenantRole=${tenant.selectedTenantRole ?? "(null)"}',
+                  'isPlatformAdmin=${tenant.isPlatformAdmin}',
+                  'userTenants.exists=${tenant.userTenantsDocExists ?? "(unknown)"}',
+                  if ((tenant.userTenantsError ?? '').isNotEmpty) 'userTenants.error=${tenant.userTenantsError}',
+                  'platformMember.exists=${tenant.platformMemberDocExists ?? "(unknown)"}',
+                  if ((tenant.platformMemberError ?? '').isNotEmpty) 'platformMember.error=${tenant.platformMemberError}',
+                  'accessibleTenants=${tenant.accessibleTenantIds.length}',
+                ].join(' | '),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: scheme.onSurface.withValues(alpha: 0.85),
+                ),
+                maxLines: 6,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
           const SizedBox(height: 6),
           Expanded(
             child: ListView(
