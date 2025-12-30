@@ -13,8 +13,14 @@ class SearchTrackingService {
 
   SearchTrackingService._internal();
 
+  CollectionReference<Map<String, dynamic>> _tenantCol(String tenantId) {
+    final t = tenantId.trim();
+    return _firestore.collection('tenants').doc(t).collection('searchAnalytics');
+  }
+
   // Main method to log a search
   Future<void> logSearch({
+    required String tenantId,
     required String query,
     required int resultCount,
     required bool found,
@@ -27,7 +33,7 @@ class SearchTrackingService {
     }
 
     try {
-      await _firestore.collection('searchAnalytics').add({
+      await _tenantCol(tenantId).add({
         'query': sanitized,
         'query_lower': sanitized.toLowerCase(), // For easy aggregation
         'timestamp': FieldValue.serverTimestamp(),
@@ -44,7 +50,7 @@ class SearchTrackingService {
 
   // Fetch analytics data (Top searches, missing words, etc.)
   // For a small app, we can fetch recent logs and aggregate client-side.
-  Future<Map<String, dynamic>> getAnalyticsData({int days = 30}) async {
+  Future<Map<String, dynamic>> getAnalyticsData({required String tenantId, int days = 30}) async {
     final now = DateTime.now();
     final selectedCutoff = now.subtract(Duration(days: days));
     final cutoff7 = now.subtract(const Duration(days: 7));
@@ -52,8 +58,7 @@ class SearchTrackingService {
     final fetchCutoff = now.subtract(Duration(days: days > 90 ? days : 90));
 
     try {
-      final snapshot = await _firestore
-          .collection('searchAnalytics')
+      final snapshot = await _tenantCol(tenantId)
           .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(fetchCutoff))
           .orderBy('timestamp', descending: true)
           .limit(5000) // safety guard
@@ -176,10 +181,10 @@ class SearchTrackingService {
     }
   }
 
-  Future<void> clearAllAnalytics() async {
+  Future<void> clearAllAnalytics({required String tenantId}) async {
     const pageSize = 200;
     while (true) {
-      final batchSnapshot = await _firestore.collection('searchAnalytics').limit(pageSize).get();
+      final batchSnapshot = await _tenantCol(tenantId).limit(pageSize).get();
       if (batchSnapshot.docs.isEmpty) break;
       final batch = _firestore.batch();
       for (final doc in batchSnapshot.docs) {
@@ -190,11 +195,13 @@ class SearchTrackingService {
     }
   }
 
-  Future<void> clearAnalyticsOlderThan(Duration age) async {
+  Future<void> clearAnalyticsOlderThan({required String tenantId, required Duration age}) async {
     final cutoff = DateTime.now().subtract(age);
     const pageSize = 200;
     while (true) {
       final batchSnapshot = await _firestore
+          .collection('tenants')
+          .doc(tenantId)
           .collection('searchAnalytics')
           .where('timestamp', isLessThan: Timestamp.fromDate(cutoff))
           .limit(pageSize)

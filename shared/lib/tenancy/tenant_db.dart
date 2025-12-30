@@ -41,6 +41,12 @@ class TenantDb {
       conceptDoc(db, conceptId, tenantId: tenantId)
           .collection('signs')
           .doc(signLangId);
+
+  static CollectionReference<Map<String, dynamic>> searchAnalytics(
+    FirebaseFirestore db, {
+    String tenantId = defaultTenantId,
+  }) =>
+      tenantDoc(db, tenantId: tenantId).collection('searchAnalytics');
 }
 
 

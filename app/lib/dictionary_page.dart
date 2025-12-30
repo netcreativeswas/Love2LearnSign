@@ -167,6 +167,7 @@ class _DictionaryPageState extends State<DictionaryPage> {
     // Don't log if it's the exact same query we just logged
     if (query == _lastLoggedQuery) return;
 
+    final tenantId = context.read<TenantScope>().tenantId;
     _debounceTimer?.cancel();
 
     _debounceTimer = Timer(const Duration(seconds: 2), () {
@@ -175,6 +176,7 @@ class _DictionaryPageState extends State<DictionaryPage> {
        if (query == _lastLoggedQuery) return;
        
        SearchTrackingService().logSearch(
+         tenantId: tenantId,
          query: query, 
          resultCount: resultCount, 
          found: found,

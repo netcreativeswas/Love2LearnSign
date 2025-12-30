@@ -7,17 +7,16 @@ import 'package:l2l_shared/layout/l2l_layout_scope.dart';
 import 'package:provider/provider.dart';
 
 import 'package:l2l_shared/add_word/add_word_page.dart';
-import 'user_role_service.dart';
 import 'admin_dashboard_page.dart';
 import 'widgets/dashboard_content.dart';
 import 'package:l2l_shared/words_admin/words_list_page.dart';
 import 'web_bridge.dart';
 import 'tenancy/dashboard_tenant_scope.dart';
+import 'tenancy/tenant_switcher_page.dart';
+import 'owner/owner_home_page.dart';
 
 class AdminHome extends StatefulWidget {
-  final String? userRole;
-  
-  const AdminHome({super.key, this.userRole});
+  const AdminHome({super.key});
 
   @override
   State<AdminHome> createState() => _AdminHomeState();
@@ -42,19 +41,16 @@ class _AdminHomeState extends State<AdminHome> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= DashboardContent.desktopBreakpoint;
-    final isAdmin = widget.userRole == UserRoleService.roleAdmin;
-    final isEditor = widget.userRole == UserRoleService.roleEditor;
+    final tenantScope = context.watch<DashboardTenantScope>();
+    final role = (tenantScope.selectedTenantRole ?? '').toLowerCase().trim();
+    final isAdmin = tenantScope.isPlatformAdmin || role == 'owner' || role == 'admin';
+    final isEditor = isAdmin || role == 'editor';
 
-    if (!isAdmin && !isEditor) {
-      // Fallback: should not reach here if role checking is correct
-      return const Scaffold(
-        body: Center(
-          child: Text('Invalid role configuration'),
-        ),
-      );
-    }
-
-    final items = _navItemsForRole(isAdmin: isAdmin, isEditor: isEditor);
+    final items = _navItemsForRole(
+      isAdmin: isAdmin,
+      isEditor: isEditor,
+      isPlatformAdmin: tenantScope.isPlatformAdmin,
+    );
     final selectedIndex = items.isEmpty
         ? 0
         : (_selectedIndex.clamp(0, items.length - 1));
@@ -119,10 +115,23 @@ class _NavItem {
   const _NavItem({required this.label, required this.icon, required this.builder});
 }
 
-List<_NavItem> _navItemsForRole({required bool isAdmin, required bool isEditor}) {
+List<_NavItem> _navItemsForRole({
+  required bool isAdmin,
+  required bool isEditor,
+  required bool isPlatformAdmin,
+}) {
   if (isEditor) {
-    return const [
-      _NavItem(label: 'Add Word', icon: Icons.add_circle_outline, builder: AddWordPage.new),
+    return [
+      _NavItem(
+        label: 'Add Word',
+        icon: Icons.add_circle_outline,
+        builder: () => Builder(
+          builder: (ctx) {
+            final t = ctx.watch<DashboardTenantScope>();
+            return AddWordPage(tenantId: t.tenantId, signLangId: t.signLangId);
+          },
+        ),
+      ),
     ];
   }
 
@@ -133,26 +142,56 @@ List<_NavItem> _navItemsForRole({required bool isAdmin, required bool isEditor})
         icon: Icons.dashboard_outlined,
         builder: AdminDashboardPage.new,
       ),
-      const _NavItem(
+      _NavItem(
         label: 'Add Word',
         icon: Icons.add_circle_outline,
-        builder: AddWordPage.new,
+        builder: () => Builder(
+          builder: (ctx) {
+            final t = ctx.watch<DashboardTenantScope>();
+            return AddWordPage(tenantId: t.tenantId, signLangId: t.signLangId);
+          },
+        ),
       ),
       const _NavItem(
         label: 'Admin Panel',
         icon: Icons.manage_accounts_outlined,
         builder: AdminPanelPage.new,
       ),
-      const _NavItem(
+      _NavItem(
         label: 'Search Analytics',
         icon: Icons.analytics_outlined,
-        builder: SearchAnalyticsPage.new,
+        builder: () => Builder(
+          builder: (ctx) {
+            final t = ctx.watch<DashboardTenantScope>();
+            final role = t.isPlatformAdmin ? 'admin' : (t.selectedTenantRole ?? 'viewer');
+            return SearchAnalyticsPage(
+              tenantId: t.tenantId,
+              userRoleOverride: role,
+            );
+          },
+        ),
       ),
       _NavItem(
         label: 'Words List',
         icon: Icons.list_alt_outlined,
-        builder: () => const WordsListPage(userRoleOverride: UserRoleService.roleAdmin),
+        builder: () => Builder(
+          builder: (ctx) {
+            final t = ctx.watch<DashboardTenantScope>();
+            final role = t.isPlatformAdmin ? 'admin' : (t.selectedTenantRole ?? 'viewer');
+            return WordsListPage(
+              userRoleOverride: role,
+              tenantId: t.tenantId,
+              signLangId: t.signLangId,
+            );
+          },
+        ),
       ),
+      if (isPlatformAdmin)
+        const _NavItem(
+          label: 'Owner',
+          icon: Icons.security_outlined,
+          builder: OwnerHomePage.new,
+        ),
     ];
   }
 
@@ -231,6 +270,16 @@ class _DashboardSidebar extends StatelessWidget {
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
+                if (tenant.accessibleTenantIds.length >= 2)
+                  IconButton(
+                    tooltip: 'Change tenant',
+                    onPressed: () async {
+                      await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(builder: (_) => const TenantSwitcherPage()),
+                      );
+                    },
+                    icon: const Icon(Icons.swap_horiz),
+                  ),
               ],
             ),
           ),

@@ -116,6 +116,13 @@ service cloud.firestore {
       allow write: if isPlatformAdmin();
     }
 
+    // Per-user index of tenant access (for dashboard tenant discovery).
+    match /userTenants/{uid} {
+      allow get: if request.auth != null && (request.auth.uid == uid || isPlatformAdmin());
+      allow list: if false;
+      allow create, update, delete: if isPlatformAdmin();
+    }
+
     match /platform/{doc=**} {
       allow read, write: if isPlatformAdmin();
     }
@@ -130,6 +137,52 @@ service cloud.firestore {
       match /members/{uid} {
         allow read: if isPlatformAdmin() || (request.auth != null && request.auth.uid == uid) || isTenantEditorOrAbove(tenantId);
         allow write: if isPlatformAdmin() || isTenantEditorOrAbove(tenantId);
+      }
+
+      // Tenant-scoped search analytics (v2): allow logging for public tenants (guests),
+      // and allow tenant admins/editors to read for their tenant.
+      match /searchAnalytics/{entryId} {
+        function isReasonableTimestamp(ts) {
+          return ts is timestamp &&
+                 ts <= request.time &&
+                 ts >= request.time - duration.value(10, 'm');
+        }
+        function isValidSearchEntry() {
+          return request.resource.data.keys().hasOnly([
+            'query',
+            'query_lower',
+            'timestamp',
+            'found',
+            'resultCount',
+            'sessionId',
+            'category'
+          ]) &&
+          request.resource.data.query is string &&
+          request.resource.data.query_lower is string &&
+          request.resource.data.found is bool &&
+          request.resource.data.resultCount is int &&
+          request.resource.data.sessionId is string &&
+          request.resource.data.category is string &&
+          request.resource.data.query.size() >= 2 &&
+          request.resource.data.query.size() <= 80 &&
+          request.resource.data.query_lower.size() >= 2 &&
+          request.resource.data.query_lower.size() <= 80 &&
+          request.resource.data.sessionId.size() >= 8 &&
+          request.resource.data.sessionId.size() <= 80 &&
+          request.resource.data.category.size() >= 1 &&
+          request.resource.data.category.size() <= 80 &&
+          request.resource.data.resultCount >= 0 &&
+          request.resource.data.resultCount <= 5000 &&
+          (
+            request.resource.data.timestamp == request.time ||
+            isReasonableTimestamp(request.resource.data.timestamp)
+          );
+        }
+
+        // Guests can create only for PUBLIC tenants; members can create for their tenant too.
+        allow create: if isValidSearchEntry() && (isTenantPublic(tenantId) || isTenantMember(tenantId) || isPlatformAdmin());
+        allow get, list: if isTenantEditorOrAbove(tenantId) || isPlatformAdmin();
+        allow update, delete: if false;
       }
 
       match /concepts/{conceptId} {

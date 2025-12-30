@@ -7,6 +7,7 @@ import 'package:l2l_shared/analytics/search_tracking_service.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 import 'package:l2l_shared/debug/agent_logger.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
+import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 
@@ -14,7 +15,15 @@ enum SearchSortMode { frequency, alphabetical }
 
 class SearchAnalyticsPage extends StatefulWidget {
   final String countryCode;
-  const SearchAnalyticsPage({super.key, this.countryCode = 'GB'});
+  final String tenantId;
+  final String? userRoleOverride;
+
+  const SearchAnalyticsPage({
+    super.key,
+    this.countryCode = 'GB',
+    this.tenantId = TenantDb.defaultTenantId,
+    this.userRoleOverride,
+  });
 
   @override
   State<SearchAnalyticsPage> createState() => _SearchAnalyticsPageState();
@@ -65,7 +74,7 @@ class _SearchAnalyticsPageState extends State<SearchAnalyticsPage> {
   }
 
   void _loadData() {
-    _analyticsFuture = SearchTrackingService().getAnalyticsData(days: _selectedDays);
+    _analyticsFuture = SearchTrackingService().getAnalyticsData(tenantId: widget.tenantId, days: _selectedDays);
   }
 
   void _onFilterChanged(int days) {
@@ -97,7 +106,10 @@ class _SearchAnalyticsPageState extends State<SearchAnalyticsPage> {
     // #endregion
 
     final authProvider = Provider.of<AuthProvider>(context);
-    if (!authProvider.isAdmin) {
+    final override = widget.userRoleOverride?.toLowerCase().trim();
+    final canRead = authProvider.isAdmin ||
+        (override == 'owner' || override == 'admin' || override == 'editor' || override == 'analyst');
+    if (!canRead) {
       return const Scaffold(
         body: Center(child: Text('Access Denied')),
       );
@@ -1220,9 +1232,12 @@ class _SearchAnalyticsPageState extends State<SearchAnalyticsPage> {
     setState(() => _isClearing = true);
     try {
       if (clearOlderThanYear) {
-        await SearchTrackingService().clearAnalyticsOlderThan(const Duration(days: 365));
+        await SearchTrackingService().clearAnalyticsOlderThan(
+          tenantId: widget.tenantId,
+          age: const Duration(days: 365),
+        );
       } else {
-        await SearchTrackingService().clearAllAnalytics();
+        await SearchTrackingService().clearAllAnalytics(tenantId: widget.tenantId);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

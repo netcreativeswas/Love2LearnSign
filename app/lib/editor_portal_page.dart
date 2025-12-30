@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:l2l_shared/add_word/add_word_page.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
+import 'tenancy/tenant_scope.dart';
 
 class EditorPortalPage extends StatefulWidget {
   const EditorPortalPage({super.key});
@@ -49,9 +50,15 @@ class _EditorPortalPageState extends State<EditorPortalPage> {
                     label: const Text('Add New Word'),
                     style: ElevatedButton.styleFrom(minimumSize: Size.fromHeight(50)),
                     onPressed: () {
+                      final tenant = context.read<TenantScope>();
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const AddWordPage()),
+                        MaterialPageRoute(
+                          builder: (context) => AddWordPage(
+                            tenantId: tenant.tenantId,
+                            signLangId: tenant.signLangId,
+                          ),
+                        ),
                       );
                     },
                   ),

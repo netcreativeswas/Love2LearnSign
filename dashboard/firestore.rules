@@ -58,6 +58,15 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+
+    // Per-user index of tenant access (for dashboard tenant discovery).
+    // NOTE: This rules file is dashboard-scoped; keep consistent with app/firestore.rules.
+    match /userTenants/{uid} {
+      allow get: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow list: if false;
+      // Writes should only happen via platform admin tooling; dashboard uses isAdmin here.
+      allow create, update, delete: if isAdmin();
+    }
     
     // Dictionary collection: public read, editor/admin write only
     match /bangla_dictionary_eng_bnsl/{docEngBnslId} {
@@ -122,6 +131,51 @@ service cloud.firestore {
       allow create: if isValidSearchEntry();
       allow get, list, delete: if isAdmin();
       allow update: if false;
+    }
+
+    // Tenant-scoped search analytics (v2): allow logging for PUBLIC tenants and tenant admins to read.
+    // (Kept here for parity; canonical rules live in app/firestore.rules.)
+    match /tenants/{tenantId}/searchAnalytics/{entryId} {
+      function isReasonableTimestamp(ts) {
+        return ts is timestamp &&
+               ts <= request.time &&
+               ts >= request.time - duration.value(10, 'm');
+      }
+      function isValidSearchEntry() {
+        return request.resource.data.keys().hasOnly([
+          'query',
+          'query_lower',
+          'timestamp',
+          'found',
+          'resultCount',
+          'sessionId',
+          'category'
+        ]) &&
+        request.resource.data.query is string &&
+        request.resource.data.query_lower is string &&
+        request.resource.data.found is bool &&
+        request.resource.data.resultCount is int &&
+        request.resource.data.sessionId is string &&
+        request.resource.data.category is string &&
+        request.resource.data.query.size() >= 2 &&
+        request.resource.data.query.size() <= 80 &&
+        request.resource.data.query_lower.size() >= 2 &&
+        request.resource.data.query_lower.size() <= 80 &&
+        request.resource.data.sessionId.size() >= 8 &&
+        request.resource.data.sessionId.size() <= 80 &&
+        request.resource.data.category.size() >= 1 &&
+        request.resource.data.category.size() <= 80 &&
+        request.resource.data.resultCount >= 0 &&
+        request.resource.data.resultCount <= 5000 &&
+        (
+          request.resource.data.timestamp == request.time ||
+          isReasonableTimestamp(request.resource.data.timestamp)
+        );
+      }
+
+      allow create: if isValidSearchEntry();
+      allow get, list: if isAdmin();
+      allow update, delete: if false;
     }
     
     // Catch-all: lock down everything else

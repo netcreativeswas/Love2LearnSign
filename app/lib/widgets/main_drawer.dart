@@ -11,6 +11,7 @@ import 'package:l2l_shared/add_word/add_word_page.dart';
 import 'package:l2l_shared/admin/admin_panel_page.dart';
 import 'package:l2l_shared/analytics/search_analytics_page.dart';
 import 'package:l2l_shared/words_admin/words_list_page.dart';
+import '../tenancy/tenant_scope.dart';
 import '../theme.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 
@@ -424,8 +425,15 @@ class MainDrawerWidget extends StatelessWidget {
                       leading: const Icon(Icons.analytics_outlined),
                       title: const Text('Search Analytics'),
                       onTap: () {
+                        final tenantId = context.read<TenantScope>().tenantId;
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => SearchAnalyticsPage(countryCode: countryCode)),
+                          MaterialPageRoute(
+                            builder: (_) => SearchAnalyticsPage(
+                              countryCode: countryCode,
+                              tenantId: tenantId,
+                              userRoleOverride: 'admin',
+                            ),
+                          ),
                   );
                 },
               ),

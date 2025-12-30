@@ -18,7 +18,14 @@ import 'style.dart';
 
 
 class AddWordPage extends StatefulWidget {
-  const AddWordPage({super.key});
+  final String tenantId;
+  final String signLangId;
+
+  const AddWordPage({
+    super.key,
+    this.tenantId = TenantDb.defaultTenantId,
+    this.signLangId = TenantDb.defaultSignLangId,
+  });
 
   @override
   State<AddWordPage> createState() => _AddWordPageState();
@@ -332,7 +339,7 @@ class _AddWordPageState extends State<AddWordPage> {
   Future<void> _testStorageUpload() async {
     try {
       await _ensureSignedIn();
-      final objectPath = 'tenants/${TenantDb.defaultTenantId}/test_probe.txt';
+      final objectPath = 'tenants/${widget.tenantId}/test_probe.txt';
       final meta = SettableMetadata(contentType: 'text/plain');
       final url = await _putString(
         data: 'hello',
@@ -602,21 +609,33 @@ class _AddWordPageState extends State<AddWordPage> {
     if (_selectedVideo != null) {
       uploadedUrls['videoUrl'] = await _uploadFileAndGetUrl(
         _selectedVideo!,
-        storageDir: TenantStoragePaths.videosDir(conceptId: conceptId),
+        storageDir: TenantStoragePaths.videosDir(
+          tenantId: widget.tenantId,
+          signLangId: widget.signLangId,
+          conceptId: conceptId,
+        ),
       );
     }
 
     if (_selectedVideoSD != null) {
       uploadedUrls['videoUrlSD'] = await _uploadFileAndGetUrl(
         _selectedVideoSD!,
-        storageDir: TenantStoragePaths.videosSdDir(conceptId: conceptId),
+        storageDir: TenantStoragePaths.videosSdDir(
+          tenantId: widget.tenantId,
+          signLangId: widget.signLangId,
+          conceptId: conceptId,
+        ),
       );
     }
 
     if (_selectedVideoHD != null) {
       uploadedUrls['videoUrlHD'] = await _uploadFileAndGetUrl(
         _selectedVideoHD!,
-        storageDir: TenantStoragePaths.videosHdDir(conceptId: conceptId),
+        storageDir: TenantStoragePaths.videosHdDir(
+          tenantId: widget.tenantId,
+          signLangId: widget.signLangId,
+          conceptId: conceptId,
+        ),
       );
     }
 
@@ -624,14 +643,22 @@ class _AddWordPageState extends State<AddWordPage> {
     if (_selectedVideoThumbnail != null) {
       uploadedUrls['videoThumbnail'] = await _uploadImageFile(
         _selectedVideoThumbnail!,
-        storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
+        storageDir: TenantStoragePaths.thumbnailsDir(
+          tenantId: widget.tenantId,
+          signLangId: widget.signLangId,
+          conceptId: conceptId,
+        ),
       );
     }
 
     if (_selectedVideoThumbnailSmall != null) {
       uploadedUrls['videoThumbnailSmall'] = await _uploadImageFile(
         _selectedVideoThumbnailSmall!,
-        storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
+        storageDir: TenantStoragePaths.thumbnailsDir(
+          tenantId: widget.tenantId,
+          signLangId: widget.signLangId,
+          conceptId: conceptId,
+        ),
       );
     }
 
@@ -639,7 +666,11 @@ class _AddWordPageState extends State<AddWordPage> {
     if (_selectedimageFlashcard != null) {
       uploadedUrls['imageFlashcard'] = await _uploadImageFile(
         _selectedimageFlashcard!,
-        storageDir: TenantStoragePaths.flashcardsDir(conceptId: conceptId),
+        storageDir: TenantStoragePaths.flashcardsDir(
+          tenantId: widget.tenantId,
+          signLangId: widget.signLangId,
+          conceptId: conceptId,
+        ),
       );
     }
 
@@ -649,7 +680,11 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantVideos[i] != null) {
         final url = await _uploadFileAndGetUrl(
           _selectedVariantVideos[i]!,
-          storageDir: TenantStoragePaths.videosDir(conceptId: conceptId),
+          storageDir: TenantStoragePaths.videosDir(
+            tenantId: widget.tenantId,
+            signLangId: widget.signLangId,
+            conceptId: conceptId,
+          ),
         );
         uploadedUrls['variantVideos'].add(url);
       } else {
@@ -659,7 +694,11 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantVideosSD[i] != null) {
         final url = await _uploadFileAndGetUrl(
           _selectedVariantVideosSD[i]!,
-          storageDir: TenantStoragePaths.videosSdDir(conceptId: conceptId),
+          storageDir: TenantStoragePaths.videosSdDir(
+            tenantId: widget.tenantId,
+            signLangId: widget.signLangId,
+            conceptId: conceptId,
+          ),
         );
         uploadedUrls['variantVideosSD'].add(url);
       } else {
@@ -669,7 +708,11 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantVideosHD[i] != null) {
         final url = await _uploadFileAndGetUrl(
           _selectedVariantVideosHD[i]!,
-          storageDir: TenantStoragePaths.videosHdDir(conceptId: conceptId),
+          storageDir: TenantStoragePaths.videosHdDir(
+            tenantId: widget.tenantId,
+            signLangId: widget.signLangId,
+            conceptId: conceptId,
+          ),
         );
         uploadedUrls['variantVideosHD'].add(url);
       } else {
@@ -680,7 +723,11 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantThumbnails[i] != null) {
         final url = await _uploadImageFile(
           _selectedVariantThumbnails[i]!,
-          storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
+          storageDir: TenantStoragePaths.thumbnailsDir(
+            tenantId: widget.tenantId,
+            signLangId: widget.signLangId,
+            conceptId: conceptId,
+          ),
         );
         uploadedUrls['variantThumbnails'].add(url);
       } else {
@@ -690,7 +737,11 @@ class _AddWordPageState extends State<AddWordPage> {
       if (_selectedVariantThumbnailsSmall[i] != null) {
         final url = await _uploadImageFile(
           _selectedVariantThumbnailsSmall[i]!,
-          storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
+          storageDir: TenantStoragePaths.thumbnailsDir(
+            tenantId: widget.tenantId,
+            signLangId: widget.signLangId,
+            conceptId: conceptId,
+          ),
         );
         uploadedUrls['variantThumbnailsSmall'].add(url);
       } else {
@@ -743,8 +794,8 @@ class _AddWordPageState extends State<AddWordPage> {
       return;
     }
 
-    final tenantId = TenantDb.defaultTenantId;
-    final signLangId = TenantDb.defaultSignLangId;
+    final tenantId = widget.tenantId;
+    final signLangId = widget.signLangId;
     // For backward compatibility, expose first selected as legacy fields
     final categoryMain = _selectedCategories.isNotEmpty ? (_selectedCategories.first['category'] ?? '').trim() : '';
     final categorySub = _selectedCategories.isNotEmpty ? (_selectedCategories.first['subcategory'] ?? '').trim() : '';
@@ -843,9 +894,15 @@ class _AddWordPageState extends State<AddWordPage> {
         'signLangIds': [signLangId],
         'defaultSignLangId': signLangId,
         // Labels (future-proof for UI multi-language)
+        // v1: store as { "en": "Word", "bn": "শব্দ" }
         'labels': {
-          'en': {'text': english, 'lower': english.toLowerCase()},
-          'bn': {'text': bengali, 'lower': bengali.toLowerCase()},
+          'en': english,
+          'bn': bengali,
+        },
+        // Optional helper for prefix search (kept separate from labels map)
+        'labels_lower': {
+          'en': english.toLowerCase(),
+          'bn': bengali.toLowerCase(),
         },
         'english': english,
         'english_lower': english.toLowerCase(),
