@@ -1,9 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'auth_service.dart';
+
+const bool _kAuthLogs = bool.fromEnvironment('L2L_LOG_AUTH', defaultValue: false);
+
+void _authLog(String message) {
+  if (kDebugMode && _kAuthLogs) debugPrint(message);
+}
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -72,9 +79,9 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
 
       // Get roles array from custom claims or Firestore
-      debugPrint('🔍 AuthProvider: Fetching user roles...');
+      _authLog('🔍 AuthProvider: Fetching user roles...');
       _userRoles = await _authService.getUserRoles();
-      debugPrint('🔍 AuthProvider: Roles fetched: $_userRoles');
+      _authLog('🔍 AuthProvider: Roles fetched: $_userRoles');
 
       // Get user status
       _userStatus = await _authService.getUserStatus();
@@ -91,7 +98,7 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      debugPrint('Error loading user data: $e');
+      _authLog('Error loading user data: $e');
       _isLoading = false;
       notifyListeners();
     }
@@ -109,7 +116,7 @@ class AuthProvider with ChangeNotifier {
       try {
         await loadUserData();
       } catch (e) {
-        debugPrint('Warning: Failed to load user data after login: $e');
+        _authLog('Warning: Failed to load user data after login: $e');
         // User is still authenticated, just couldn't load profile data
       }
 
@@ -148,7 +155,7 @@ class AuthProvider with ChangeNotifier {
       try {
         await loadUserData();
       } catch (e) {
-        debugPrint('Warning: Failed to load user data after signup: $e');
+        _authLog('Warning: Failed to load user data after signup: $e');
         // User is authenticated, profile loading can happen later
       }
 
@@ -156,7 +163,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
 
       // ✅ New users are auto-approved with freeUser role - return success
-      debugPrint('✅ Sign-up complete - user auto-approved with freeUser role');
+      _authLog('✅ Sign-up complete - user auto-approved with freeUser role');
       return null; // Success
     } catch (e) {
       _isLoading = false;
@@ -180,7 +187,7 @@ class AuthProvider with ChangeNotifier {
         // If Firestore permission error but user is authenticated
         // The user account was created successfully, just the profile couldn't be saved
         // User is auto-approved, so return success
-        debugPrint('✅ User authenticated (profile creation had permission error, but user is approved)');
+        _authLog('✅ User authenticated (profile creation had permission error, but user is approved)');
         return null; // Success - user is authenticated and auto-approved
       } else {
         // Remove "Exception: " prefix if present
@@ -215,7 +222,7 @@ class AuthProvider with ChangeNotifier {
       try {
         await loadUserData();
       } catch (e) {
-        debugPrint('Warning: Failed to load user data after Google sign in: $e');
+        _authLog('Warning: Failed to load user data after Google sign in: $e');
         // User is authenticated, profile loading can happen later
       }
 
@@ -226,7 +233,7 @@ class AuthProvider with ChangeNotifier {
       final profile = await _authService.getUserProfile();
       if (profile == null) {
         // No user profile exists - need to complete signup with country selection
-        debugPrint('⚠️ No user profile found - redirecting to country selection');
+        _authLog('⚠️ No user profile found - redirecting to country selection');
         return 'COUNTRY_SELECTION_NEEDED';
       }
 
@@ -238,17 +245,17 @@ class AuthProvider with ChangeNotifier {
       final needsUserType =
           userType == null || (userType is String && userType.trim().isEmpty);
       if (needsCountry || needsUserType) {
-        debugPrint('⚠️ User profile incomplete (country: $country, userType: $userType) - redirecting to country selection');
+        _authLog('⚠️ User profile incomplete (country: $country, userType: $userType) - redirecting to country selection');
         return 'COUNTRY_SELECTION_NEEDED';
       }
 
       // ✅ User is auto-approved with freeUser role - no pending approval check needed
-      debugPrint('✅ Google Sign-In complete - user approved with freeUser role');
+      _authLog('✅ Google Sign-In complete - user approved with freeUser role');
       return null; // Success - redirect to home
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      debugPrint('AuthProvider signInWithGoogle error: $e');
+      _authLog('AuthProvider signInWithGoogle error: $e');
 
       // Provide user-friendly error messages
       String errorMsg = 'Failed to sign in with Google';
@@ -358,7 +365,7 @@ class AuthProvider with ChangeNotifier {
 
       return snapshot.docs.length;
     } catch (e) {
-      debugPrint('Error getting pending users count: $e');
+      _authLog('Error getting pending users count: $e');
       return 0;
     }
   }

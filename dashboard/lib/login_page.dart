@@ -17,7 +17,6 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _submit() async {
     final email = _email.text.trim();
-    debugPrint('🔑 Attempting sign-in for: $email');
     setState(() => _loading = true);
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -26,13 +25,11 @@ class _LoginPageState extends State<LoginPage> {
       );
       // on success, user is redirected by AuthGate
     } on FirebaseAuthException catch (e) {
-      debugPrint('❌ Sign-in failed [${e.code}]: ${e.message}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${e.code}: ${e.message ?? 'Login failed'}')),
       );
     } catch (e) {
-      debugPrint('❌ Unexpected sign-in error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unexpected error: $e')),
@@ -44,7 +41,6 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _resetPassword() async {
     final email = _email.text.trim();
-    debugPrint('🔄 Resetting password for: $email');
     setState(() => _loading = true);
 
     if (email.isEmpty) {
@@ -64,19 +60,16 @@ class _LoginPageState extends State<LoginPage> {
           handleCodeInApp: true,
         ),
       );
-      debugPrint('✅ Password reset email sent to $email');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password reset email sent')),
       );
     } on FirebaseAuthException catch (e) {
-      debugPrint('❌ Reset failed [${e.code}]: ${e.message}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${e.code}: ${e.message ?? 'Reset failed'}')),
       );
     } catch (e) {
-      debugPrint('❌ Unexpected reset error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unexpected error: $e')),

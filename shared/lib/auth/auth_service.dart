@@ -6,6 +6,12 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const bool _kAuthLogs = bool.fromEnvironment('L2L_LOG_AUTH', defaultValue: false);
+
+void _authLog(String message) {
+  if (kDebugMode && _kAuthLogs) debugPrint(message);
+}
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -39,7 +45,7 @@ class AuthService {
         await _loadUserProfile(credential.user!.uid);
       } catch (e) {
         // Log error but don't prevent login
-        debugPrint('Warning: Failed to load user profile: $e');
+        _authLog('Warning: Failed to load user profile: $e');
       }
 
       return credential;
@@ -83,7 +89,7 @@ class AuthService {
       } catch (e) {
         // If Firestore creation fails, log but don't fail the signup
         // The user is already authenticated, so we should continue
-        debugPrint('Warning: Failed to create user profile in Firestore: $e');
+        _authLog('Warning: Failed to create user profile in Firestore: $e');
         // Don't throw - the user is authenticated and can retry profile creation later
       }
 
@@ -252,7 +258,7 @@ class AuthService {
       return null;
     } catch (e) {
       // Don't throw - just log and return null
-      debugPrint('Warning: Failed to load user profile from Firestore: $e');
+      _authLog('Warning: Failed to load user profile from Firestore: $e');
 
       // If it's a permission error, try to get roles from Custom Claims as fallback
       if (e.toString().contains('permission-denied') || e.toString().contains('PERMISSION_DENIED')) {
@@ -269,7 +275,7 @@ class AuthService {
               await prefs.setString('user_roles', roles.join(','));
               await prefs.setString('user_status', 'approved');
               await prefs.setBool('user_approved', true);
-              debugPrint('✅ Loaded user data from Custom Claims (admin user)');
+              _authLog('✅ Loaded user data from Custom Claims (admin user)');
               return {
                 'email': user.email,
                 'displayName': user.displayName ?? user.email?.split('@')[0],
@@ -316,14 +322,14 @@ class AuthService {
       if (user == null) return [];
 
       // First, try to get roles from custom claims (JWT token)
-      debugPrint('🔍 getUserRoles: Force refreshing token...');
+      _authLog('🔍 getUserRoles: Force refreshing token...');
       final idTokenResult = await user.getIdTokenResult(true);
       final customClaims = idTokenResult.claims;
-      debugPrint('🔍 getUserRoles: Custom Claims: $customClaims');
+      _authLog('🔍 getUserRoles: Custom Claims: $customClaims');
 
       if (customClaims != null && customClaims.containsKey('roles')) {
         final roles = customClaims['roles'];
-        debugPrint('🔍 getUserRoles: Found roles in Custom Claims: $roles');
+        _authLog('🔍 getUserRoles: Found roles in Custom Claims: $roles');
         if (roles is List) {
           final rolesList = roles.map((r) => r.toString()).toList();
           // Cache in SharedPreferences
@@ -358,7 +364,7 @@ class AuthService {
                 'updatedAt': FieldValue.serverTimestamp(),
               });
             } catch (e) {
-              debugPrint('Warning: Could not migrate role to roles array: $e');
+              _authLog('Warning: Could not migrate role to roles array: $e');
             }
           }
         }
@@ -480,25 +486,25 @@ class AuthService {
     try {
       // WEB: prefer Firebase Auth popup (avoids google_sign_in_web clientId meta requirement)
       if (kIsWeb) {
-        debugPrint('🔑 Starting Google Sign-In (Web)...');
+        _authLog('🔑 Starting Google Sign-In (Web)...');
         final provider = GoogleAuthProvider()..addScope('email')..addScope('profile');
         
         // Add timeout for web popup
         final userCredential = await _auth.signInWithPopup(provider).timeout(
           const Duration(minutes: 2),
           onTimeout: () {
-            debugPrint('❌ Google Sign-In popup timeout');
+            _authLog('❌ Google Sign-In popup timeout');
             throw Exception('Sign-in timed out. Please try again.');
           },
         );
 
-        debugPrint('✅ Google Sign-In popup successful');
+        _authLog('✅ Google Sign-In popup successful');
 
         // Refresh token to get latest custom claims
         await userCredential.user?.getIdToken(true).timeout(
           const Duration(seconds: 30),
           onTimeout: () {
-            debugPrint('⚠️ Token refresh timeout (non-critical)');
+            _authLog('⚠️ Token refresh timeout (non-critical)');
             return null;
           },
         );
@@ -507,7 +513,7 @@ class AuthService {
         try {
           await _loadUserProfile(userCredential.user!.uid);
         } catch (e) {
-          debugPrint('Warning: Failed to load user profile: $e');
+          _authLog('Warning: Failed to load user profile: $e');
         }
 
         return userCredential;
@@ -516,33 +522,33 @@ class AuthService {
       // MOBILE: Use google_sign_in plugin
       final googleSignIn = _googleSignIn;
       if (googleSignIn == null) {
-        debugPrint('❌ Google Sign-In not available');
+        _authLog('❌ Google Sign-In not available');
         return null;
       }
 
-      debugPrint('🔑 Starting Google Sign-In (Mobile)...');
+      _authLog('🔑 Starting Google Sign-In (Mobile)...');
       
       // Trigger the authentication flow with timeout
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn().timeout(
         const Duration(minutes: 2),
         onTimeout: () {
-          debugPrint('❌ Google Sign-In timeout');
+          _authLog('❌ Google Sign-In timeout');
           return null;
         },
       );
       
       if (googleUser == null) {
-        debugPrint('❌ Google Sign-In cancelled or timed out');
+        _authLog('❌ Google Sign-In cancelled or timed out');
         return null; // cancelled or timeout
       }
 
-      debugPrint('✅ Google account selected: ${googleUser.email}');
+      _authLog('✅ Google account selected');
 
       // Obtain the auth details from the request with timeout
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication.timeout(
         const Duration(seconds: 30),
         onTimeout: () {
-          debugPrint('❌ Google authentication timeout');
+          _authLog('❌ Google authentication timeout');
           throw Exception('Authentication timed out. Please try again.');
         },
       );
@@ -553,24 +559,24 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      debugPrint('🔑 Signing in to Firebase with Google credential...');
+      _authLog('🔑 Signing in to Firebase with Google credential...');
 
       // Once signed in, return the UserCredential with timeout
       final userCredential = await _auth.signInWithCredential(credential).timeout(
         const Duration(seconds: 30),
         onTimeout: () {
-          debugPrint('❌ Firebase sign-in timeout');
+          _authLog('❌ Firebase sign-in timeout');
           throw Exception('Firebase sign-in timed out. Please check your internet connection.');
         },
       );
 
-      debugPrint('✅ Firebase sign-in successful');
+      _authLog('✅ Firebase sign-in successful');
 
       // Refresh token to get latest custom claims with timeout
       await userCredential.user?.getIdToken(true).timeout(
         const Duration(seconds: 30),
         onTimeout: () {
-          debugPrint('⚠️ Token refresh timeout (non-critical)');
+          _authLog('⚠️ Token refresh timeout (non-critical)');
           return null;
         },
       );
@@ -580,18 +586,18 @@ class AuthService {
         await _loadUserProfile(userCredential.user!.uid);
       } catch (e) {
         // Log error but don't prevent login
-        debugPrint('Warning: Failed to load user profile: $e');
+        _authLog('Warning: Failed to load user profile: $e');
       }
 
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      debugPrint('❌ FirebaseAuthException during Google Sign-In: ${e.code} - ${e.message}');
+      _authLog('❌ FirebaseAuthException during Google Sign-In: ${e.code}');
       throw _handleAuthException(e);
     } on TimeoutException catch (e) {
-      debugPrint('❌ Google Sign-In timeout: $e');
+      _authLog('❌ Google Sign-In timeout');
       throw Exception('Sign-in timed out. Please check your internet connection and try again.');
     } catch (e) {
-      debugPrint('❌ Unexpected error during Google Sign-In: $e');
+      _authLog('❌ Unexpected error during Google Sign-In');
       rethrow;
     }
   }

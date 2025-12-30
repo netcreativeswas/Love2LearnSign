@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // from CLI
@@ -9,6 +11,12 @@ import 'package:provider/provider.dart';
 import 'tenancy/dashboard_tenant_scope.dart';
 import 'tenancy/tenant_switcher_page.dart';
 
+// Console logging switch.
+// Default: OFF (no prints/debugPrint in browser console).
+// Enable locally with: flutter run --dart-define=L2L_LOG_CONSOLE=true
+const bool _kLogConsole =
+    bool.fromEnvironment('L2L_LOG_CONSOLE', defaultValue: false);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -18,12 +26,33 @@ void main() async {
 
   final tenantScope = await DashboardTenantScope.create();
 
-  runApp(
-    OverlaySupport.global(
-      child: ChangeNotifierProvider<DashboardTenantScope>.value(
-        value: tenantScope,
-        child: const MyApp(),
+  void startApp() {
+    runApp(
+      OverlaySupport.global(
+        child: ChangeNotifierProvider<DashboardTenantScope>.value(
+          value: tenantScope,
+          child: const MyApp(),
+        ),
       ),
+    );
+  }
+
+  if (_kLogConsole) {
+    startApp();
+    return;
+  }
+
+  // Silence debugPrint + print output to keep production console clean.
+  debugPrint = (String? message, {int? wrapWidth}) {};
+  runZonedGuarded(
+    startApp,
+    (e, st) {
+      // Intentionally no console output.
+    },
+    zoneSpecification: ZoneSpecification(
+      print: (self, parent, zone, line) {
+        // swallow
+      },
     ),
   );
 }
