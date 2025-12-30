@@ -40,6 +40,7 @@ export function getTranslations(locale: Locale) {
 }
 
 export function t(locale: Locale, key: string, params?: Record<string, string>): string {
+  const isDev = process.env.NODE_ENV !== "production";
   const keys = key.split(".");
   let value: unknown = translations[locale];
   
@@ -47,13 +48,17 @@ export function t(locale: Locale, key: string, params?: Record<string, string>):
     if (value && typeof value === "object" && k in value) {
       value = (value as Record<string, unknown>)[k];
     } else {
-      console.warn(`Translation key "${key}" not found for locale "${locale}"`);
+      if (isDev) {
+        console.warn(`Translation key "${key}" not found for locale "${locale}"`);
+      }
       return key;
     }
   }
   
   if (typeof value !== "string") {
-    console.warn(`Translation key "${key}" is not a string for locale "${locale}"`);
+    if (isDev) {
+      console.warn(`Translation key "${key}" is not a string for locale "${locale}"`);
+    }
     return key;
   }
   

@@ -287,7 +287,9 @@ class SubscriptionService {
           'platform': platform,
         });
 
-        debugPrint('✅ verifyPlaySubscription result: ${result.data}');
+        if (kDebugMode) {
+          debugPrint('✅ verifyPlaySubscription result: ${result.data}');
+        }
       } else {
         // iOS verification is not implemented yet (needs App Store receipt verification).
         debugPrint('⚠️ iOS subscription verification not implemented yet');
@@ -422,10 +424,25 @@ class SubscriptionService {
   }
 
   Future<DocumentSnapshot?> _getUserDocSnapshotByUid(String uid) async {
-    // Mirror AuthService logic: docs are commonly stored as [displayName]__[UID]
-    final query = await _firestore.collection('users').where('uid', isEqualTo: uid).limit(1).get();
-    if (query.docs.isNotEmpty) return query.docs.first;
-    return await _firestore.collection('users').doc(uid).get();
+    // Prefer canonical document id: users/{uid}
+    final canonical = await _firestore.collection('users').doc(uid).get();
+    if (canonical.exists) return canonical;
+
+    // Legacy fallback: users/{displayName}__{uid} or users/{emailPrefix}__{uid}
+    final user = FirebaseAuth.instance.currentUser;
+    final candidates = <String>[];
+    final dn = (user?.displayName ?? '').trim();
+    final email = (user?.email ?? '').trim();
+    final emailPrefix = email.contains('@') ? email.split('@').first.trim() : email;
+    if (dn.isNotEmpty) candidates.add('${dn.replaceAll('/', '_')}__$uid');
+    if (emailPrefix.isNotEmpty) candidates.add('${emailPrefix.replaceAll('/', '_')}__$uid');
+
+    for (final id in candidates) {
+      final snap = await _firestore.collection('users').doc(id).get();
+      if (snap.exists) return snap;
+    }
+
+    return canonical; // non-existent, but useful for callers that check .exists
   }
 
   /// Dispose resources

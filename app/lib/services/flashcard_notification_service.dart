@@ -62,9 +62,8 @@ class FlashcardNotificationService {
         importance: Importance.high,
       ));
 
-      // Exact alarms are often not permitted; fallback to inexact scheduling.
-      final canExact = await androidImpl?.canScheduleExactNotifications() ?? false;
-      final mode = canExact ? AndroidScheduleMode.exactAllowWhileIdle : AndroidScheduleMode.inexactAllowWhileIdle;
+      // Play Store safe: avoid exact alarms; schedule inexact and let the OS batch if needed.
+      const mode = AndroidScheduleMode.inexactAllowWhileIdle;
 
       await _notifications.zonedSchedule(
         word.hashCode,
@@ -129,7 +128,6 @@ class FlashcardNotificationService {
     required String body,
     required DateTime scheduledDate,
     required String payload,
-    AndroidScheduleMode androidScheduleMode = AndroidScheduleMode.exactAllowWhileIdle,
   }) async {
     // Créer le canal de notification si nécessaire
     final androidImpl = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -160,7 +158,7 @@ class FlashcardNotificationService {
           presentSound: true,
         ),
       ),
-      androidScheduleMode: androidScheduleMode,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       payload: payload,
     );
   }
@@ -175,7 +173,6 @@ class FlashcardNotificationService {
     required String body,
     required DateTime scheduledDate,
     required String payload,
-    AndroidScheduleMode androidScheduleMode = AndroidScheduleMode.exactAllowWhileIdle,
   }) async {
     // Créer le canal de notification si nécessaire
     final androidImpl = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -206,7 +203,7 @@ class FlashcardNotificationService {
           presentSound: true,
         ),
       ),
-      androidScheduleMode: androidScheduleMode,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       payload: payload,
     );
   }

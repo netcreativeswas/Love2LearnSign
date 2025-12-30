@@ -9,6 +9,14 @@ service cloud.firestore {
              'admin' in request.auth.token.roles;
     }
 
+    function signInProvider() {
+      return request.auth != null ? request.auth.token.firebase.sign_in_provider : null;
+    }
+
+    function isGoogleSignIn() {
+      return signInProvider() == 'google.com';
+    }
+
     function isAdminOrEditor() {
       return request.auth != null &&
              request.auth.token.roles is list &&
@@ -29,7 +37,11 @@ service cloud.firestore {
 
     function isTenantPublic(tenantId) {
       return exists(/databases/$(database)/documents/tenants/$(tenantId)) &&
-             (get(/databases/$(database)/documents/tenants/$(tenantId)).data.visibility == 'public');
+             (
+               // Treat missing visibility as public for backward compatibility.
+               get(/databases/$(database)/documents/tenants/$(tenantId)).data.visibility == 'public' ||
+               !('visibility' in get(/databases/$(database)/documents/tenants/$(tenantId)).data)
+             );
     }
 
     function tenantMemberDoc(tenantId, uid) {
@@ -51,6 +63,12 @@ service cloud.firestore {
              (isTenantMember(tenantId) &&
               (tenantRole(tenantId) in ['owner', 'admin', 'editor']));
     }
+
+    function isTenantAdminOrAbove(tenantId) {
+      // Tenant membership management should be restricted more tightly than content editing.
+      return isAdmin() || isPlatformAdmin() ||
+             (isTenantMember(tenantId) && (tenantRole(tenantId) in ['owner', 'admin']));
+    }
     
     function isOwnDocument() {
       return request.auth != null && 
@@ -59,38 +77,45 @@ service cloud.firestore {
     }
     
     match /users/{userId} {
-      // Admins can read and write all user documents (includes get and list)
-      allow read, write: if isAdmin();
-      
-      // Users can read their own document (by document ID or uid field)
-      // FIXED: Allow get even if document doesn't exist yet (resource==null check)
-      // This allows the app to detect when a user document doesn't exist
-      allow get: if request.auth != null && 
-                    (resource == null ||  // Allow checking if document exists
-                     resource.data.uid == request.auth.uid || 
-                     userId.matches('.*__' + request.auth.uid + '$')); // Match [name]__[UID] format
-      
-      // Users can query for their own document using where('uid', '==', request.auth.uid)
-      // This is needed because document IDs use format [displayName]__[UID]
-      // Note: Firestore Rules cannot verify the where() filter, but limiting to 1 result
-      // and requiring authentication provides reasonable security
-      allow list: if request.auth != null;
-      
-      // Users can create their own document
-      allow create: if request.auth != null && 
-                     request.resource.data.uid == request.auth.uid;
-      
-      // Users can update their own document (but not roles, approved, status)
-      allow update: if request.auth != null && 
-                     resource != null &&
-                     isOwnDocument() &&
-                     !('roles' in request.resource.data.diff(resource.data).affectedKeys()) &&
-                     !('approved' in request.resource.data.diff(resource.data).affectedKeys()) &&
-                     !('status' in request.resource.data.diff(resource.data).affectedKeys());
-      
-      // Admins can update any user document (including roles)
-      allow update: if isAdmin();
+      // 🚨 Important: avoid broad `allow write` because it implicitly allows deletes.
+
+      // Admin / platform admin access (get + list + create + update). Client deletes are blocked.
+      allow get, list, create, update: if isAdmin() || isPlatformAdmin();
       allow delete: if false;
+
+      // Users can read their own document by canonical id (uid) OR legacy id ending with "__{uid}".
+      allow get: if request.auth != null &&
+                 (userId == request.auth.uid || userId.matches('.*__' + request.auth.uid + '$'));
+
+      // Users can create only their own document (prefer canonical users/{uid}).
+      allow create: if request.auth != null &&
+                    userId == request.auth.uid &&
+                    request.resource.data.uid == request.auth.uid &&
+                    request.resource.data.roles is list &&
+                    request.resource.data.approved is bool &&
+                    request.resource.data.status is string &&
+                    (
+                      // Google sign-in: auto-approved, freeUser role.
+                      (isGoogleSignIn() &&
+                       request.resource.data.approved == true &&
+                       request.resource.data.status == 'approved' &&
+                       request.resource.data.roles.size() == 1 &&
+                       request.resource.data.roles[0] == 'freeUser')
+                      ||
+                      // Email/password (and others): pending until server/admin approval.
+                      (!isGoogleSignIn() &&
+                       request.resource.data.approved == false &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.roles.size() == 0)
+                    );
+
+      // Users can update their own document, but cannot self-grant roles / approvals.
+      allow update: if request.auth != null &&
+                    userId == request.auth.uid &&
+                    resource != null &&
+                    !('roles' in request.resource.data.diff(resource.data).affectedKeys()) &&
+                    !('approved' in request.resource.data.diff(resource.data).affectedKeys()) &&
+                    !('status' in request.resource.data.diff(resource.data).affectedKeys());
     }
 
     // Per-tenant premium entitlements (Option A co-brand SaaS).
@@ -157,19 +182,23 @@ service cloud.firestore {
 
     match /tenants/{tenantId} {
       // Avoid self-referential reads: use `resource` for get() and keep list restricted.
-      allow get: if (resource.data.visibility == 'public') || isTenantMember(tenantId) || isPlatformAdmin();
+      allow get: if (resource != null &&
+                     (resource.data.visibility == 'public' || !('visibility' in resource.data))) ||
+                    isTenantMember(tenantId) ||
+                    isPlatformAdmin();
       allow list: if isPlatformAdmin();
       allow create, update: if isPlatformAdmin(); // tenant creation/plan/status controlled by platform
       allow delete: if false;
 
       match /members/{uid} {
         allow read: if isPlatformAdmin() || (request.auth != null && request.auth.uid == uid) || isTenantEditorOrAbove(tenantId);
-        allow write: if isPlatformAdmin() || isTenantEditorOrAbove(tenantId);
+        // Restrict membership writes to tenant admins/owners (or platform/global admins).
+        allow write: if isTenantAdminOrAbove(tenantId);
       }
 
       // Tenant monetization config (Option A). Readable by clients (for ads + IAP), writable by platform admin.
       match /monetization/{docId} {
-        allow read: if true;
+        allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isPlatformAdmin();
         allow write: if isPlatformAdmin();
       }
 
@@ -289,10 +318,10 @@ service cloud.firestore {
         );
       }
 
-      // Allow anonymous analytics logging (guest users) while keeping strict schema validation.
-      allow create: if isValidSearchEntry();
-      allow get, list, delete: if isAdmin();
-      allow update: if false;
+      // Legacy path (kept for safety): disable client writes to prevent abuse.
+      // Canonical analytics writes are tenant-scoped at /tenants/{tenantId}/searchAnalytics/{entryId}.
+      allow create, update, delete: if false;
+      allow get, list: if isAdmin() || isPlatformAdmin();
     }
     
     // User counters for session tracking (video views, quiz/flashcard tokens)

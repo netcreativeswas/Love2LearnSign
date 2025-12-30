@@ -20,6 +20,20 @@ class AuthService {
   // We keep it null on web and use Firebase Auth popup instead.
   late final GoogleSignIn? _googleSignIn = kIsWeb ? null : GoogleSignIn();
 
+  List<String> _legacyUserDocIdCandidates(User user, {required String uid}) {
+    // Historically some installs used doc ids like "{displayName}__{uid}".
+    String safe(String s) => s.trim().replaceAll('/', '_');
+    final dn = safe(user.displayName ?? '');
+    final email = safe(user.email ?? '');
+    final emailPrefix = email.contains('@') ? email.split('@').first.trim() : email;
+
+    final out = <String>[];
+    if (dn.isNotEmpty) out.add('${dn}__$uid');
+    if (emailPrefix.isNotEmpty) out.add('${emailPrefix}__$uid');
+    // Keep order but remove duplicates.
+    return out.toSet().toList();
+  }
+
   // Get current user
   User? get currentUser => _auth.currentUser;
 
@@ -189,32 +203,19 @@ class AuthService {
       if (canonicalSnap.exists) {
         resolvedSnap = canonicalSnap;
       } else {
-        // Legacy fallback: some installs created docs with id = displayName__uid (or other ids)
-        // but stored the real uid in the 'uid' field. We find one and copy it into users/{uid}.
-        final legacyQuery = await _firestore
-            .collection('users')
-            .where('uid', isEqualTo: uid)
-            .limit(1)
-            .get();
-
-        if (legacyQuery.docs.isNotEmpty) {
-          final legacyDoc = legacyQuery.docs.first;
-          final legacyData = legacyDoc.data();
-
-          // Copy into canonical doc id so future reads are stable.
-          final toWrite = <String, dynamic>{
-            ...legacyData,
-            'uid': uid,
-            'migratedFromDocId': legacyDoc.id,
-            'migratedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          };
-          await canonicalRef.set(toWrite, SetOptions(merge: true));
-
-          resolvedSnap = await canonicalRef.get();
-        } else {
-          resolvedSnap = canonicalSnap; // doesn't exist
+        // Legacy fallback (read-only): try common legacy ids without requiring collection queries.
+        final user = _auth.currentUser;
+        if (user != null) {
+          final candidates = _legacyUserDocIdCandidates(user, uid: uid);
+          for (final id in candidates) {
+            final legacySnap = await _firestore.collection('users').doc(id).get();
+            if (legacySnap.exists) {
+              resolvedSnap = legacySnap;
+              break;
+            }
+          }
         }
+        resolvedSnap ??= canonicalSnap; // doesn't exist
       }
 
       if (resolvedSnap.exists) {
@@ -357,15 +358,6 @@ class AuthService {
           final oldRole = data['role'] as String?;
           if (oldRole != null && oldRole.isNotEmpty) {
             rolesList = [oldRole];
-            // Migrate to new format
-            try {
-              await canonical.reference.update({
-                'roles': [oldRole],
-                'updatedAt': FieldValue.serverTimestamp(),
-              });
-            } catch (e) {
-              _authLog('Warning: Could not migrate role to roles array: $e');
-            }
           }
         }
 
@@ -374,15 +366,13 @@ class AuthService {
         return rolesList;
       }
 
-      // Legacy fallback: query by uid field
-      final querySnapshot = await _firestore
-          .collection('users')
-          .where('uid', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-      if (querySnapshot.docs.isNotEmpty) {
-        final data = querySnapshot.docs.first.data();
-        if (data == null) return [];
+      // Legacy fallback (read-only): try common legacy ids.
+      final candidates = _legacyUserDocIdCandidates(user, uid: user.uid);
+      for (final id in candidates) {
+        final snap = await _firestore.collection('users').doc(id).get();
+        if (!snap.exists) continue;
+        final data = snap.data();
+        if (data == null) continue;
 
         List<String> rolesList = [];
         if (data.containsKey('roles')) {
@@ -422,15 +412,14 @@ class AuthService {
         return data?['status'] ?? 'pending';
       }
 
-      // Legacy fallback: query by uid field
-      final querySnapshot = await _firestore
-          .collection('users')
-          .where('uid', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-      if (querySnapshot.docs.isNotEmpty) {
-        final data = querySnapshot.docs.first.data();
-        return data['status'] ?? 'pending';
+      // Legacy fallback (read-only): try common legacy ids.
+      final candidates = _legacyUserDocIdCandidates(user, uid: user.uid);
+      for (final id in candidates) {
+        final snap = await _firestore.collection('users').doc(id).get();
+        if (!snap.exists) continue;
+        final data = snap.data();
+        if (data == null) continue;
+        return (data['status'] ?? 'pending').toString();
       }
       return 'pending';
     } catch (e) {
@@ -452,15 +441,14 @@ class AuthService {
         return data?['approved'] ?? false;
       }
 
-      // Legacy fallback: query by uid field
-      final querySnapshot = await _firestore
-          .collection('users')
-          .where('uid', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-      if (querySnapshot.docs.isNotEmpty) {
-        final data = querySnapshot.docs.first.data();
-        return data['approved'] ?? false;
+      // Legacy fallback (read-only): try common legacy ids.
+      final candidates = _legacyUserDocIdCandidates(user, uid: user.uid);
+      for (final id in candidates) {
+        final snap = await _firestore.collection('users').doc(id).get();
+        if (!snap.exists) continue;
+        final data = snap.data();
+        if (data == null) continue;
+        return data['approved'] == true;
       }
       return false;
     } catch (e) {

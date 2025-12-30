@@ -377,7 +377,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationLearnWordHelp.
   ///
   /// In en, this message translates to:
-  /// **'If you are unable to see the notification then please go to Settings > Apps > Special app access > Alarms & reminders and allow reminders for the Love to Learn Sign app.'**
+  /// **'If you are unable to see the reminder, please enable Notifications for Love to Learn Sign in your system settings. On some Android phones you may also need to disable battery optimization / allow background activity for the app.'**
   String get notificationLearnWordHelp;
 
   /// No description provided for @notificationLearnWordTimeTitle.

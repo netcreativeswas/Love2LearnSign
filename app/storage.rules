@@ -17,7 +17,11 @@ service firebase.storage {
 
     function isTenantPublic(tenantId) {
       return tenantDoc(tenantId).exists &&
-             tenantDoc(tenantId).data.visibility == 'public';
+             (
+               // Treat missing visibility as public for backward compatibility.
+               tenantDoc(tenantId).data.visibility == 'public' ||
+               !('visibility' in tenantDoc(tenantId).data)
+             );
     }
 
     function memberDoc(tenantId) {
@@ -35,6 +39,18 @@ service firebase.storage {
          (memberDoc(tenantId).data.role in ['owner', 'admin', 'editor']));
     }
 
+    function isVideoUpload(maxBytes) {
+      return request.resource != null &&
+             request.resource.size < maxBytes &&
+             request.resource.contentType.matches('video/mp4');
+    }
+
+    function isImageUpload(maxBytes) {
+      return request.resource != null &&
+             request.resource.size < maxBytes &&
+             request.resource.contentType.matches('image/(png|jpeg|jpg|webp)');
+    }
+
     // ✅ Public READ for splashscreen video(s)
     match /bangla_sign_language/splashscreen/{allPaths=**} {
       allow read: if true;
@@ -45,15 +61,45 @@ service firebase.storage {
     // ❌ Deletes are blocked on client side (handled by Cloud Functions / Admin SDK).
     match /bangla_sign_language/dictionary_eng_bnsl/{allPaths=**} {
       allow read: if true;
-      allow create, update: if isAdminOrEditor();
+      // Allow uploads only for admin/editor, and only for expected media types.
+      // (Videos can be larger; images are smaller.)
+      allow create, update: if isAdminOrEditor() && (isVideoUpload(100 * 1024 * 1024) || isImageUpload(10 * 1024 * 1024));
       allow delete: if false;
     }
 
     // ✅ Phase-2 tenant storage (future-proof)
-    match /tenants/{tenantId}/signLanguages/{signLangId}/{allPaths=**} {
+    // Videos (mp4 only)
+    match /tenants/{tenantId}/signLanguages/{signLangId}/concepts/{conceptId}/videos_480/{fileName} {
       allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isAdminOrEditor();
-      allow create, update: if isTenantEditorOrAbove(tenantId);
+      allow create, update: if isTenantEditorOrAbove(tenantId) && isVideoUpload(100 * 1024 * 1024);
       allow delete: if false;
+    }
+    match /tenants/{tenantId}/signLanguages/{signLangId}/concepts/{conceptId}/videos_360/{fileName} {
+      allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isAdminOrEditor();
+      allow create, update: if isTenantEditorOrAbove(tenantId) && isVideoUpload(100 * 1024 * 1024);
+      allow delete: if false;
+    }
+    match /tenants/{tenantId}/signLanguages/{signLangId}/concepts/{conceptId}/videos_720/{fileName} {
+      allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isAdminOrEditor();
+      allow create, update: if isTenantEditorOrAbove(tenantId) && isVideoUpload(150 * 1024 * 1024);
+      allow delete: if false;
+    }
+
+    // Images (thumbnails + flashcards)
+    match /tenants/{tenantId}/signLanguages/{signLangId}/concepts/{conceptId}/thumbnails/{fileName} {
+      allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isAdminOrEditor();
+      allow create, update: if isTenantEditorOrAbove(tenantId) && isImageUpload(10 * 1024 * 1024);
+      allow delete: if false;
+    }
+    match /tenants/{tenantId}/signLanguages/{signLangId}/concepts/{conceptId}/flashcards/{fileName} {
+      allow read: if isTenantPublic(tenantId) || isTenantMember(tenantId) || isAdminOrEditor();
+      allow create, update: if isTenantEditorOrAbove(tenantId) && isImageUpload(10 * 1024 * 1024);
+      allow delete: if false;
+    }
+
+    // Everything else under signLanguages is locked down by default.
+    match /tenants/{tenantId}/signLanguages/{signLangId}/{allPaths=**} {
+      allow read, write: if false;
     }
 
     // ❌ Everything else locked

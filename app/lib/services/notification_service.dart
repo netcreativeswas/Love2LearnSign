@@ -54,12 +54,8 @@ class NotificationService {
     // Schedule one-shot at 12:00 on the due date (or next valid noon if past)
     final when = _noonOnOrAfter(word.nextReviewDate!);
 
-    final android = _notifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    final canExact = await android?.canScheduleExactNotifications() ?? false;
-    final mode = canExact
-        ? AndroidScheduleMode.exactAllowWhileIdle
-        : AndroidScheduleMode.inexactAllowWhileIdle;
+    // Play Store safe: avoid exact alarms; schedule inexact and let the OS batch if needed.
+    const mode = AndroidScheduleMode.inexactAllowWhileIdle;
 
     await _notifications.zonedSchedule(
       id,

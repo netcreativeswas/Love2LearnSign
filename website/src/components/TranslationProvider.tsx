@@ -21,6 +21,7 @@ export function TranslationProvider({
   children: ReactNode;
 }) {
   const translations = getTranslations(locale);
+  const isDev = process.env.NODE_ENV !== "production";
 
   const t = (key: string, params?: Record<string, string>): string => {
     const keys = key.split(".");
@@ -30,15 +31,19 @@ export function TranslationProvider({
       if (value && typeof value === "object" && k in value) {
         value = (value as Record<string, unknown>)[k];
       } else {
-        console.warn(`Translation key "${key}" not found for locale "${locale}"`);
+        if (isDev) {
+          console.warn(`Translation key "${key}" not found for locale "${locale}"`);
+        }
         return key;
       }
     }
 
     if (typeof value !== "string") {
-      console.warn(
-        `Translation key "${key}" is not a string for locale "${locale}"`
-      );
+      if (isDev) {
+        console.warn(
+          `Translation key "${key}" is not a string for locale "${locale}"`
+        );
+      }
       return key;
     }
 

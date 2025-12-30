@@ -26,6 +26,16 @@ build/
 **/*.p12
 **/*.pem
 **/*.mobileprovision
+**/*.p8
+**/*.cer
+**/*.crt
+**/*.der
+**/*.key
+**/*.ovpn
+
+# Generic secrets folder (if created locally)
+secrets/
+**/secrets/**
 
 # Website (Next.js)
 website/node_modules/
@@ -35,6 +45,8 @@ website/dist/
 website/.env
 website/.env.local
 website/.env*.local
+website/.env.*
+website/.vercel/
 
 # Dependencies
 node_modules/
@@ -55,6 +67,9 @@ dist/
 .env
 .env.local
 .env*.local
+.env.*
+**/.env
+**/.env.*
 
 # Logs
 *.log
@@ -74,6 +89,12 @@ ui-debug.log
 **/firebase_options.dart
 **/google-services.json
 **/GoogleService-Info.plist
+
+# Firebase / GCP credentials & runtime config (never commit)
+**/serviceAccount*.json
+**/serviceAccountKey*.json
+**/*firebase-adminsdk*.json
+**/.runtimeconfig.json
 
 # Flutter web build outputs (dashboard)
 dashboard/public/**

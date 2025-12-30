@@ -772,15 +772,38 @@ class _SettingsPageState extends State<SettingsPage> {
                     if (_notifyLearnWord)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.info_outline, size: 20, color: Theme.of(context).colorScheme.onSurface),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                S.of(context)!.notificationLearnWordHelp,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Theme.of(context).colorScheme.primary),
+                            Row(
+                              children: [
+                                Icon(Icons.info_outline, size: 20, color: Theme.of(context).colorScheme.onSurface),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    S.of(context)!.notificationLearnWordHelp,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(color: Theme.of(context).colorScheme.primary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                onPressed: () async {
+                                  final platform = Theme.of(context).platform;
+                                  try {
+                                    if (platform == TargetPlatform.android) {
+                                      await AndroidIntentHelper.openAppDetails();
+                                    } else if (platform == TargetPlatform.iOS) {
+                                      await IOSSettingsHelper.openAppSettings();
+                                    }
+                                  } catch (_) {}
+                                },
+                                icon: const Icon(Icons.open_in_new, size: 18),
+                                label: const Text('Open app settings'),
                               ),
                             ),
                           ],

@@ -157,7 +157,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get notificationLearnWordHelp =>
-      'নোটিফিকেশন দেখতে না পেলে, অনুগ্রহ করে সেটিংসে যান > অ্যাপস > বিশেষ অ্যাপ অ্যাক্সেস > অ্যালার্ম এবং রিমাইন্ডার এবং Love to Learn Sign অ্যাপের জন্য রিমাইন্ডার চালু করুন।';
+      'রিমাইন্ডার দেখতে না পেলে, অনুগ্রহ করে সিস্টেম সেটিংসে Love to Learn Sign অ্যাপের Notifications চালু করুন। কিছু Android ফোনে অ্যাপের জন্য battery optimization বন্ধ করতে / background activity অনুমতি দিতে হতে পারে।';
 
   @override
   String get notificationLearnWordTimeTitle => 'নোটিফিকেশন সময়';

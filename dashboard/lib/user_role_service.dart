@@ -41,18 +41,26 @@ class UserRoleService {
     if (user == null) return null;
 
     try {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection(_usersCollection)
-          .where('uid', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-
-      if (querySnapshot.docs.isEmpty) {
-        return null;
+      // Prefer canonical document id: users/{uid}
+      final canonical = await FirebaseFirestore.instance.collection(_usersCollection).doc(user.uid).get();
+      if (canonical.exists) {
+        return _extractRole(canonical.data());
       }
 
-      final docData = querySnapshot.docs.first.data();
-      return _extractRole(docData);
+      // Legacy fallback: users/{displayName}__{uid} or users/{emailPrefix}__{uid}
+      final candidates = <String>[];
+      final dn = (user.displayName ?? '').trim();
+      final email = (user.email ?? '').trim();
+      final emailPrefix = email.contains('@') ? email.split('@').first.trim() : email;
+      if (dn.isNotEmpty) candidates.add('${dn.replaceAll('/', '_')}__${user.uid}');
+      if (emailPrefix.isNotEmpty) candidates.add('${emailPrefix.replaceAll('/', '_')}__${user.uid}');
+
+      for (final id in candidates) {
+        final snap = await FirebaseFirestore.instance.collection(_usersCollection).doc(id).get();
+        if (snap.exists) return _extractRole(snap.data());
+      }
+
+      return null;
     } catch (e) {
       return null;
     }
@@ -83,17 +91,23 @@ class UserRoleService {
       return Stream.value(null);
     }
 
-    return FirebaseFirestore.instance
-        .collection(_usersCollection)
-        .where('uid', isEqualTo: user.uid)
-        .limit(1)
-        .snapshots()
-        .map((snapshot) {
-      if (snapshot.docs.isEmpty) {
-        return null;
+    // Prefer canonical stream; fallback to legacy id if canonical doc doesn't exist.
+    final canonicalRef = FirebaseFirestore.instance.collection(_usersCollection).doc(user.uid);
+    return canonicalRef.snapshots().asyncMap((canonicalSnap) async {
+      if (canonicalSnap.exists) return _extractRole(canonicalSnap.data());
+
+      final dn = (user.displayName ?? '').trim();
+      final email = (user.email ?? '').trim();
+      final emailPrefix = email.contains('@') ? email.split('@').first.trim() : email;
+      final candidates = <String>[];
+      if (dn.isNotEmpty) candidates.add('${dn.replaceAll('/', '_')}__${user.uid}');
+      if (emailPrefix.isNotEmpty) candidates.add('${emailPrefix.replaceAll('/', '_')}__${user.uid}');
+
+      for (final id in candidates) {
+        final snap = await FirebaseFirestore.instance.collection(_usersCollection).doc(id).get();
+        if (snap.exists) return _extractRole(snap.data());
       }
-      final data = snapshot.docs.first.data();
-      return _extractRole(data);
+      return null;
     });
   }
 }

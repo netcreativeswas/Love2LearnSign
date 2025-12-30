@@ -20,10 +20,6 @@ import 'services/location_service.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'video_viewer_page.dart';
 import 'splashScreen/splash_gate.dart';
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:android_intent_plus/flag.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-
 import 'package:app_links/app_links.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'tenancy/tenant_scope.dart';
@@ -78,19 +74,6 @@ class LoggingObserver extends NavigatorObserver {
           'none';
       debugPrint('POPPED $routeName to $prevName');
     }
-  }
-}
-
-Future<void> _requestExactAlarmPermission() async {
-  if (Platform.isAndroid) {
-    final intent = AndroidIntent(
-      action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-      flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
-    );
-    await intent.launch();
-  } else {
-    // Not Android: do nothing or print debug statement if desired
-    // debugPrint('_requestExactAlarmPermission called on non-Android platform');
   }
 }
 
@@ -704,8 +687,6 @@ Future<void> _scheduleNewWordsNotification({
   required String body,
   required DateTime scheduledDate,
   required String payload,
-  AndroidScheduleMode androidScheduleMode =
-      AndroidScheduleMode.exactAllowWhileIdle,
 }) async {
   // Create the channel if needed
   final androidImpl =
@@ -726,11 +707,8 @@ Future<void> _scheduleNewWordsNotification({
     when = now.add(const Duration(seconds: 6));
   }
 
-  // exact→inexact fallback
-  final canExact = await androidImpl?.canScheduleExactNotifications() ?? false;
-  final mode = canExact
-      ? AndroidScheduleMode.exactAllowWhileIdle
-      : AndroidScheduleMode.inexactAllowWhileIdle;
+  // Play Store safe: avoid exact alarms; schedule inexact and let the OS batch if needed.
+  const mode = AndroidScheduleMode.inexactAllowWhileIdle;
 
   await flutterLocalNotificationsPlugin.zonedSchedule(
     id,
@@ -767,8 +745,6 @@ Future<void> _scheduleLearnWordNotification({
   required String body,
   required DateTime scheduledDate,
   required String payload,
-  AndroidScheduleMode androidScheduleMode =
-      AndroidScheduleMode.exactAllowWhileIdle,
 }) async {
   // Create the channel if needed
   final androidImpl =
@@ -789,11 +765,8 @@ Future<void> _scheduleLearnWordNotification({
     when = now.add(const Duration(seconds: 6));
   }
 
-  // exact→inexact fallback
-  final canExact = await androidImpl?.canScheduleExactNotifications() ?? false;
-  final mode = canExact
-      ? AndroidScheduleMode.exactAllowWhileIdle
-      : AndroidScheduleMode.inexactAllowWhileIdle;
+  // Play Store safe: avoid exact alarms; schedule inexact and let the OS batch if needed.
+  const mode = AndroidScheduleMode.inexactAllowWhileIdle;
 
   await flutterLocalNotificationsPlugin.zonedSchedule(
     id,
@@ -869,48 +842,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
     });
     _initNotifications().then((_) async {
-      if (Platform.isAndroid) {
-        final deviceInfo = DeviceInfoPlugin();
-        final androidInfo = await deviceInfo.androidInfo;
-        // Only prompt on Android 13+ (SDK 34+)
-        if (androidInfo.version.sdkInt >= 34) {
-          final prefs = await SharedPreferences.getInstance();
-          final alreadyRequested =
-              prefs.getBool('requestedExactAlarm') ?? false;
-          if (!alreadyRequested) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              showDialog(
-                context: navigatorKey.currentContext!,
-                barrierDismissible: false,
-                builder: (ctx) => AlertDialog(
-                  title: Text('Enable exact alarms for reminders'),
-                  content: Text(
-                      'To deliver reminders at the precise time, Android requires a special permission.\n\n'
-                      'You will be redirected to the system Settings to allow "Alarms & reminders" for this app. '
-                      'After enabling it (or if you choose not to), press Back to return here and finish setup.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        prefs.setBool('requestedExactAlarm', true);
-                        Navigator.of(ctx).pop();
-                      },
-                      child: Text('Not now'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        _requestExactAlarmPermission();
-                        prefs.setBool('requestedExactAlarm', true);
-                        Navigator.of(ctx).pop();
-                      },
-                      child: Text('Continue'),
-                    ),
-                  ],
-                ),
-              );
-            });
-          }
-        }
-      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         // #region agent log
         AgentLogger.log({
@@ -1290,7 +1221,6 @@ Future<void> scheduleDailyTasks(
         body: bodyNew,
         scheduledDate: scheduledNoon,
         payload: 'new_words',
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
     }
   }
@@ -1352,7 +1282,6 @@ Future<void> scheduleDailyTasks(
       body: bodyText,
       scheduledDate: scheduledLearn,
       payload: args,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
 }
