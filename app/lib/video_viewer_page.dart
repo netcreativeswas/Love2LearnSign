@@ -87,7 +87,12 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    context.read<HistoryRepository>().add(widget.wordId);
+    // Avoid "setState/markNeedsBuild called during build" coming from
+    // HistoryRepository.notifyListeners() while widgets are still building.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<HistoryRepository>().add(widget.wordId);
+    });
     _pageController = PageController();
     _loadData();
     if (widget.trackOnInit) {

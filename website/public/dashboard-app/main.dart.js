@@ -97801,7 +97801,7 @@ break
 case 4:o=p.a
 d=e
 s=6
-return A.l(p.m5(f,"tenants/"+o.c+"/signLanguages/"+o.d+"/concepts/"+a+"/videos"),$async$hI)
+return A.l(p.m5(f,"tenants/"+o.c+"/signLanguages/"+o.d+"/concepts/"+a+"/videos_480"),$async$hI)
 case 6:d.m(0,"videoUrl",a0)
 case 5:f=p.a0
 s=f!=null?7:8
@@ -97809,7 +97809,7 @@ break
 case 7:o=p.a
 d=e
 s=9
-return A.l(p.m5(f,"tenants/"+o.c+"/signLanguages/"+o.d+"/concepts/"+a+"/videos_sd"),$async$hI)
+return A.l(p.m5(f,"tenants/"+o.c+"/signLanguages/"+o.d+"/concepts/"+a+"/videos_360"),$async$hI)
 case 9:d.m(0,"videoUrlSD",a0)
 case 8:f=p.br
 s=f!=null?10:11
@@ -97817,7 +97817,7 @@ break
 case 10:o=p.a
 d=e
 s=12
-return A.l(p.m5(f,"tenants/"+o.c+"/signLanguages/"+o.d+"/concepts/"+a+"/videos_hd"),$async$hI)
+return A.l(p.m5(f,"tenants/"+o.c+"/signLanguages/"+o.d+"/concepts/"+a+"/videos_720"),$async$hI)
 case 12:d.m(0,"videoUrlHD",a0)
 case 11:f=p.p1
 s=f!=null?13:14
@@ -97853,7 +97853,7 @@ s=i!=null?25:27
 break
 case 25:h=p.a
 s=28
-return A.l(p.m5(i,"tenants/"+h.c+"/signLanguages/"+h.d+"/concepts/"+a+"/videos"),$async$hI)
+return A.l(p.m5(i,"tenants/"+h.c+"/signLanguages/"+h.d+"/concepts/"+a+"/videos_480"),$async$hI)
 case 28:g=a0
 J.dd(e.h(0,"variantVideos"),g)
 s=26
@@ -97864,7 +97864,7 @@ s=i!=null?29:31
 break
 case 29:h=p.a
 s=32
-return A.l(p.m5(i,"tenants/"+h.c+"/signLanguages/"+h.d+"/concepts/"+a+"/videos_sd"),$async$hI)
+return A.l(p.m5(i,"tenants/"+h.c+"/signLanguages/"+h.d+"/concepts/"+a+"/videos_360"),$async$hI)
 case 32:g=a0
 J.dd(e.h(0,"variantVideosSD"),g)
 s=30
@@ -97875,7 +97875,7 @@ s=i!=null?33:35
 break
 case 33:h=p.a
 s=36
-return A.l(p.m5(i,"tenants/"+h.c+"/signLanguages/"+h.d+"/concepts/"+a+"/videos_hd"),$async$hI)
+return A.l(p.m5(i,"tenants/"+h.c+"/signLanguages/"+h.d+"/concepts/"+a+"/videos_720"),$async$hI)
 case 36:g=a0
 J.dd(e.h(0,"variantVideosHD"),g)
 s=34
@@ -102341,21 +102341,21 @@ s=c!=null?3:4
 break
 case 3:b=e
 s=5
-return A.l(p.iV(c,u.M+d+"/videos"),$async$iO)
+return A.l(p.iV(c,u.M+d+"/videos_480"),$async$iO)
 case 5:b.m(0,"videoUrl",a1)
 case 4:c=p.go
 s=c!=null?6:7
 break
 case 6:b=e
 s=8
-return A.l(p.iV(c,u.M+d+"/videos_sd"),$async$iO)
+return A.l(p.iV(c,u.M+d+"/videos_360"),$async$iO)
 case 8:b.m(0,"videoUrlSD",a1)
 case 7:c=p.k1
 s=c!=null?9:10
 break
 case 9:b=e
 s=11
-return A.l(p.iV(c,u.M+d+"/videos_hd"),$async$iO)
+return A.l(p.iV(c,u.M+d+"/videos_720"),$async$iO)
 case 11:b.m(0,"videoUrlHD",a1)
 case 10:c=p.k3
 s=c!=null?12:13
@@ -102381,7 +102381,7 @@ n=A.a([],c)
 m=A.a([],c)
 l=A.a([],c)
 k=A.a([],c)
-c=u.M+d,j=c+"/videos",i=c+"/videos_sd",h=c+"/videos_hd",c+="/thumbnails",g=0
+c=u.M+d,j=c+"/videos_480",i=c+"/videos_360",h=c+"/videos_720",c+="/thumbnails",g=0
 case 20:if(!(g<p.cy.length)){s=22
 break}f=p.p2[g]
 s=f!=null?23:25

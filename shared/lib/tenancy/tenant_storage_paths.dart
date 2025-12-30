@@ -3,7 +3,11 @@ import 'tenant_db.dart';
 /// Central place for multi-tenant Storage paths.
 ///
 /// v1 behavior:
-/// - We keep the existing "videos/videos_sd/videos_hd/thumbnails/flashcards" structure
+/// - We keep the same conceptual structure (videos + thumbnails + flashcards),
+///   but we name video resolution folders explicitly:
+///   - videos_480 (was: videos)
+///   - videos_360 (was: videos_sd)
+///   - videos_720 (was: videos_hd)
 /// - but namespace it under `tenants/{tenantId}/signLanguages/{signLangId}/...`
 /// - We do NOT require re-uploads later; paths are future-proof now.
 class TenantStoragePaths {
@@ -25,21 +29,21 @@ class TenantStoragePaths {
     String signLangId = TenantDb.defaultSignLangId,
     required String conceptId,
   }) =>
-      '${_conceptBase(tenantId: tenantId, signLangId: signLangId, conceptId: conceptId)}/videos';
+      '${_conceptBase(tenantId: tenantId, signLangId: signLangId, conceptId: conceptId)}/videos_480';
 
   static String videosSdDir({
     String tenantId = TenantDb.defaultTenantId,
     String signLangId = TenantDb.defaultSignLangId,
     required String conceptId,
   }) =>
-      '${_conceptBase(tenantId: tenantId, signLangId: signLangId, conceptId: conceptId)}/videos_sd';
+      '${_conceptBase(tenantId: tenantId, signLangId: signLangId, conceptId: conceptId)}/videos_360';
 
   static String videosHdDir({
     String tenantId = TenantDb.defaultTenantId,
     String signLangId = TenantDb.defaultSignLangId,
     required String conceptId,
   }) =>
-      '${_conceptBase(tenantId: tenantId, signLangId: signLangId, conceptId: conceptId)}/videos_hd';
+      '${_conceptBase(tenantId: tenantId, signLangId: signLangId, conceptId: conceptId)}/videos_720';
 
   static String thumbnailsDir({
     String tenantId = TenantDb.defaultTenantId,
