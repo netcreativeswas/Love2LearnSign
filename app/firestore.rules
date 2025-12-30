@@ -132,12 +132,13 @@ service cloud.firestore {
     }
 
     // Platform admin membership:
-    // Allow a user to read their own membership doc so the client can detect "Owner" status
-    // without any circular/self-referential rule evaluation.
+    // IMPORTANT: avoid any recursion with isPlatformAdmin() by NOT referencing isPlatformAdmin()
+    // in the rule for this document. isPlatformAdmin() itself relies on exists() for this path.
     match /platform/platform/members/{uid} {
-      allow get: if request.auth != null && (request.auth.uid == uid || isPlatformAdmin());
-      allow list: if isPlatformAdmin();
-      allow create, update, delete: if isPlatformAdmin();
+      // User can read their own membership doc (used by clients to detect "Owner" status).
+      allow get: if request.auth != null && request.auth.uid == uid;
+      // Membership management is done via Firebase Console / Admin SDK.
+      allow list, create, update, delete: if false;
     }
 
     match /platform/{doc=**} {
