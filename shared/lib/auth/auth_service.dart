@@ -70,14 +70,9 @@ class AuthService {
       await credential.user?.sendEmailVerification();
 
       // Create user profile in Firestore (pending approval)
-      // Document ID format: [name]__[UID] (spaces replaced with underscores)
-      final sanitizedName = displayName.trim().replaceAll(' ', '_');
-      final documentId = '${sanitizedName}__${credential.user!.uid}';
-
       try {
         await _createUserProfile(
           credential.user!.uid,
-          documentId,
           email.trim(),
           displayName,
           country: country,
@@ -125,7 +120,6 @@ class AuthService {
   // Email/Password: PENDING until email verification
   Future<void> _createUserProfile(
     String uid,
-    String documentId,
     String email,
     String displayName, {
     String? photoUrl,
@@ -171,34 +165,54 @@ class AuthService {
         userData['userType'] = userType;
       }
 
-      // Create main document with [name]__[UID] format
-      await _firestore.collection('users').doc(documentId).set(userData);
+      // Always use UID as the document id to avoid duplicates and simplify security rules.
+      await _firestore.collection('users').doc(uid).set(userData, SetOptions(merge: true));
     } catch (e) {
       throw Exception('Failed to create user profile: $e');
     }
   }
 
   // Load user profile from Firestore
-  // Documents now use format [name]__[UID], so we search by uid field
   Future<Map<String, dynamic>?> _loadUserProfile(String uid) async {
     try {
-      // First try to find by uid field (new format)
-      final querySnapshot = await _firestore
-          .collection('users')
-          .where('uid', isEqualTo: uid)
-          .limit(1)
-          .get();
+      // Prefer canonical location: users/{uid}
+      final canonicalRef = _firestore.collection('users').doc(uid);
+      final canonicalSnap = await canonicalRef.get();
 
-      DocumentSnapshot? doc;
-      if (querySnapshot.docs.isNotEmpty) {
-        doc = querySnapshot.docs.first;
+      DocumentSnapshot<Map<String, dynamic>>? resolvedSnap;
+      if (canonicalSnap.exists) {
+        resolvedSnap = canonicalSnap;
       } else {
-        // Fallback: try old format (document ID = uid)
-        doc = await _firestore.collection('users').doc(uid).get();
+        // Legacy fallback: some installs created docs with id = displayName__uid (or other ids)
+        // but stored the real uid in the 'uid' field. We find one and copy it into users/{uid}.
+        final legacyQuery = await _firestore
+            .collection('users')
+            .where('uid', isEqualTo: uid)
+            .limit(1)
+            .get();
+
+        if (legacyQuery.docs.isNotEmpty) {
+          final legacyDoc = legacyQuery.docs.first;
+          final legacyData = legacyDoc.data();
+
+          // Copy into canonical doc id so future reads are stable.
+          final toWrite = <String, dynamic>{
+            ...legacyData,
+            'uid': uid,
+            'migratedFromDocId': legacyDoc.id,
+            'migratedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          };
+          await canonicalRef.set(toWrite, SetOptions(merge: true));
+
+          resolvedSnap = await canonicalRef.get();
+        } else {
+          resolvedSnap = canonicalSnap; // doesn't exist
+        }
       }
 
-      if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>?;
+      if (resolvedSnap.exists) {
+        final data = resolvedSnap.data();
         if (data == null) return null;
 
         // Store in SharedPreferences for quick access
@@ -320,23 +334,10 @@ class AuthService {
       }
 
       // Fallback to Firestore
-      // Documents now use format [name]__[UID], so we search by uid field
-      final querySnapshot = await _firestore
-          .collection('users')
-          .where('uid', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-
-      DocumentSnapshot? doc;
-      if (querySnapshot.docs.isNotEmpty) {
-        doc = querySnapshot.docs.first;
-      } else {
-        // Fallback: try old format (document ID = uid)
-        doc = await _firestore.collection('users').doc(user.uid).get();
-      }
-
-      if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>?;
+      // Prefer canonical doc id: users/{uid}
+      final canonical = await _firestore.collection('users').doc(user.uid).get();
+      if (canonical.exists) {
+        final data = canonical.data();
         if (data == null) return [];
 
         // Support both old format (role: string) and new format (roles: array)
@@ -367,6 +368,32 @@ class AuthService {
         return rolesList;
       }
 
+      // Legacy fallback: query by uid field
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('uid', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (querySnapshot.docs.isNotEmpty) {
+        final data = querySnapshot.docs.first.data();
+        if (data == null) return [];
+
+        List<String> rolesList = [];
+        if (data.containsKey('roles')) {
+          final roles = data['roles'] as List<dynamic>? ?? [];
+          rolesList = roles.map((r) => r.toString()).toList();
+        } else if (data.containsKey('role')) {
+          final oldRole = data['role'] as String?;
+          if (oldRole != null && oldRole.isNotEmpty) {
+            rolesList = [oldRole];
+          }
+        }
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_roles', rolesList.join(','));
+        return rolesList;
+      }
+
       return []; // No roles by default
     } catch (e) {
       // Fallback to cached roles
@@ -377,29 +404,27 @@ class AuthService {
   }
 
   // Get user status (pending/approved)
-  // Documents now use format [name]__[UID], so we search by uid field
   Future<String> getUserStatus() async {
     try {
       final user = _auth.currentUser;
       if (user == null) return 'guest';
 
-      // Search by uid field (new format)
+      // Prefer canonical doc id
+      final canonical = await _firestore.collection('users').doc(user.uid).get();
+      if (canonical.exists) {
+        final data = canonical.data();
+        return data?['status'] ?? 'pending';
+      }
+
+      // Legacy fallback: query by uid field
       final querySnapshot = await _firestore
           .collection('users')
           .where('uid', isEqualTo: user.uid)
           .limit(1)
           .get();
-
       if (querySnapshot.docs.isNotEmpty) {
-        final data = querySnapshot.docs.first.data() as Map<String, dynamic>?;
-        return data?['status'] ?? 'pending';
-      }
-
-      // Fallback: try old format (document ID = uid)
-      final doc = await _firestore.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        final data = doc.data();
-        return data?['status'] ?? 'pending';
+        final data = querySnapshot.docs.first.data();
+        return data['status'] ?? 'pending';
       }
       return 'pending';
     } catch (e) {
@@ -409,29 +434,27 @@ class AuthService {
   }
 
   // Check if user is approved
-  // Documents now use format [name]__[UID], so we search by uid field
   Future<bool> isUserApproved() async {
     try {
       final user = _auth.currentUser;
       if (user == null) return false;
 
-      // Search by uid field (new format)
+      // Prefer canonical doc id
+      final canonical = await _firestore.collection('users').doc(user.uid).get();
+      if (canonical.exists) {
+        final data = canonical.data();
+        return data?['approved'] ?? false;
+      }
+
+      // Legacy fallback: query by uid field
       final querySnapshot = await _firestore
           .collection('users')
           .where('uid', isEqualTo: user.uid)
           .limit(1)
           .get();
-
       if (querySnapshot.docs.isNotEmpty) {
-        final data = querySnapshot.docs.first.data() as Map<String, dynamic>?;
-        return data?['approved'] ?? false;
-      }
-
-      // Fallback: try old format (document ID = uid)
-      final doc = await _firestore.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        final data = doc.data();
-        return data?['approved'] ?? false;
+        final data = querySnapshot.docs.first.data();
+        return data['approved'] ?? false;
       }
       return false;
     } catch (e) {
@@ -583,13 +606,8 @@ class AuthService {
     String userType,
   ) async {
     try {
-      // Document ID format: [name]__[UID] (spaces replaced with underscores)
-      final sanitizedName = displayName.trim().replaceAll(' ', '_');
-      final documentId = '${sanitizedName}__${uid}';
-
       await _createUserProfile(
         uid,
-        documentId,
         email,
         displayName,
         country: country,
