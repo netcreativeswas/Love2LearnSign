@@ -148,21 +148,9 @@ List<_NavItem> _navItemsForRole({
   required bool isEditor,
   required bool isPlatformAdmin,
 }) {
-  if (isEditor) {
-    return [
-      _NavItem(
-        label: 'Add Word',
-        icon: Icons.add_circle_outline,
-        builder: () => Builder(
-          builder: (ctx) {
-            final t = ctx.watch<DashboardTenantScope>();
-            return AddWordPage(tenantId: t.tenantId, signLangId: t.signLangId);
-          },
-        ),
-      ),
-    ];
-  }
-
+  // IMPORTANT:
+  // If a user is admin, they are also effectively an editor.
+  // So admin must take precedence; otherwise we would return the editor-only menu.
   if (isAdmin) {
     return [
       const _NavItem(
@@ -220,6 +208,21 @@ List<_NavItem> _navItemsForRole({
           icon: Icons.security_outlined,
           builder: OwnerHomePage.new,
         ),
+    ];
+  }
+
+  if (isEditor) {
+    return [
+      _NavItem(
+        label: 'Add Word',
+        icon: Icons.add_circle_outline,
+        builder: () => Builder(
+          builder: (ctx) {
+            final t = ctx.watch<DashboardTenantScope>();
+            return AddWordPage(tenantId: t.tenantId, signLangId: t.signLangId);
+          },
+        ),
+      ),
     ];
   }
 
