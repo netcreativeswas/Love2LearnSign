@@ -353,7 +353,7 @@ class AuthService {
             rolesList = [oldRole];
             // Migrate to new format
             try {
-              await doc.reference.update({
+              await canonical.reference.update({
                 'roles': [oldRole],
                 'updatedAt': FieldValue.serverTimestamp(),
               });
