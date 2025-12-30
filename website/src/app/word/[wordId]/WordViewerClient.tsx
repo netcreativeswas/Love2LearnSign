@@ -25,7 +25,6 @@ export default function WordViewerClient({
 }) {
   const resolvedTenantId = tenantId?.trim() || DEFAULT_TENANT_ID;
   const resolvedSignLangId = signLangId?.trim() || DEFAULT_SIGN_LANG_ID;
-  const showScope = Boolean(tenantId?.trim() || signLangId?.trim());
 
   const [loading, setLoading] = useState(true);
   const [concept, setConcept] = useState<PublicConcept | null>(null);
@@ -68,6 +67,8 @@ export default function WordViewerClient({
 
   const videoUrl = useMemo(() => (concept ? pickBestVideoUrl(concept) : undefined), [concept]);
   const posterUrl = useMemo(() => (concept ? pickBestThumbnailUrl(concept) : undefined), [concept]);
+  const categoryMain = useMemo(() => concept?.categoryMain?.trim() || "", [concept]);
+  const categorySub = useMemo(() => concept?.categorySub?.trim() || "", [concept]);
 
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground lg:h-dvh lg:overflow-hidden">
@@ -124,14 +125,20 @@ export default function WordViewerClient({
                             {bengali}
                           </div>
                         ) : null}
+                        {categoryMain ? (
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-foreground/90">
+                              {categoryMain}
+                            </span>
+                            {categorySub ? (
+                              <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-foreground/90">
+                                {categorySub}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                     )}
-                    {showScope ? (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        tenant: <span className="font-medium">{resolvedTenantId}</span> · lang:{" "}
-                        <span className="font-medium">{resolvedSignLangId}</span>
-                      </div>
-                    ) : null}
                   </div>
 
                   <div className="min-h-0 flex-1">
@@ -183,13 +190,13 @@ export default function WordViewerClient({
 
             {/* Right: CTA + context */}
             <aside className="lg:min-h-0">
-              <div className="box-border rounded-3xl border border-border bg-surface p-4 shadow-sm sm:p-6 lg:sticky lg:top-6">
+              <div className="box-border rounded-3xl border border-border bg-surface p-3 shadow-sm sm:p-6 lg:sticky lg:top-6">
                 <div className="text-sm font-semibold tracking-tight">Get a better experience in the app</div>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   Install Love to Learn Sign for faster loading, offline access, favorites, and quizzes.
                 </p>
 
-                <div className="mt-4">
+                <div className="mt-3 sm:mt-4">
                   <a
                     href={siteConfig.playStoreUrl}
                     target="_blank"
@@ -199,14 +206,14 @@ export default function WordViewerClient({
                     <Image
                       src="/icons/google-play-download.png"
                       alt="Get it on Google Play"
-                      width={180}
-                      height={60}
+                      width={170}
+                      height={56}
                       className="h-auto w-auto"
                     />
                   </a>
                 </div>
 
-                <div className="mt-4 rounded-2xl bg-muted p-4 text-sm text-muted-foreground">
+                <div className="mt-3 rounded-2xl bg-muted p-3 text-sm text-muted-foreground sm:mt-4 sm:p-4">
                   Sharing tip: you can forward this page link to friends who don’t have the app installed.
                 </div>
               </div>

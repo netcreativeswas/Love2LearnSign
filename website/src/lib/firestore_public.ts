@@ -19,6 +19,8 @@ export type PublicConcept = {
   signLangId: string;
   english?: string;
   bengali?: string;
+  categoryMain?: string;
+  categorySub?: string;
   videoUrl?: string;
   videoUrlSD?: string;
   videoUrlHD?: string;
@@ -120,6 +122,8 @@ export async function fetchPublicConcept({
       labels ? asString(labels.bn) : undefined,
       labels ? asString(labels.bn_BD) : undefined
     ),
+    categoryMain: pickFirst(asString(sign.category_main), asString(base.category_main), asString(base.categoryMain)),
+    categorySub: pickFirst(asString(sign.category_sub), asString(base.category_sub), asString(base.categorySub)),
     // Merge: sign overrides base if present
     videoUrl: pickFirst(asString(sign.videoUrl), asString(base.videoUrl)),
     videoUrlSD: pickFirst(asString(sign.videoUrlSD), asString(base.videoUrlSD)),
