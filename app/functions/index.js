@@ -465,6 +465,60 @@ exports.verifyPlaySubscription = onCall(
       throw new HttpsError("invalid-argument", "tenantId is required");
     }
 
+    // Tenant-safe SKU validation:
+    // Prevent a user from using a paid productId from tenant A to unlock tenant B.
+    // Source of truth: /tenants/{tenantId}/monetization/config (iapProducts.*)
+    let subscriptionType = productId.includes("yearly") ? "yearly" : "monthly";
+    try {
+      const cfgSnap = await db
+        .collection("tenants")
+        .doc(tenant)
+        .collection("monetization")
+        .doc("config")
+        .get();
+
+      const cfg = cfgSnap.exists ? cfgSnap.data() || {} : {};
+      const iap = cfg && typeof cfg.iapProducts === "object" ? cfg.iapProducts : {};
+
+      const monthly = String(iap.monthlyProductIdAndroid || iap.monthlyProductId || "").trim();
+      const yearly = String(iap.yearlyProductIdAndroid || iap.yearlyProductId || "").trim();
+
+      const allowed = new Set([monthly, yearly].filter(Boolean));
+      if (allowed.size > 0) {
+        if (!allowed.has(productId)) {
+          throw new HttpsError(
+            "permission-denied",
+            `productId is not allowed for tenantId=${tenant}`
+          );
+        }
+        // Determine type from the configured mapping (more reliable than string contains).
+        if (productId === yearly) subscriptionType = "yearly";
+        if (productId === monthly) subscriptionType = "monthly";
+      } else {
+        // Backward-compatible fallback for the default tenant if config isn't set yet.
+        // (Helps avoid breaking existing deployments during migration.)
+        if (tenant === "l2l-bdsl") {
+          const legacyAllowed = new Set(["premium_monthly", "premium_yearly"]);
+          if (!legacyAllowed.has(productId)) {
+            throw new HttpsError(
+              "failed-precondition",
+              `No IAP products configured for tenantId=${tenant}. Set tenants/${tenant}/monetization/config`
+            );
+          }
+        } else {
+          throw new HttpsError(
+            "failed-precondition",
+            `No IAP products configured for tenantId=${tenant}. Set tenants/${tenant}/monetization/config`
+          );
+        }
+      }
+    } catch (e) {
+      // Preserve explicit HttpsError, wrap other errors.
+      if (e instanceof HttpsError) throw e;
+      console.error("verifyPlaySubscription: tenant SKU validation failed", e);
+      throw new HttpsError("internal", `Tenant SKU validation failed: ${e?.message || e}`);
+    }
+
     let purchase;
     try {
       purchase = await verifyPlaySubscription({ productId, purchaseToken });
@@ -479,7 +533,6 @@ exports.verifyPlaySubscription = onCall(
 
     // Compute renewal date based on Play's expiry (more accurate than 'now + 30d').
     const renewalDate = expiryTimeMillis ? new Date(expiryTimeMillis) : null;
-    const subscriptionType = productId.includes("yearly") ? "yearly" : "monthly";
 
     // Option A: store per-tenant entitlement (source of truth for Premium gating).
     const purchaseTokenHash = crypto

@@ -249,19 +249,19 @@ class _CategoryPageState extends State<CategoryPage> {
                       style: DefaultTextStyle.of(context).style,
                       children: hasSecondary
                           ? [
-                              TextSpan(
+                        TextSpan(
                                 text: primary,
                                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              const TextSpan(text: '   •   '),
+                        ),
+                        const TextSpan(text: '   •   '),
                               TextSpan(text: secondary),
                             ]
                           : [
-                              TextSpan(
+                        TextSpan(
                                 text: primary,
                                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                        ),
+                      ],
                     ),
                   ),
                   trailing: Row(

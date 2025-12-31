@@ -33,6 +33,12 @@ class _MonetizationConfigPageState extends State<MonetizationConfigPage> {
   final _payoutPercent = TextEditingController();
   final _payoutMode = TextEditingController();
 
+  // Pricing + revenue estimates (manual, per-tenant)
+  final _currency = TextEditingController(text: 'USD');
+  final _monthlyPrice = TextEditingController();
+  final _yearlyPrice = TextEditingController();
+  final _adsMonthlyGross = TextEditingController();
+
   bool _loading = true;
   bool _saving = false;
   bool _docExists = false;
@@ -65,6 +71,10 @@ class _MonetizationConfigPageState extends State<MonetizationConfigPage> {
     _partnerName.dispose();
     _payoutPercent.dispose();
     _payoutMode.dispose();
+    _currency.dispose();
+    _monthlyPrice.dispose();
+    _yearlyPrice.dispose();
+    _adsMonthlyGross.dispose();
     super.dispose();
   }
 
@@ -89,6 +99,8 @@ class _MonetizationConfigPageState extends State<MonetizationConfigPage> {
       final adUnits = (data['adUnits'] is Map) ? Map<String, dynamic>.from(data['adUnits']) : <String, dynamic>{};
       final iap = (data['iapProducts'] is Map) ? Map<String, dynamic>.from(data['iapProducts']) : <String, dynamic>{};
       final payout = (data['payout'] is Map) ? Map<String, dynamic>.from(data['payout']) : <String, dynamic>{};
+      final pricing = (data['pricing'] is Map) ? Map<String, dynamic>.from(data['pricing']) : <String, dynamic>{};
+      final adsEstimates = (data['adsEstimates'] is Map) ? Map<String, dynamic>.from(data['adsEstimates']) : <String, dynamic>{};
 
       _interstitialAndroid.text = (adUnits['interstitialAndroid'] ?? '').toString();
       _rewardedAndroid.text = (adUnits['rewardedAndroid'] ?? '').toString();
@@ -103,6 +115,11 @@ class _MonetizationConfigPageState extends State<MonetizationConfigPage> {
       _partnerName.text = (payout['partnerName'] ?? '').toString();
       _payoutMode.text = (payout['payoutMode'] ?? '').toString();
       _payoutPercent.text = (payout['payoutPercent'] ?? '').toString();
+
+      _currency.text = (pricing['currency'] ?? 'USD').toString();
+      _monthlyPrice.text = (pricing['monthlyPrice'] ?? '').toString();
+      _yearlyPrice.text = (pricing['yearlyPrice'] ?? '').toString();
+      _adsMonthlyGross.text = (adsEstimates['monthlyGross'] ?? '').toString();
 
       if (!mounted) return;
       setState(() => _loading = false);
@@ -146,6 +163,14 @@ class _MonetizationConfigPageState extends State<MonetizationConfigPage> {
           'partnerName': _partnerName.text.trim(),
           'payoutPercent': double.tryParse(_payoutPercent.text.trim()) ?? _payoutPercent.text.trim(),
           'payoutMode': _payoutMode.text.trim(),
+        },
+        'pricing': {
+          'currency': (_currency.text.trim().isEmpty ? 'USD' : _currency.text.trim()),
+          'monthlyPrice': double.tryParse(_monthlyPrice.text.trim()) ?? _monthlyPrice.text.trim(),
+          'yearlyPrice': double.tryParse(_yearlyPrice.text.trim()) ?? _yearlyPrice.text.trim(),
+        },
+        'adsEstimates': {
+          'monthlyGross': double.tryParse(_adsMonthlyGross.text.trim()) ?? _adsMonthlyGross.text.trim(),
         },
         'updatedAt': now,
       };
@@ -218,6 +243,15 @@ class _MonetizationConfigPageState extends State<MonetizationConfigPage> {
                     _field(_rewardedAndroid, 'Rewarded (Android)'),
                     _field(_interstitialIOS, 'Interstitial (iOS)'),
                     _field(_rewardedIOS, 'Rewarded (iOS)'),
+                    const SizedBox(height: 18),
+                    Text('Pricing (manual, USD)',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    _field(_currency, 'Currency', hint: 'USD'),
+                    _field(_monthlyPrice, 'Monthly price', hint: 'e.g. 4.99'),
+                    _field(_yearlyPrice, 'Yearly price', hint: 'e.g. 29.99'),
+                    _field(_adsMonthlyGross, 'Ads monthly gross estimate', hint: 'e.g. 12.50'),
                     const SizedBox(height: 18),
                     Text('IAP product IDs (separate SKUs per tenant)',
                         style: theme.textTheme.titleSmall?.copyWith(

@@ -262,7 +262,7 @@ class _QuizPageState extends State<QuizPage> {
 
       final incorrectDocs = pool.take(3).toList();
 
-      final data = correctDoc.data() as Map<String, dynamic>;
+    final data = correctDoc.data() as Map<String, dynamic>;
       final correctWord = ConceptText.labelFor(data, lang: langCode, fallbackLang: 'en');
     final variants = (data['variants'] as List<dynamic>?) ?? [];
       final correctVideo = variants.isNotEmpty

@@ -388,7 +388,7 @@ class _WordsListPanel extends StatelessWidget {
                                 if (v == null) return;
                                 onSearchLangChanged(v);
                               },
-                            ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),

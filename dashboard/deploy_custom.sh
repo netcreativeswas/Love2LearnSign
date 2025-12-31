@@ -43,7 +43,7 @@ cp -R build/web/* public/admin/
 # ── 6️⃣ Copy your assetlinks.json for App Links ────────────────────────
 mkdir -p public/.well-known
 if [ -f ~/Downloads/assetlinks.json ]; then
-  cp ~/Downloads/assetlinks.json public/.well-known/assetlinks.json
+cp ~/Downloads/assetlinks.json public/.well-known/assetlinks.json
 else
   if [ -f public/.well-known/assetlinks.json ]; then
     echo "[warn] ~/Downloads/assetlinks.json not found; keeping existing public/.well-known/assetlinks.json"

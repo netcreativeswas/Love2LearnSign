@@ -22,9 +22,26 @@ class _TenantSwitcherPageState extends State<TenantSwitcherPage> {
 
   Future<List<_TenantRow>> _load() async {
     final scope = context.read<DashboardTenantScope>();
-    final ids = scope.accessibleTenantIds;
     final db = FirebaseFirestore.instance;
 
+    // Platform admin can list ALL tenants.
+    if (scope.isPlatformAdmin) {
+      final snap = await db.collection('tenants').get();
+      final rows = snap.docs.map((d) {
+        final data = d.data();
+        final name = (data['displayName'] ?? '').toString().trim();
+        return _TenantRow(
+          tenantId: d.id,
+          displayName: name.isNotEmpty ? name : d.id,
+          role: 'platform',
+        );
+      }).toList();
+      rows.sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+      return rows;
+    }
+
+    // Non-platform admins: list only accessible tenants.
+    final ids = scope.accessibleTenantIds;
     final futures = ids.map((id) async {
       try {
         final snap = await db.collection('tenants').doc(id).get();

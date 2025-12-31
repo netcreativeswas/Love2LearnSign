@@ -14,6 +14,7 @@ import 'web_bridge.dart';
 import 'tenancy/dashboard_tenant_scope.dart';
 import 'tenancy/tenant_switcher_page.dart';
 import 'owner/owner_home_page.dart';
+import 'monetization/tenant_monetization_metrics_page.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -158,6 +159,11 @@ List<_NavItem> _navItemsForRole({
             );
           },
         ),
+      ),
+      const _NavItem(
+        label: 'Monetization Metrics',
+        icon: Icons.monetization_on_outlined,
+        builder: TenantMonetizationMetricsPage.new,
       ),
       _NavItem(
         label: 'Words List',

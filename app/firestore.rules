@@ -122,7 +122,14 @@ service cloud.firestore {
     match /users/{userId}/entitlements/{tenantId} {
       // User can read their own entitlements; platform admins can read for diagnostics.
       // Also allow global admins (custom claims) to read entitlements for diagnostics/metrics.
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin() || isPlatformAdmin());
+      allow read: if request.auth != null &&
+                  (
+                    request.auth.uid == userId ||
+                    isAdmin() ||
+                    isPlatformAdmin() ||
+                    // Tenant admins can read entitlements for their tenant (for tenant-scoped metrics).
+                    isTenantAdminOrAbove(tenantId)
+                  );
       // Only server (Admin SDK) should write entitlements. Allow platform admin writes for emergency fixes.
       allow create, update, delete: if isPlatformAdmin();
     }
@@ -132,7 +139,13 @@ service cloud.firestore {
     // So we must also provide a rule that matches entitlements docs under any parent path (not only /users/{uid}/...).
     // We keep this READ-ONLY and only for admins/platform admins.
     match /{parentPath=**}/entitlements/{entitlementId} {
-      allow read: if request.auth != null && (isAdmin() || isPlatformAdmin());
+      allow read: if request.auth != null &&
+                  (
+                    isAdmin() ||
+                    isPlatformAdmin() ||
+                    // In our data model, entitlement doc id == tenantId.
+                    isTenantAdminOrAbove(entitlementId)
+                  );
       allow write: if false;
     }
     

@@ -49,6 +49,18 @@ class TenantMonetizationConfigDoc {
     if (raw is Map) return TenantIapProducts.fromMap(Map<String, dynamic>.from(raw));
     return const TenantIapProducts();
   }
+
+  TenantPricing get pricing {
+    final raw = data['pricing'];
+    if (raw is Map) return TenantPricing.fromMap(Map<String, dynamic>.from(raw));
+    return const TenantPricing();
+  }
+
+  TenantAdsEstimates get adsEstimates {
+    final raw = data['adsEstimates'];
+    if (raw is Map) return TenantAdsEstimates.fromMap(Map<String, dynamic>.from(raw));
+    return const TenantAdsEstimates();
+  }
 }
 
 class TenantAdUnits {
@@ -108,6 +120,59 @@ class TenantIapProducts {
         'yearlyProductIdAndroid': yearlyProductIdAndroid,
         'monthlyProductIdIOS': monthlyProductIdIOS,
         'yearlyProductIdIOS': yearlyProductIdIOS,
+      };
+}
+
+class TenantPricing {
+  final String currency; // e.g. 'USD'
+  final double monthlyPrice;
+  final double yearlyPrice;
+
+  const TenantPricing({
+    this.currency = 'USD',
+    this.monthlyPrice = 0,
+    this.yearlyPrice = 0,
+  });
+
+  static double _asDouble(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse((v ?? '').toString().trim()) ?? 0;
+  }
+
+  factory TenantPricing.fromMap(Map<String, dynamic> map) {
+    return TenantPricing(
+      currency: (map['currency'] ?? 'USD').toString(),
+      monthlyPrice: _asDouble(map['monthlyPrice']),
+      yearlyPrice: _asDouble(map['yearlyPrice']),
+    );
+  }
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+        'currency': currency,
+        'monthlyPrice': monthlyPrice,
+        'yearlyPrice': yearlyPrice,
+      };
+}
+
+class TenantAdsEstimates {
+  /// Manual estimated gross AdMob revenue per month (same currency as TenantPricing.currency).
+  final double monthlyGross;
+
+  const TenantAdsEstimates({this.monthlyGross = 0});
+
+  static double _asDouble(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse((v ?? '').toString().trim()) ?? 0;
+  }
+
+  factory TenantAdsEstimates.fromMap(Map<String, dynamic> map) {
+    return TenantAdsEstimates(
+      monthlyGross: _asDouble(map['monthlyGross']),
+    );
+  }
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+        'monthlyGross': monthlyGross,
       };
 }
 
