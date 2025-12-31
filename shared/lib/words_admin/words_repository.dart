@@ -37,23 +37,30 @@ class WordsRepository {
 
   Query<Map<String, dynamic>> _baseListQuery({required String orderByField}) => _col.orderBy(orderByField);
 
+  String _labelsLowerFieldPath(String langCodeLower) => 'labels_lower.$langCodeLower';
+
+  /// Prefix search on tenant concepts for a given language.
+  ///
+  /// New schema: `labels_lower.<lang>` (e.g. `labels_lower.en`, `labels_lower.vi`).
+  /// Legacy fallback (EN/BN only) is intentionally NOT used here — rely on backfill so the index path is consistent.
   Query<Map<String, dynamic>> buildPrefixSearchQuery({
-    required bool bengali,
+    required String langCode,
     required String prefixLower,
   }) {
-    final field = bengali ? 'bengali_lower' : 'english_lower';
+    final lang = langCode.trim().toLowerCase();
+    final field = _labelsLowerFieldPath(lang.isEmpty ? 'en' : lang);
     final q = prefixLower.trim();
     final end = '$q\uf8ff';
     return _baseListQuery(orderByField: field).startAt([q]).endAt([end]);
   }
 
   Future<QuerySnapshot<Map<String, dynamic>>> fetchSearchPage({
-    required bool bengali,
+    required String langCode,
     required String queryLower,
     required int limit,
     DocumentSnapshot<Map<String, dynamic>>? startAfter,
   }) async {
-    Query<Map<String, dynamic>> q = buildPrefixSearchQuery(bengali: bengali, prefixLower: queryLower);
+    Query<Map<String, dynamic>> q = buildPrefixSearchQuery(langCode: langCode, prefixLower: queryLower);
     if (startAfter != null) q = q.startAfterDocument(startAfter);
     return q.limit(limit).get();
   }
@@ -131,6 +138,20 @@ class WordsRepository {
 
   Future<Map<String, dynamic>> backfillWordLowerFields({int limit = 500, String? startAfterDocId}) async {
     final fn = FirebaseFunctions.instanceFor(region: functionsRegion).httpsCallable('backfillWordLowerFields');
+    final payload = <String, dynamic>{
+      'tenantId': tenantId,
+      'limit': limit,
+    };
+    if (startAfterDocId != null && startAfterDocId.trim().isNotEmpty) {
+      payload['startAfterDocId'] = startAfterDocId.trim();
+    }
+    final res = await fn.call(payload);
+    final data = res.data;
+    return (data is Map) ? Map<String, dynamic>.from(data) : <String, dynamic>{'raw': data};
+  }
+
+  Future<Map<String, dynamic>> backfillWordVideoFields({int limit = 500, String? startAfterDocId}) async {
+    final fn = FirebaseFunctions.instanceFor(region: functionsRegion).httpsCallable('backfillWordVideoFields');
     final payload = <String, dynamic>{
       'tenantId': tenantId,
       'limit': limit,

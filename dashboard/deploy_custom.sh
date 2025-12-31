@@ -2,14 +2,15 @@
 set -e
 
 # ── 1️⃣ Build the Flutter client (dictionary) ─────────────────────────────
-if [ -d "../love_to_learn_sign" ]; then
-  cd ../love_to_learn_sign
+# The main app lives in ../app in this workspace.
+if [ -d "../app" ]; then
+  cd ../app
   flutter clean
   flutter build web
-  CLIENT_BUILD_SOURCE="../love_to_learn_sign/build/web"
+  CLIENT_BUILD_SOURCE="../app/build/web"
   cd - >/dev/null
 else
-  echo "[info] ../love_to_learn_sign not found. Using prebuilt dictionary_web_build as source."
+  echo "[info] ../app not found. Using prebuilt dictionary_web_build as source."
   CLIENT_BUILD_SOURCE="./dictionary_web_build"
 fi
 
@@ -41,7 +42,15 @@ cp -R build/web/* public/admin/
 
 # ── 6️⃣ Copy your assetlinks.json for App Links ────────────────────────
 mkdir -p public/.well-known
-cp ~/Downloads/assetlinks.json public/.well-known/assetlinks.json
+if [ -f ~/Downloads/assetlinks.json ]; then
+  cp ~/Downloads/assetlinks.json public/.well-known/assetlinks.json
+else
+  if [ -f public/.well-known/assetlinks.json ]; then
+    echo "[warn] ~/Downloads/assetlinks.json not found; keeping existing public/.well-known/assetlinks.json"
+  else
+    echo "[warn] assetlinks.json missing (~/Downloads/assetlinks.json not found and public/.well-known/assetlinks.json not present)"
+  fi
+fi
 
 # ── 7️⃣ Deploy to Firebase Hosting ───────────────────────────────────────
 # Explicit project avoids "No currently active project" errors.

@@ -163,6 +163,11 @@ function collectDictionaryMediaUrls(wordData) {
   if (Array.isArray(wordData.variants)) {
     for (const v of wordData.variants) {
       if (!v || typeof v !== "object") continue;
+      // Canonical (new) fields
+      maybePush(v.videos_360);
+      maybePush(v.videos_480);
+      maybePush(v.videos_720);
+      // Legacy (temporary)
       maybePush(v.videoUrl);
       maybePush(v.videoUrlSD);
       maybePush(v.videoUrlHD);
@@ -172,6 +177,10 @@ function collectDictionaryMediaUrls(wordData) {
   }
 
   // Legacy/top-level fallbacks (if present)
+  // Canonical (new) top-level (optional if some code writes them there)
+  maybePush(wordData.videos_360);
+  maybePush(wordData.videos_480);
+  maybePush(wordData.videos_720);
   maybePush(wordData.videoUrl);
   maybePush(wordData.videoUrlSD);
   maybePush(wordData.videoUrlHD);
@@ -592,6 +601,34 @@ exports.backfillWordLowerFields = onCall(
     cors: true,
   },
   async (request) => {
+    function asString(v) {
+      return (v ?? "").toString();
+    }
+    function listOfStrings(v) {
+      if (!Array.isArray(v)) return [];
+      return v.map((x) => asString(x).trim()).filter(Boolean);
+    }
+    function mergeMap(existing, next) {
+      const out = { ...(existing && typeof existing === "object" ? existing : {}) };
+      for (const [k, v] of Object.entries(next || {})) {
+        if (v == null) continue;
+        if (typeof v === "string" && !v.trim()) continue;
+        out[k] = v;
+      }
+      return out;
+    }
+    function mergeListMap(existing, next) {
+      const out = { ...(existing && typeof existing === "object" ? existing : {}) };
+      for (const [k, v] of Object.entries(next || {})) {
+        const list = Array.isArray(v) ? v : [];
+        const merged = Array.from(new Set([...(Array.isArray(out[k]) ? out[k] : []), ...list]))
+          .map((x) => asString(x).trim())
+          .filter(Boolean);
+        if (merged.length) out[k] = merged;
+      }
+      return out;
+    }
+
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "User must be authenticated");
     }
@@ -654,6 +691,58 @@ exports.backfillWordLowerFields = onCall(
       if (curEnglishLower !== nextEnglishLower) patch.english_lower = nextEnglishLower;
       if (curBengaliLower !== nextBengaliLower) patch.bengali_lower = nextBengaliLower;
 
+      // Backfill multi-language schema (labels/labels_lower/synonyms/antonyms) from legacy EN/BN fields.
+      const existingLabels = data.labels || {};
+      const nextLabels = {};
+      if (english.trim()) nextLabels.en = english.trim();
+      if (bengali.trim()) nextLabels.bn = bengali.trim();
+      const mergedLabels = mergeMap(existingLabels, nextLabels);
+      const labelsChanged =
+        (english.trim() && asString(existingLabels.en).trim() !== english.trim()) ||
+        (bengali.trim() && asString(existingLabels.bn).trim() !== bengali.trim());
+
+      const existingLabelsLower = data.labels_lower || {};
+      const nextLabelsLower = {};
+      if (english.trim()) nextLabelsLower.en = (asString(data.english_lower).trim() || nextEnglishLower);
+      if (bengali.trim()) nextLabelsLower.bn = (asString(data.bengali_lower).trim() || nextBengaliLower);
+      const mergedLabelsLower = mergeMap(existingLabelsLower, nextLabelsLower);
+      const labelsLowerChanged =
+        (english.trim() && asString(existingLabelsLower.en).trim() !== asString(nextLabelsLower.en).trim()) ||
+        (bengali.trim() && asString(existingLabelsLower.bn).trim() !== asString(nextLabelsLower.bn).trim());
+
+      const nextSynonyms = {
+        en: listOfStrings(data.englishWordSynonyms),
+        bn: listOfStrings(data.bengaliWordSynonyms),
+      };
+      const nextAntonyms = {
+        en: listOfStrings(data.englishWordAntonyms),
+        bn: listOfStrings(data.bengaliWordAntonyms),
+      };
+
+      const mergedSynonyms = mergeListMap(data.synonyms, nextSynonyms);
+      const mergedAntonyms = mergeListMap(data.antonyms, nextAntonyms);
+
+      // Only write maps when they actually change (avoid noisy writes).
+      if (labelsChanged && Object.keys(mergedLabels).length) patch.labels = mergedLabels;
+      if (labelsLowerChanged && Object.keys(mergedLabelsLower).length) patch.labels_lower = mergedLabelsLower;
+      if ((nextSynonyms.en && nextSynonyms.en.length) || (nextSynonyms.bn && nextSynonyms.bn.length)) {
+        // Compare merged size to current size as a cheap change signal.
+        const curSyn = data.synonyms && typeof data.synonyms === "object" ? data.synonyms : {};
+        if (JSON.stringify(mergedSynonyms) !== JSON.stringify(curSyn)) patch.synonyms = mergedSynonyms;
+      }
+      if ((nextAntonyms.en && nextAntonyms.en.length) || (nextAntonyms.bn && nextAntonyms.bn.length)) {
+        const curAnt = data.antonyms && typeof data.antonyms === "object" ? data.antonyms : {};
+        if (JSON.stringify(mergedAntonyms) !== JSON.stringify(curAnt)) patch.antonyms = mergedAntonyms;
+      }
+
+      const anyTextMapChanged = labelsChanged || labelsLowerChanged || patch.synonyms || patch.antonyms;
+      if (anyTextMapChanged) {
+        patch.migrations = mergeMap(data.migrations, {
+          labelsV1At: FieldValue.serverTimestamp(),
+          labelsV1By: "cf:backfillWordLowerFields",
+        });
+      }
+
       if (Object.keys(patch).length > 0) {
         batch.update(doc.ref, patch);
         updated++;
@@ -661,6 +750,131 @@ exports.backfillWordLowerFields = onCall(
     }
 
     if (updated > 0) {
+      await batch.commit();
+    }
+
+    const last = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1].id : null;
+    const done = snap.docs.length < limit;
+    return { success: true, scanned, updated, limit, nextStartAfterDocId: last, done };
+  }
+);
+
+/**
+ * Admin-only callable: backfillWordVideoFields
+ * Backfills new canonical video URL keys in variants:
+ *   - videos_360 / videos_480 / videos_720
+ * from legacy fields:
+ *   - videoUrlSD / videoUrl / videoUrlHD
+ */
+exports.backfillWordVideoFields = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const callerUid = request.auth.uid;
+    let callerRoles = [];
+    try {
+      const callerUser = await auth.getUser(callerUid);
+      callerRoles = Array.isArray(callerUser.customClaims?.roles) ? callerUser.customClaims.roles : [];
+    } catch (error) {
+      console.error("Error fetching caller user:", error);
+      throw new HttpsError("internal", "Error verifying admin access");
+    }
+
+    if (!callerRoles.includes("admin")) {
+      const callerDoc = await db.collection("users").where("uid", "==", callerUid).limit(1).get();
+      if (callerDoc.empty) {
+        throw new HttpsError("permission-denied", "User document not found");
+      }
+      const firestoreRoles = Array.isArray(callerDoc.docs[0].data().roles) ? callerDoc.docs[0].data().roles : [];
+      if (!firestoreRoles.includes("admin")) {
+        throw new HttpsError("permission-denied", "Only admins can run backfill");
+      }
+    }
+
+    // Firestore write batches are limited to 500 operations.
+    // Keep a safety margin so we never exceed the limit even if every doc needs an update.
+    const limitRaw = request.data?.limit;
+    const limitNum = typeof limitRaw === "number" ? limitRaw : Number(limitRaw);
+    const limit = Number.isFinite(limitNum) ? Math.max(1, Math.min(400, limitNum)) : 400;
+
+    const tenantId = request.data?.tenantId;
+    if (!tenantId || typeof tenantId !== "string") {
+      throw new HttpsError("invalid-argument", "tenantId is required");
+    }
+
+    const startAfterDocId = request.data?.startAfterDocId;
+    const wordsRef = db.collection("tenants").doc(tenantId).collection("concepts");
+    let q = wordsRef.orderBy(FieldPath.documentId()).limit(limit);
+    if (typeof startAfterDocId === "string" && startAfterDocId.trim()) {
+      q = q.startAfter(startAfterDocId.trim());
+    }
+    const snap = await q.get();
+
+    let scanned = 0;
+    let updated = 0;
+    let inBatch = 0;
+    let batch = db.batch();
+
+    for (const doc of snap.docs) {
+      scanned++;
+      const data = doc.data() || {};
+      const variants = Array.isArray(data.variants) ? data.variants : [];
+      if (!variants.length) continue;
+
+      let changed = false;
+      const nextVariants = variants.map((raw) => {
+        if (!raw || typeof raw !== "object") return raw;
+        const v = { ...raw };
+        const legacy480 = typeof v.videoUrl === "string" ? v.videoUrl.trim() : "";
+        const legacy360 = typeof v.videoUrlSD === "string" ? v.videoUrlSD.trim() : "";
+        const legacy720 = typeof v.videoUrlHD === "string" ? v.videoUrlHD.trim() : "";
+
+        const cur480 = typeof v.videos_480 === "string" ? v.videos_480.trim() : "";
+        const cur360 = typeof v.videos_360 === "string" ? v.videos_360.trim() : "";
+        const cur720 = typeof v.videos_720 === "string" ? v.videos_720.trim() : "";
+
+        if (!cur480 && legacy480) {
+          v.videos_480 = legacy480;
+          changed = true;
+        }
+        if (!cur360 && legacy360) {
+          v.videos_360 = legacy360;
+          changed = true;
+        }
+        if (!cur720 && legacy720) {
+          v.videos_720 = legacy720;
+          changed = true;
+        }
+        return v;
+      });
+
+      if (changed) {
+        batch.update(doc.ref, {
+          variants: nextVariants,
+          migrations: {
+            ...(data.migrations && typeof data.migrations === "object" ? data.migrations : {}),
+            videoV1At: FieldValue.serverTimestamp(),
+            videoV1By: "cf:backfillWordVideoFields",
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        updated++;
+        inBatch++;
+        if (inBatch >= 450) {
+          await batch.commit();
+          batch = db.batch();
+          inBatch = 0;
+        }
+      }
+    }
+
+    if (inBatch > 0) {
       await batch.commit();
     }
 

@@ -32,7 +32,7 @@ export function TranslationProvider({
         value = (value as Record<string, unknown>)[k];
       } else {
         if (isDev) {
-          console.warn(`Translation key "${key}" not found for locale "${locale}"`);
+        console.warn(`Translation key "${key}" not found for locale "${locale}"`);
         }
         return key;
       }
@@ -40,9 +40,9 @@ export function TranslationProvider({
 
     if (typeof value !== "string") {
       if (isDev) {
-        console.warn(
-          `Translation key "${key}" is not a string for locale "${locale}"`
-        );
+      console.warn(
+        `Translation key "${key}" is not a string for locale "${locale}"`
+      );
       }
       return key;
     }

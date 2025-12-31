@@ -172,6 +172,10 @@ class _WordsEditorViewState extends State<WordsEditorView> {
         index: index,
         mutateVariant: (v) {
           v[fieldKey] = url;
+          // Keep legacy mirrors for compatibility while migrating.
+          if (fieldKey == 'videos_480') v['videoUrl'] = url;
+          if (fieldKey == 'videos_360') v['videoUrlSD'] = url;
+          if (fieldKey == 'videos_720') v['videoUrlHD'] = url;
           return v;
         },
       );
@@ -364,26 +368,31 @@ class _WordsEditorViewState extends State<WordsEditorView> {
                             wordId: widget.wordId,
                             index: i,
                             mutateVariant: (m) {
-                              m[field] = v.trim();
+                              final next = v.trim();
+                              m[field] = next;
+                              // Keep legacy mirrors for compatibility while migrating.
+                              if (field == 'videos_480') m['videoUrl'] = next;
+                              if (field == 'videos_360') m['videoUrlSD'] = next;
+                              if (field == 'videos_720') m['videoUrlHD'] = next;
                               return m;
                             },
                           ),
                         ),
                         onReplaceVideo: () => _replaceVariantMedia(
                           index: i,
-                          fieldKey: 'videoUrl',
+                          fieldKey: 'videos_480',
                           storageDir: TenantStoragePaths.videosDir(conceptId: widget.wordId),
                           fileType: FileType.video,
                         ),
                         onReplaceVideoSD: () => _replaceVariantMedia(
                           index: i,
-                          fieldKey: 'videoUrlSD',
+                          fieldKey: 'videos_360',
                           storageDir: TenantStoragePaths.videosSdDir(conceptId: widget.wordId),
                           fileType: FileType.video,
                         ),
                         onReplaceVideoHD: () => _replaceVariantMedia(
                           index: i,
-                          fieldKey: 'videoUrlHD',
+                          fieldKey: 'videos_720',
                           storageDir: TenantStoragePaths.videosHdDir(conceptId: widget.wordId),
                           fileType: FileType.video,
                         ),
@@ -789,9 +798,9 @@ class _VariantCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = (variant['label'] ?? 'Version ${index + 1}').toString();
-    final videoUrl = (variant['videoUrl'] ?? '').toString();
-    final videoUrlSD = (variant['videoUrlSD'] ?? '').toString();
-    final videoUrlHD = (variant['videoUrlHD'] ?? '').toString();
+    final videos480 = (variant['videos_480'] ?? variant['videoUrl'] ?? '').toString();
+    final videos360 = (variant['videos_360'] ?? variant['videoUrlSD'] ?? '').toString();
+    final videos720 = (variant['videos_720'] ?? variant['videoUrlHD'] ?? '').toString();
     final thumb = (variant['videoThumbnail'] ?? '').toString();
     final thumbSmall = (variant['videoThumbnailSmall'] ?? '').toString();
 
@@ -811,21 +820,21 @@ class _VariantCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _UrlField(
-              label: 'videoUrl',
-              value: videoUrl,
-              onSave: (v) => onSaveUrl('videoUrl', v),
+              label: 'videos_480',
+              value: videos480,
+              onSave: (v) => onSaveUrl('videos_480', v),
               onReplace: onReplaceVideo,
             ),
             _UrlField(
-              label: 'videoUrlSD',
-              value: videoUrlSD,
-              onSave: (v) => onSaveUrl('videoUrlSD', v),
+              label: 'videos_360',
+              value: videos360,
+              onSave: (v) => onSaveUrl('videos_360', v),
               onReplace: onReplaceVideoSD,
             ),
             _UrlField(
-              label: 'videoUrlHD',
-              value: videoUrlHD,
-              onSave: (v) => onSaveUrl('videoUrlHD', v),
+              label: 'videos_720',
+              value: videos720,
+              onSave: (v) => onSaveUrl('videos_720', v),
               onReplace: onReplaceVideoHD,
             ),
             _UrlField(

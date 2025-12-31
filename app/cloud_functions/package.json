@@ -1,5 +1,5 @@
 {
-  "name": "love-to-learn-sign-functions",
+  "name": "love2learnsign-functions",
   "version": "1.0.0",
   "description": "Cloud Functions for Love to Learn Sign",
   "main": "index.js",

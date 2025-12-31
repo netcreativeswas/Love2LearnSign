@@ -4,7 +4,7 @@
 
 ### Étape 1 : Accéder aux paramètres du projet
 1. Va sur : https://console.firebase.google.com/
-2. Sélectionne le projet **"Love to Learn Sign"** (ou `love-to-learn-sign`)
+2. Sélectionne le projet **"Love2LearnSign"** (ID: `love2learnsign-1914ce`)
 
 ### Étape 2 : Ouvrir les paramètres du projet
 1. Clique sur l'**icône d'engrenage ⚙️** en haut à gauche (à côté de "Project Overview")
@@ -25,12 +25,12 @@
 ## Méthode 2 : Google Cloud Console (NÉCESSAIRE pour régénérer)
 
 ### Étape 1 : Accéder aux credentials
-1. Va directement sur : https://console.cloud.google.com/apis/credentials?project=love-to-learn-sign
+1. Va directement sur : https://console.cloud.google.com/apis/credentials?project=love2learnsign-1914ce
    
    OU
    
 2. Va sur : https://console.cloud.google.com/
-3. Sélectionne le projet **"Love to Learn Sign"** (en haut, dans le sélecteur de projet)
+3. Sélectionne le projet **"Love2LearnSign"** (ID: `love2learnsign-1914ce`) (en haut, dans le sélecteur de projet)
 4. Dans le menu de gauche, va dans **"APIs & Services"** → **"Credentials"**
 
 ### Étape 2 : Trouver la clé API
@@ -51,7 +51,7 @@
 ## Méthode 3 : Si tu ne vois pas la clé dans la liste
 
 ### Vérifier le bon projet
-1. En haut de la page Google Cloud Console, vérifie que le projet sélectionné est bien **"Love to Learn Sign"** (ID: `love-to-learn-sign`)
+1. En haut de la page Google Cloud Console, vérifie que le projet sélectionné est bien **"Love2LearnSign"** (ID: `love2learnsign-1914ce`)
 2. Si ce n'est pas le bon, clique sur le sélecteur de projet et choisis le bon
 
 ### Filtrer les clés
@@ -71,9 +71,13 @@
 # Lister les projets Firebase
 firebase projects:list
 
-# Voir la configuration du projet
-firebase use love-to-learn-sign
-firebase apps:list
+# Lister les apps du projet (recommandé: utiliser --project)
+cd /Users/jl/Love2LearnSign/app
+firebase apps:list --project love2learnsign-1914ce
+
+# (Optionnel) Dashboard hosting
+cd /Users/jl/Love2LearnSign/dashboard
+firebase apps:list --project love2learnsign-1914ce
 ```
 
 ---
@@ -82,23 +86,28 @@ firebase apps:list
 
 Une fois que tu as la nouvelle clé :
 
-1. **Mets à jour le fichier local** `dashboard/lib/firebase_options.dart` :
-   - Remplace l’ancienne clé `AIza…` par la nouvelle (localement, ne la commit pas si le repo est public)
+1. **Remplace l’ancienne clé `AIza…` par la nouvelle** partout où elle est utilisée :
+   - `app/lib/firebase_options.dart` (bloc `web`)
+   - `dashboard/lib/firebase_options.dart` (bloc `web`)
+   - `website/src/lib/firebase_client.ts`
 
 2. **Mets à jour aussi** (si tu les utilises) :
-   - `app/lib/firebase_options.dart` (si ce fichier existe)
    - Tous les fichiers de configuration qui contiennent l'ancienne clé
 
-3. **Teste l'application** pour vérifier que tout fonctionne avec la nouvelle clé
+3. **Rebuild + redeploy** (sinon les sites déployés continuent d’utiliser l’ancienne clé) :
+   - Dashboard hosting: `cd /Users/jl/Love2LearnSign/dashboard && ./deploy_custom.sh`
+   - Website (Next.js): rebuild + redeploy (Vercel / autre)
 
-4. **Configure les restrictions** sur la nouvelle clé (voir SECURITY_FIX.md)
+4. **Teste** l'app + dashboard + website pour vérifier que tout fonctionne avec la nouvelle clé
+
+5. **Configure les restrictions** sur la nouvelle clé (voir SECURITY_FIX.md)
 
 ---
 
 ## 🔍 Si tu ne trouves toujours pas la clé
 
 1. **Vérifie que tu es sur le bon compte Google** (celui qui a créé le projet Firebase)
-2. **Vérifie l'ID du projet** : `love-to-learn-sign`
+2. **Vérifie l'ID du projet** : `love2learnsign-1914ce`
 3. **Contacte le support Google Cloud** si nécessaire
 
 ---

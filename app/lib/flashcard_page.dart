@@ -18,6 +18,8 @@ import 'services/spaced_repetition_service.dart';
 import 'theme.dart';
 import 'widgets/fullscreen_video_player.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
+import 'package:l2l_shared/tenancy/concept_media.dart';
 
 // For flip animation, we use pi from dart:math above.
 
@@ -51,30 +53,12 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
     final doc = _cards[_currentIndex];
     final data = doc.data() as Map<String, dynamic>;
     
-    // Get English and Bengali words
-    String? english;
-    String? bengali;
-    
-    // Extract English word
-    if (data.containsKey('english') && data['english'] != null) {
-      final String rawEnglish = data['english'] as String;
-      // Replace underscores with spaces
-      final String withSpaces = rawEnglish.replaceAll('_', ' ');
-      english = withSpaces.isNotEmpty
-          ? '${withSpaces[0].toUpperCase()}${withSpaces.substring(1)}'
-          : withSpaces;
-    } else {
-      final String rawWord = data.containsKey('word') ? (data['word'] as String) : doc.id;
-      final String stripped = rawWord.replaceAll(RegExp(r'-bnsl$'), '');
-      // Replace underscores with spaces
-      final String withSpaces = stripped.replaceAll('_', ' ');
-      english = withSpaces.isNotEmpty
-          ? '${withSpaces[0].toUpperCase()}${withSpaces.substring(1)}'
-          : withSpaces;
-    }
-    
-    // Extract Bengali word
-    bengali = data['bengali'] as String?;
+    final scope = context.read<TenantScope>();
+    final localLang = scope.contentLocale;
+
+    // Use multi-language schema with legacy fallbacks.
+    final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+    final localWord = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
     
     // Get wordId
     final wordId = doc.id;
@@ -88,7 +72,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
           controller: controller,
           wordId: wordId,
           english: english,
-          bengali: bengali,
+          bengali: localWord,
           showShareButton: false, // Hide share button in flashcard fullscreen
         ),
       ),
@@ -178,7 +162,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
       final variants = data['variants'] as List<dynamic>;
       if (variants.isNotEmpty) {
         final firstVariant = variants[0] as Map<String, dynamic>;
-        url = (firstVariant['videoUrl'] as String? ?? '').trim();
+        url = ConceptMedia.video480FromVariant(firstVariant);
       }
     }
     if (url.isEmpty) return;
@@ -459,7 +443,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
       final variants = data['variants'] as List<dynamic>;
       if (variants.isNotEmpty) {
         final firstVariant = variants[0] as Map<String, dynamic>;
-        url = firstVariant['videoUrl'] as String? ?? '';
+        url = ConceptMedia.video480FromVariant(firstVariant);
       }
     }
 
@@ -742,7 +726,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         final variants = data['variants'] as List<dynamic>;
         if (variants.isNotEmpty) {
           final firstVariant = variants[0] as Map<String, dynamic>;
-          url = firstVariant['videoUrl'] as String? ?? '';
+          url = ConceptMedia.video480FromVariant(firstVariant);
         }
       }
       if (url.isEmpty) continue;
@@ -941,31 +925,16 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
       final data = doc.data() as Map<String, dynamic>;
       subtitle = '${_currentIndex + 1}/${_cards.length}';
 
-      // Localized word
-      final String locale = Localizations.localeOf(context).languageCode;
-      if (locale == 'bn') {
-        word = (data['bengali'] as String?) ?? '';
-      } else {
-        // Check if 'english' field exists first, otherwise use 'word' or doc.id
-        String rawWord;
-        if (data.containsKey('english') && data['english'] != null) {
-          rawWord = data['english'] as String;
-        } else {
-          rawWord = data.containsKey('word') ? (data['word'] as String) : doc.id;
-        }
-        final String stripped = rawWord.replaceAll(RegExp(r'-bnsl$'), '');
-        // Replace underscores with spaces
-        final String withSpaces = stripped.replaceAll('_', ' ');
-        word = withSpaces.isNotEmpty
-            ? '${withSpaces[0].toUpperCase()}${withSpaces.substring(1)}'
-            : withSpaces;
-      }
+      // Display the tenant local language (with fallback to EN).
+      final scope = context.read<TenantScope>();
+      final localLang = scope.contentLocale;
+      word = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
 
       if (data.containsKey('variants')) {
         final variants = data['variants'] as List<dynamic>;
         if (variants.isNotEmpty) {
           final firstVariant = variants[0] as Map<String, dynamic>;
-          videoUrl = firstVariant['videoUrl'] as String? ?? '';
+          videoUrl = ConceptMedia.video480FromVariant(firstVariant);
         }
       }
     } else if (_cards.isNotEmpty) {

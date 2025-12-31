@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
+import 'package:l2l_shared/tenancy/concept_media.dart';
 import 'package:video_player/video_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
@@ -114,11 +116,10 @@ class _QuizRandomPageState extends State<QuizRandomPage> {
   }
 
   // --- Option building helpers (ensure at least 2 options even in review pass) ---
-  String _getWord(DocumentSnapshot d, bool isBn) {
+  String _getWord(DocumentSnapshot d, String langCode) {
     try {
-      return isBn
-          ? (d.get('bengali') as String? ?? '')
-          : (d.get('english') as String? ?? '');
+      final data = d.data() as Map<String, dynamic>? ?? const <String, dynamic>{};
+      return ConceptText.labelFor(data, lang: langCode, fallbackLang: 'en');
     } catch (_) {
       return '';
     }
@@ -127,7 +128,7 @@ class _QuizRandomPageState extends State<QuizRandomPage> {
   /// Builds a shuffled list of options containing the correct answer and up to 3 incorrect ones.
   /// Guarantees at least 2 options by sampling from both the current session list and the
   /// initial session list when needed (e.g., single-item review pass).
-  List<String> _buildOptions(DocumentSnapshot correctDoc, bool isBn) {
+  List<String> _buildOptions(DocumentSnapshot correctDoc, String langCode) {
     // Primary pool = current quiz docs, initial docs, and global distractor pool minus the correct one
     final Set<DocumentSnapshot> basePool = {
       ..._quizDocuments,
@@ -137,7 +138,7 @@ class _QuizRandomPageState extends State<QuizRandomPage> {
 
     // Map to words and filter empties
     final List<String> distractors = basePool
-        .map((d) => _getWord(d, isBn).trim())
+        .map((d) => _getWord(d, langCode).trim())
         .where((w) => w.isNotEmpty)
         .toSet() // unique
         .toList();
@@ -149,14 +150,14 @@ class _QuizRandomPageState extends State<QuizRandomPage> {
 
     // Compose options with the correct answer and dedupe
     final List<String> options = <String>{
-      _getWord(correctDoc, isBn).trim(),
+      _getWord(correctDoc, langCode).trim(),
       ...picked,
     }.where((w) => w.isNotEmpty).toList();
 
     // Ensure at least 2 options (edge case: only one valid word available)
     if (options.length < 2) {
       // Try to find any additional word different from the correct answer
-      final String correct = _getWord(correctDoc, isBn).trim();
+      final String correct = _getWord(correctDoc, langCode).trim();
       final String? extra = distractors.firstWhere(
         (w) => w != correct,
         orElse: () => '',
@@ -175,13 +176,7 @@ class _QuizRandomPageState extends State<QuizRandomPage> {
   String _extractVideoUrl(DocumentSnapshot doc) {
     try {
       final data = doc.data() as Map<String, dynamic>? ?? const {};
-      final variants = (data['variants'] as List<dynamic>?) ?? const [];
-      if (variants.isEmpty) return '';
-      final first = variants.first;
-      if (first is Map<String, dynamic>) {
-        return (first['videoUrl'] as String? ?? '').trim();
-      }
-      return '';
+      return ConceptMedia.video480FromConcept(data);
     } catch (_) {
       return '';
     }
@@ -416,10 +411,8 @@ class _QuizRandomPageState extends State<QuizRandomPage> {
           final v =
               (_initialDocuments[i].get('variants') as List<dynamic>?) ?? [];
           if (v.isEmpty) continue;
-          final u = v.first is Map<String, dynamic>
-              ? (v.first['videoUrl'] as String?)
-              : null;
-          if (u == null || u.isEmpty) continue;
+          final u = v.first is Map ? ConceptMedia.video480FromVariant(Map<String, dynamic>.from(v.first as Map)) : '';
+          if (u.isEmpty) continue;
           try {
             await CacheService.instance.getSingleFileRespectingSettings(u);
           } catch (_) {
@@ -466,10 +459,10 @@ class _QuizRandomPageState extends State<QuizRandomPage> {
     }
 
     // Locale-aware answer/options (guarantee at least two choices even in single-item review pass)
-    final bool isBn = Localizations.localeOf(context).languageCode == 'bn';
-    final String correctWord = _getWord(correctDoc, isBn);
+    final String langCode = context.read<TenantScope>().contentLocale;
+    final String correctWord = _getWord(correctDoc, langCode);
 
-    final List<String> built = _buildOptions(correctDoc, isBn);
+    final List<String> built = _buildOptions(correctDoc, langCode);
     if (built.length < 2) {
       // As an extreme fallback, skip only if we truly cannot build 2 options (should be very rare)
       debugPrint('⚠️ Not enough options after fallback; skipping question.');

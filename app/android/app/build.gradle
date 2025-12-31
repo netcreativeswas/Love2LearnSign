@@ -45,13 +45,18 @@ android {
     if (keystorePropertiesFile.exists()) {
         keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
     }
+    def hasReleaseKeystore = keystorePropertiesFile.exists() && keystoreProperties['storeFile']
 
     signingConfigs {
         release {
+            // Allow debug builds (and local CI) to run even when key.properties is absent.
+            // For Play Store releases, ensure key.properties exists and includes storeFile/passwords.
+            if (hasReleaseKeystore) {
             keyAlias keystoreProperties['keyAlias']
             keyPassword keystoreProperties['keyPassword']
             storeFile file(keystoreProperties['storeFile'])
             storePassword keystoreProperties['storePassword']
+            }
         }
     }
 
@@ -60,7 +65,8 @@ android {
             shrinkResources true
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            // If no release keystore is configured, fall back to debug signing so local builds still work.
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
         }
     }
 }

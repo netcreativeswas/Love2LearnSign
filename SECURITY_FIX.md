@@ -16,7 +16,7 @@ Une clé API (commençant par `AIza…`) a été exposée publiquement et doit �
 
 **Étapes :**
 1. Va sur https://console.cloud.google.com/apis/credentials
-2. Sélectionne le projet "Love to Learn Sign" (ID: `love-to-learn-sign`)
+2. Sélectionne le projet "Love2LearnSign" (ID: `love2learnsign-1914ce`)
 3. Trouve la clé API concernée (elle commence généralement par `AIza…`)
 4. Clique sur "Edit" puis "Regenerate Key"
 5. **Copie la nouvelle clé** (tu ne la reverras plus)

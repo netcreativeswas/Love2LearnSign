@@ -288,7 +288,7 @@ class SubscriptionService {
         });
 
         if (kDebugMode) {
-          debugPrint('✅ verifyPlaySubscription result: ${result.data}');
+        debugPrint('✅ verifyPlaySubscription result: ${result.data}');
         }
       } else {
         // iOS verification is not implemented yet (needs App Store receipt verification).

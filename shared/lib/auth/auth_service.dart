@@ -581,7 +581,7 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       _authLog('❌ FirebaseAuthException during Google Sign-In: ${e.code}');
       throw _handleAuthException(e);
-    } on TimeoutException catch (e) {
+    } on TimeoutException catch (_) {
       _authLog('❌ Google Sign-In timeout');
       throw Exception('Sign-in timed out. Please check your internet connection and try again.');
     } catch (e) {

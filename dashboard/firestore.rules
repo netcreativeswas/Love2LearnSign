@@ -9,7 +9,7 @@ service cloud.firestore {
              request.auth.token.roles is list && 
              'admin' in request.auth.token.roles;
     }
-
+    
     function isPlatformAdmin() {
       return request.auth != null &&
              exists(/databases/$(database)/documents/platform/platform/members/$(request.auth.uid));
@@ -39,6 +39,11 @@ service cloud.firestore {
       return isPlatformAdmin() || isAdmin() ||
              (isTenantMember(tenantId) && (tenantRole(tenantId, request.auth.uid) in ['owner', 'admin']));
     }
+
+    function isTenantEditorOrAbove(tenantId) {
+      return isPlatformAdmin() || isAdmin() ||
+             (isTenantMember(tenantId) && (tenantRole(tenantId, request.auth.uid) in ['owner', 'admin', 'editor']));
+    }
     
     // Helper function to check ownership
     function isOwnDocument() {
@@ -59,7 +64,7 @@ service cloud.firestore {
                  (userId == request.auth.uid || userId.matches('.*__' + request.auth.uid + '$'));
 
       // Users can create their own document
-      allow create: if request.auth != null &&
+      allow create: if request.auth != null && 
                     userId == request.auth.uid &&
                     request.resource.data.uid == request.auth.uid &&
                     request.resource.data.roles is list &&
@@ -79,7 +84,7 @@ service cloud.firestore {
                     );
 
       // Users can update their own document (but not roles, approved, status)
-      allow update: if request.auth != null &&
+      allow update: if request.auth != null && 
                      userId == request.auth.uid &&
                      resource != null &&
                      isOwnDocument() &&
@@ -94,6 +99,15 @@ service cloud.firestore {
     match /users/{userId}/entitlements/{tenantId} {
       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin() || isPlatformAdmin());
       allow create, update, delete: if isPlatformAdmin();
+    }
+
+    // IMPORTANT for collectionGroup('entitlements') queries:
+    // Firestore evaluates collection group queries across ANY parent path that contains a subcollection named "entitlements".
+    // So we must also provide a rule that matches entitlements docs under any parent path (not only /users/{uid}/...).
+    // We keep this READ-ONLY and only for admins/platform admins.
+    match /{parentPath=**}/entitlements/{entitlementId} {
+      allow read: if request.auth != null && (isAdmin() || isPlatformAdmin());
+      allow write: if false;
     }
     
     // Role change logs - admins only (for security audit trail)
@@ -156,6 +170,19 @@ service cloud.firestore {
       match /monetization/{docId} {
         allow read: if true;
         allow write: if isPlatformAdmin();
+      }
+
+      // Dictionary / concepts (shared with app): the dashboard needs read/write here for the Word List + editor.
+      match /concepts/{conceptId} {
+        allow read: if isTenantMember(tenantId) || isPlatformAdmin() || isAdmin();
+        allow create, update: if isTenantEditorOrAbove(tenantId);
+        allow delete: if false;
+
+        match /signs/{signLangId} {
+          allow read: if isTenantMember(tenantId) || isPlatformAdmin() || isAdmin();
+          allow create, update: if isTenantEditorOrAbove(tenantId);
+          allow delete: if false;
+        }
       }
 
       // Tenant-scoped search analytics (admins only).

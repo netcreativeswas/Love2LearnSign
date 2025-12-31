@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
+import 'package:l2l_shared/tenancy/concept_media.dart';
 import 'services/cache_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -35,12 +37,14 @@ class CategoryPage extends StatefulWidget {
 
 class _CategoryPageState extends State<CategoryPage> {
   String? selectedCategory;
-  String _sortBy = 'english';
+  String _sortLang = 'en';
   bool _ascending = true;
 
   @override
   Widget build(BuildContext context) {
-    final tenantId = context.watch<TenantScope>().tenantId;
+    final tenantScope = context.watch<TenantScope>();
+    final tenantId = tenantScope.tenantId;
+    final localLang = tenantScope.contentLocale.trim().toLowerCase();
     return ScrollConfiguration(
       behavior: _NoGlowBehavior(),
       child: NestedScrollView(
@@ -124,10 +128,16 @@ class _CategoryPageState extends State<CategoryPage> {
                   children: [
                     GestureDetector(
                       onTap: () => setState(() {
-                        _sortBy = _sortBy == 'english' ? 'bengali' : 'english';
+                        if (localLang.isEmpty || localLang == 'en') {
+                          _sortLang = 'en';
+                        } else {
+                          _sortLang = _sortLang == 'en' ? localLang : 'en';
+                        }
                       }),
                       child: Text(
-                        _sortBy == 'bengali' ? S.of(context)!.bengali : S.of(context)!.english,
+                        _sortLang == 'en'
+                            ? S.of(context)!.english
+                            : (localLang == 'bn' ? S.of(context)!.bengali : localLang.toUpperCase()),
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
@@ -196,27 +206,25 @@ class _CategoryPageState extends State<CategoryPage> {
                 return false;
               }
               
-              final data = doc.data()! as Map<String, dynamic>;
-              final word = data['english'] ?? '';
-              if (seen.contains(word)) return false;
-              seen.add(word);
+              if (seen.contains(doc.id)) return false;
+              seen.add(doc.id);
               return true;
             }).toList();
             filtered.sort((a, b) {
               final d1 = a.data()! as Map<String, dynamic>;
               final d2 = b.data()! as Map<String, dynamic>;
-              final field = _sortBy == 'bengali' ? 'bengali' : 'english';
-              return _ascending
-                  ? (d1[field] as String).compareTo(d2[field] as String)
-                  : (d2[field] as String).compareTo(d1[field] as String);
+              final v1 = ConceptText.labelFor(d1, lang: _sortLang, fallbackLang: 'en');
+              final v2 = ConceptText.labelFor(d2, lang: _sortLang, fallbackLang: 'en');
+              return _ascending ? v1.compareTo(v2) : v2.compareTo(v1);
             });
             // Build a flat list of widgets
             final List<Widget> items = [];
             final Map<String, List<QueryDocumentSnapshot>> grouped = {};
-            final isBn = _sortBy == 'bengali';
+            final primaryLang = _sortLang;
+            final secondaryLang = (_sortLang == 'en') ? localLang : 'en';
             for (var doc in filtered) {
               final data = doc.data()! as Map<String, dynamic>;
-              final word = isBn ? data['bengali'] : data['english'];
+              final word = ConceptText.labelFor(data, lang: primaryLang, fallbackLang: 'en');
               final letter = word.isNotEmpty ? word[0].toUpperCase() : '';
               grouped.putIfAbsent(letter, () => []).add(doc);
             }
@@ -231,27 +239,29 @@ class _CategoryPageState extends State<CategoryPage> {
                     ?.copyWith(fontWeight: FontWeight.bold)),
               ));
               for (var doc in grouped[letter]!) {
+                final data = doc.data()! as Map<String, dynamic>;
+                final primary = ConceptText.labelFor(data, lang: primaryLang, fallbackLang: 'en');
+                final secondary = ConceptText.labelFor(data, lang: secondaryLang, fallbackLang: 'en');
+                final hasSecondary = secondary.trim().isNotEmpty && secondary.trim() != primary.trim();
                 items.add(ListTile(
                   title: RichText(
                     text: TextSpan(
                       style: DefaultTextStyle.of(context).style,
-                      children: [
-                        TextSpan(
-                          text: isBn
-                              ? (doc.data()! as Map<String, dynamic>)['bengali']
-                              : (doc.data()! as Map<String, dynamic>)['english'],
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const TextSpan(text: '   •   '),
-                        TextSpan(
-                          text: isBn
-                              ? (doc.data()! as Map<String, dynamic>)['english']
-                              : (doc.data()! as Map<String, dynamic>)['bengali'],
-                        ),
-                      ],
+                      children: hasSecondary
+                          ? [
+                              TextSpan(
+                                text: primary,
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const TextSpan(text: '   •   '),
+                              TextSpan(text: secondary),
+                            ]
+                          : [
+                              TextSpan(
+                                text: primary,
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
                     ),
                   ),
                   trailing: Row(
@@ -261,17 +271,17 @@ class _CategoryPageState extends State<CategoryPage> {
                       IconButton(
                         icon: Icon(Icons.play_arrow),
                         onPressed: () async {
-                          final data = doc.data() as Map<String, dynamic>;
                           final wordId = doc.id;
-                          final english = data['english'] ?? '';
-                          final bengali = data['bengali'] ?? '';
                           String? videoUrl;
                           if (data['variants'] != null &&
                               data['variants'] is List &&
                               (data['variants'] as List).isNotEmpty &&
                               (data['variants'] as List).first is Map &&
-                              ((data['variants'] as List).first as Map).containsKey('videoUrl')) {
-                            videoUrl = ((data['variants'] as List).first as Map)['videoUrl'] as String?;
+                              (((data['variants'] as List).first as Map).containsKey('videos_480') ||
+                                  ((data['variants'] as List).first as Map).containsKey('videoUrl'))) {
+                            videoUrl = ConceptMedia.video480FromVariant(
+                              Map<String, dynamic>.from((data['variants'] as List).first as Map),
+                            );
                           } else if (data['videoUrl'] != null) {
                             videoUrl = data['videoUrl'] as String?;
                           }
@@ -335,8 +345,10 @@ class _CategoryPageState extends State<CategoryPage> {
     final videoUrls = words.expand<String>((word) {
       if (word['variants'] != null && word['variants'] is List) {
         return (word['variants'] as List)
-            .map((variant) => variant['videoUrl'])
-            .whereType<String>();
+            .map((variant) => variant is Map
+                ? ConceptMedia.video480FromVariant(Map<String, dynamic>.from(variant))
+                : '')
+            .where((u) => u.isNotEmpty);
       } else if (word['videoUrl'] != null) {
         return [word['videoUrl'] as String];
       }

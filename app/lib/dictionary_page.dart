@@ -18,6 +18,7 @@ import 'services/history_repository.dart';
 import 'services/favorites_repository.dart';
 import 'services/share_utils.dart';
 import 'package:l2l_shared/analytics/search_tracking_service.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'dart:async';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'theme.dart';
@@ -54,14 +55,16 @@ class _SortHeaderDelegate extends SliverPersistentHeaderDelegate {
 }
 
 class _DictionarySortBar extends StatelessWidget {
-  final String sortBy;
+  final String sortLang;
+  final String localLang;
   final bool ascending;
   final VoidCallback onSortByToggle;
   final VoidCallback onAscendingToggle;
 
   const _DictionarySortBar({
     super.key,
-    required this.sortBy,
+    required this.sortLang,
+    required this.localLang,
     required this.ascending,
     required this.onSortByToggle,
     required this.onAscendingToggle,
@@ -69,6 +72,11 @@ class _DictionarySortBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isEnglish = sortLang.toLowerCase() == 'en' || sortLang.trim().isEmpty;
+    final local = localLang.trim().toLowerCase();
+    final label = isEnglish
+        ? S.of(context)!.english
+        : (local == 'bn' ? S.of(context)!.bengali : local.toUpperCase());
     return Container(
       margin: EdgeInsets.zero,
       decoration: BoxDecoration(
@@ -92,7 +100,7 @@ class _DictionarySortBar extends StatelessWidget {
           GestureDetector(
             onTap: onSortByToggle,
             child: Text(
-              sortBy == 'bengali' ? S.of(context)!.bengali : S.of(context)!.english,
+              label,
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
@@ -129,7 +137,7 @@ class _DictionaryPageState extends State<DictionaryPage> {
   String _searchQuery = '';
   String _selectedCategory = '';
   String _selectedSubCategory = '';
-  String _sortBy = 'english';
+  String _sortLang = 'en';
   bool _ascending = true;
   final int _currentIndex = 1;
   bool _sortDefaultApplied = false;
@@ -148,8 +156,8 @@ class _DictionaryPageState extends State<DictionaryPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_sortDefaultApplied) {
-      final locale = Provider.of<LocaleProvider>(context, listen: false).locale;
-      _sortBy = locale.languageCode == 'bn' ? 'bengali' : 'english';
+      final tenant = Provider.of<TenantScope>(context, listen: false);
+      _sortLang = tenant.contentLocale.trim().isNotEmpty ? tenant.contentLocale.trim().toLowerCase() : 'en';
       _sortDefaultApplied = true;
     }
   }
@@ -248,7 +256,9 @@ class _DictionaryPageState extends State<DictionaryPage> {
   @override
   Widget build(BuildContext context) {
     final locale = Provider.of<LocaleProvider>(context).locale;
-    final tenantId = context.watch<TenantScope>().tenantId;
+    final tenantScope = context.watch<TenantScope>();
+    final tenantId = tenantScope.tenantId;
+    final localLang = tenantScope.contentLocale;
     final double topPadding = MediaQuery.of(context).padding.top;
     final screenHeight = MediaQuery.of(context).size.height;
     final initialChildSize = 0.45 - (20 / screenHeight);
@@ -553,10 +563,16 @@ class _DictionaryPageState extends State<DictionaryPage> {
                                 pinned: true,
                                 delegate: _SortHeaderDelegate(
                                   child: _DictionarySortBar(
-                                    sortBy: _sortBy,
+                                    sortLang: _sortLang,
+                                    localLang: localLang,
                                     ascending: _ascending,
                                     onSortByToggle: () => setState(() {
-                                      _sortBy = _sortBy == 'english' ? 'bengali' : 'english';
+                                      final local = localLang.trim().toLowerCase();
+                                      if (local.isEmpty || local == 'en') {
+                                        _sortLang = 'en';
+                                      } else {
+                                        _sortLang = _sortLang == 'en' ? local : 'en';
+                                      }
                                     }),
                                     onAscendingToggle: () => setState(() => _ascending = !_ascending),
                                   ),
@@ -675,10 +691,16 @@ class _DictionaryPageState extends State<DictionaryPage> {
                                   searchQuery: _searchQuery,
                                   selectedCategory: _selectedCategory,
                                   selectedSubCategory: _selectedSubCategory,
-                                  sortBy: _sortBy,
+                                  sortLang: _sortLang,
+                                  localLang: localLang,
                                   ascending: _ascending,
                                   onSortByToggle: () => setState(() {
-                                    _sortBy = _sortBy == 'english' ? 'bengali' : 'english';
+                                    final local = localLang.trim().toLowerCase();
+                                    if (local.isEmpty || local == 'en') {
+                                      _sortLang = 'en';
+                                    } else {
+                                      _sortLang = _sortLang == 'en' ? local : 'en';
+                                    }
                                   }),
                                   onAscendingToggle: () => setState(() => _ascending = !_ascending),
                                 onSearchCompleted: _logSearch,
@@ -709,7 +731,8 @@ class _DictionaryScrollableSection extends StatefulWidget {
   final String searchQuery;
   final String selectedCategory;
   final String selectedSubCategory;
-  final String sortBy;
+  final String sortLang;
+  final String localLang;
   final bool ascending;
   final VoidCallback onSortByToggle;
   final VoidCallback onAscendingToggle;
@@ -720,7 +743,8 @@ class _DictionaryScrollableSection extends StatefulWidget {
     required this.searchQuery,
     required this.selectedCategory,
     required this.selectedSubCategory,
-    required this.sortBy,
+    required this.sortLang,
+    required this.localLang,
     required this.ascending,
     required this.onSortByToggle,
     required this.onAscendingToggle,
@@ -751,7 +775,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
     if (oldWidget.selectedCategory != widget.selectedCategory ||
         oldWidget.searchQuery != widget.searchQuery ||
         oldWidget.selectedSubCategory != widget.selectedSubCategory ||
-        oldWidget.sortBy != widget.sortBy ||
+        oldWidget.sortLang != widget.sortLang ||
         oldWidget.ascending != widget.ascending) {
       setState(() {
         _loadedDocs.clear();
@@ -786,9 +810,9 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
         query = query.where('category_main', isEqualTo: widget.selectedCategory);
       }
       
-      // Apply sorting - Firestore requires index for compound queries
-      // We'll sort client-side after fetching
-      query = query.orderBy(widget.sortBy);
+      // Apply sorting (language-specific via labels_lower.<lang>).
+      final sortLang = widget.sortLang.trim().toLowerCase().isEmpty ? 'en' : widget.sortLang.trim().toLowerCase();
+      query = query.orderBy('labels_lower.$sortLang');
       
       // Pagination
       if (_lastDocument != null) {
@@ -829,9 +853,8 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
         newDocs.sort((a, b) {
           final d1 = a.data() as Map<String, dynamic>;
           final d2 = b.data() as Map<String, dynamic>;
-          final field = widget.sortBy;
-          final val1 = (d1[field] ?? '').toString();
-          final val2 = (d2[field] ?? '').toString();
+          final val1 = ConceptText.labelFor(d1, lang: widget.sortLang, fallbackLang: 'en');
+          final val2 = ConceptText.labelFor(d2, lang: widget.sortLang, fallbackLang: 'en');
           return val2.compareTo(val1); // Reverse order
         });
       }
@@ -842,9 +865,8 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
         _loadedDocs.sort((a, b) {
           final d1 = a.data() as Map<String, dynamic>;
           final d2 = b.data() as Map<String, dynamic>;
-          final field = widget.sortBy;
-          final val1 = (d1[field] ?? '').toString();
-          final val2 = (d2[field] ?? '').toString();
+          final val1 = ConceptText.labelFor(d1, lang: widget.sortLang, fallbackLang: 'en');
+          final val2 = ConceptText.labelFor(d2, lang: widget.sortLang, fallbackLang: 'en');
           return widget.ascending ? val1.compareTo(val2) : val2.compareTo(val1);
         });
         if (snapshot.docs.isNotEmpty) {
@@ -887,6 +909,11 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
   }
 
   Widget _buildSortBar(BuildContext context) {
+    final isEnglish = widget.sortLang.toLowerCase() == 'en' || widget.sortLang.trim().isEmpty;
+    final local = widget.localLang.trim().toLowerCase();
+    final label = isEnglish
+        ? S.of(context)!.english
+        : (local == 'bn' ? S.of(context)!.bengali : local.toUpperCase());
     return Container(
       margin: EdgeInsets.zero,
       decoration: BoxDecoration(
@@ -910,7 +937,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
           GestureDetector(
             onTap: widget.onSortByToggle,
             child: Text(
-              widget.sortBy == 'bengali' ? S.of(context)!.bengali : S.of(context)!.english,
+              label,
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
@@ -955,44 +982,38 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
       final lowerQuery = widget.searchQuery.toLowerCase();
       filtered = docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>;
-              final eng = (data['english'] ?? '').toString().toLowerCase();
-              final ben = (data['bengali'] ?? '').toString().toLowerCase();
-        final engSynonyms = (data['englishWordSynonyms'] as List<dynamic>? ?? [])
-            .map((e) => e.toString().toLowerCase());
-        final bnSynonyms = (data['bengaliWordSynonyms'] as List<dynamic>? ?? [])
-            .map((e) => e.toString().toLowerCase());
-        return eng.contains(lowerQuery) ||
-            ben.contains(lowerQuery) ||
-            engSynonyms.any((s) => s.contains(lowerQuery)) ||
-            bnSynonyms.any((s) => s.contains(lowerQuery));
+        final enLabel = ConceptText.labelLowerFor(data, lang: 'en', fallbackLang: 'en');
+        final localLabel = ConceptText.labelLowerFor(data, lang: widget.localLang, fallbackLang: 'en');
+        final enSyn = ConceptText.synonymsFor(data, lang: 'en').map((e) => e.toLowerCase());
+        final localSyn = ConceptText.synonymsFor(data, lang: widget.localLang).map((e) => e.toLowerCase());
+        return enLabel.contains(lowerQuery) ||
+            localLabel.contains(lowerQuery) ||
+            enSyn.any((s) => s.contains(lowerQuery)) ||
+            localSyn.any((s) => s.contains(lowerQuery));
             }).toList();
     }
 
-    // Deduplicate by english word
-            final seen = <String>{};
-    filtered = filtered.where((doc) {
-      final eng = (doc.data() as Map<String, dynamic>)['english'] as String? ?? '';
-              if (seen.contains(eng)) return false;
-              seen.add(eng);
-              return true;
-    }).toList();
+    // Deduplicate by document id (stable across languages)
+    final seen = <String>{};
+    filtered = filtered.where((doc) => seen.add(doc.id)).toList();
 
     // Sort
             filtered.sort((a, b) {
       final d1 = a.data() as Map<String, dynamic>;
       final d2 = b.data() as Map<String, dynamic>;
-      final field = widget.sortBy;
-      final val1 = (d1[field] ?? '').toString();
-      final val2 = (d2[field] ?? '').toString();
+      final val1 = ConceptText.labelFor(d1, lang: widget.sortLang, fallbackLang: 'en');
+      final val2 = ConceptText.labelFor(d2, lang: widget.sortLang, fallbackLang: 'en');
       return widget.ascending ? val1.compareTo(val2) : val2.compareTo(val1);
             });
 
     // Group by first letter
             final grouped = <String, List<QueryDocumentSnapshot>>{};
-    final isBnFirst = widget.sortBy == 'bengali';
+    final isLocalFirst = widget.sortLang.toLowerCase() != 'en';
             for (var doc in filtered) {
       final data = doc.data() as Map<String, dynamic>;
-      final word = (isBnFirst ? data['bengali'] : data['english']) as String? ?? '';
+      final word = isLocalFirst
+          ? ConceptText.labelFor(data, lang: widget.localLang, fallbackLang: 'en')
+          : ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
               final letter = word.isNotEmpty ? word[0].toUpperCase() : '';
               grouped.putIfAbsent(letter, () => []).add(doc);
             }
@@ -1020,8 +1041,8 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
               );
               for (var doc in grouped[letter]!) {
         final data = doc.data() as Map<String, dynamic>;
-                final english = data['english'] as String? ?? '';
-                final bengali = data['bengali'] as String? ?? '';
+                final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+                final localWord = ConceptText.labelFor(data, lang: widget.localLang, fallbackLang: 'en');
                 final wordId = doc.id;
 
         // Thumbnail logic
@@ -1084,45 +1105,26 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                   title: RichText(
                     text: TextSpan(
                       style: DefaultTextStyle.of(context).style,
-                      children: isBnFirst
-                          ? [
-                              TextSpan(
-                                text: bengali,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(context).colorScheme.primary),
-                              ),
-                              TextSpan(
-                                text: '   •   ',
-                                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                              ),
-                              TextSpan(
-                                text: _capitalizeFirst(english),
-                                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                              ),
-                            ]
-                          : [
-                              TextSpan(
-                                text: _capitalizeFirst(english),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(context).colorScheme.primary),
-                              ),
-                              TextSpan(
-                                text: '   •   ',
-                                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                              ),
-                              TextSpan(
-                                text: bengali,
-                                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                              ),
-                            ],
+                      children: () {
+                        final primary = isLocalFirst ? localWord : _capitalizeFirst(english);
+                        final secondary = isLocalFirst ? _capitalizeFirst(english) : localWord;
+                        final hasSecondary = secondary.trim().isNotEmpty && secondary.trim() != primary.trim();
+                        final boldStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            );
+                        final normalStyle = TextStyle(color: Theme.of(context).colorScheme.primary);
+                        if (!hasSecondary) {
+                          return <InlineSpan>[
+                            TextSpan(text: primary, style: boldStyle),
+                          ];
+                        }
+                        return <InlineSpan>[
+                          TextSpan(text: primary, style: boldStyle),
+                          TextSpan(text: '   •   ', style: normalStyle),
+                          TextSpan(text: secondary, style: normalStyle),
+                        ];
+                      }(),
                     ),
                   ),
                   trailing: Row(
@@ -1173,7 +1175,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                           await ShareService.shareVideo(
                             wordId,
                             english: english,
-                            bengali: bengali,
+                            bengali: localWord,
                             tenantId: scope.tenantId,
                             signLangId: scope.signLangId,
                             uiLocale: uiLocale,
@@ -1231,32 +1233,26 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
               return false;
             }
             
-            final eng = (data['english'] ?? '').toString().toLowerCase();
-            final ben = (data['bengali'] ?? '').toString().toLowerCase();
+            final enLabel = ConceptText.labelLowerFor(data, lang: 'en', fallbackLang: 'en');
+            final localLabel = ConceptText.labelLowerFor(data, lang: widget.localLang, fallbackLang: 'en');
 
-            final engSynonyms = (data['englishWordSynonyms'] as List<dynamic>? ?? []).map((e) => e.toString().toLowerCase());
-            final bnSynonyms = (data['bengaliWordSynonyms'] as List<dynamic>? ?? []).map((e) => e.toString().toLowerCase());
+            final enSyn = ConceptText.synonymsFor(data, lang: 'en').map((e) => e.toLowerCase());
+            final localSyn = ConceptText.synonymsFor(data, lang: widget.localLang).map((e) => e.toLowerCase());
 
-              return eng.contains(lowerQuery)
-                || ben.contains(lowerQuery)
-                || engSynonyms.any((s) => s.contains(lowerQuery))
-                  || bnSynonyms.any((s) => s.contains(lowerQuery));
+            return enLabel.contains(lowerQuery) ||
+                localLabel.contains(lowerQuery) ||
+                enSyn.any((s) => s.contains(lowerQuery)) ||
+                localSyn.any((s) => s.contains(lowerQuery));
           }).toList();
             final seen = <String>{};
-            filtered.retainWhere((doc) {
-              final eng = (doc.data()! as Map<String, dynamic>)['english'] as String;
-              if (seen.contains(eng)) return false;
-              seen.add(eng);
-              return true;
-            });
+            filtered.retainWhere((doc) => seen.add(doc.id));
             // Sort by selected field and order
           filtered.sort((a, b) {
             final d1 = a.data()! as Map<String, dynamic>;
             final d2 = b.data()! as Map<String, dynamic>;
-              final field = widget.sortBy;
-              return widget.ascending
-                ? (d1[field] as String).compareTo(d2[field] as String)
-                : (d2[field] as String).compareTo(d1[field] as String);
+              final v1 = ConceptText.labelFor(d1, lang: widget.sortLang, fallbackLang: 'en');
+              final v2 = ConceptText.labelFor(d2, lang: widget.sortLang, fallbackLang: 'en');
+              return widget.ascending ? v1.compareTo(v2) : v2.compareTo(v1);
           });
             // Group by first letter of sort field
           final grouped = <String, List<QueryDocumentSnapshot>>{};
@@ -1268,10 +1264,12 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                });
             }
 
-            final isBnFirst = widget.sortBy == 'bengali';
+            final isLocalFirst = widget.sortLang.toLowerCase() != 'en';
           for (var doc in filtered) {
             final data = doc.data()! as Map<String, dynamic>;
-            final word = isBnFirst ? data['bengali'] : data['english'];
+            final word = isLocalFirst
+                ? ConceptText.labelFor(data, lang: widget.localLang, fallbackLang: 'en')
+                : ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
             final letter = word.isNotEmpty ? word[0].toUpperCase() : '';
             grouped.putIfAbsent(letter, () => []).add(doc);
           }
@@ -1295,8 +1293,8 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
             );
             for (var doc in grouped[letter]!) {
               final data = doc.data()! as Map<String, dynamic>;
-              final english = data['english'] as String? ?? '';
-              final bengali = data['bengali'] as String? ?? '';
+              final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+              final localWord = ConceptText.labelFor(data, lang: widget.localLang, fallbackLang: 'en');
               final wordId = doc.id;
               // --- Thumbnail logic start ---
               final variants = data['variants'] as List?;
@@ -1360,45 +1358,24 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                   title: RichText(
                     text: TextSpan(
                       style: DefaultTextStyle.of(context).style,
-                      children: isBnFirst
-                          ? [
-                              TextSpan(
-                                text: bengali,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(context).colorScheme.primary),
-                              ),
-                              TextSpan(
-                                text: '   •   ',
-                                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                              ),
-                              TextSpan(
-                                text: _capitalizeFirst(english),
-                                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                              ),
-                            ]
-                          : [
-                              TextSpan(
-                                text: _capitalizeFirst(english),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(context).colorScheme.primary),
-                              ),
-                              TextSpan(
-                                text: '   •   ',
-                                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                              ),
-                              TextSpan(
-                                text: bengali,
-                                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                              ),
-                            ],
+                      children: () {
+                        final primary = isLocalFirst ? localWord : _capitalizeFirst(english);
+                        final secondary = isLocalFirst ? _capitalizeFirst(english) : localWord;
+                        final hasSecondary = secondary.trim().isNotEmpty && secondary.trim() != primary.trim();
+                        final boldStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            );
+                        final normalStyle = TextStyle(color: Theme.of(context).colorScheme.primary);
+                        if (!hasSecondary) {
+                          return <InlineSpan>[TextSpan(text: primary, style: boldStyle)];
+                        }
+                        return <InlineSpan>[
+                          TextSpan(text: primary, style: boldStyle),
+                          TextSpan(text: '   •   ', style: normalStyle),
+                          TextSpan(text: secondary, style: normalStyle),
+                        ];
+                      }(),
                     ),
                   ),
                 trailing: Row(
@@ -1450,7 +1427,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                           await ShareService.shareVideo(
                             wordId,
                             english: english,
-                            bengali: bengali,
+                            bengali: localWord,
                             tenantId: scope.tenantId,
                             signLangId: scope.signLangId,
                             uiLocale: uiLocale,

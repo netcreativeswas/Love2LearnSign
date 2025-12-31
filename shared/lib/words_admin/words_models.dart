@@ -4,27 +4,31 @@ import '../tenancy/concept_text.dart';
 
 class DictionaryVariant {
   final String label;
-  final String videoUrl;
-  final String videoUrlSD;
-  final String videoUrlHD;
+  /// Canonical video URLs (new schema): prefer `videos_360/480/720`.
+  /// Legacy fallback: `videoUrlSD/videoUrl/videoUrlHD`.
+  final String videos360;
+  final String videos480;
+  final String videos720;
   final String videoThumbnail;
   final String videoThumbnailSmall;
 
   const DictionaryVariant({
     required this.label,
-    required this.videoUrl,
-    required this.videoUrlSD,
-    required this.videoUrlHD,
+    required this.videos360,
+    required this.videos480,
+    required this.videos720,
     required this.videoThumbnail,
     required this.videoThumbnailSmall,
   });
 
   factory DictionaryVariant.fromMap(Map<String, dynamic> map) {
+    String pickString(dynamic v) => (v ?? '').toString();
     return DictionaryVariant(
       label: (map['label'] ?? '').toString(),
-      videoUrl: (map['videoUrl'] ?? '').toString(),
-      videoUrlSD: (map['videoUrlSD'] ?? '').toString(),
-      videoUrlHD: (map['videoUrlHD'] ?? '').toString(),
+      // New schema first, then legacy fallback.
+      videos360: pickString(map['videos_360']).isNotEmpty ? pickString(map['videos_360']) : pickString(map['videoUrlSD']),
+      videos480: pickString(map['videos_480']).isNotEmpty ? pickString(map['videos_480']) : pickString(map['videoUrl']),
+      videos720: pickString(map['videos_720']).isNotEmpty ? pickString(map['videos_720']) : pickString(map['videoUrlHD']),
       videoThumbnail: (map['videoThumbnail'] ?? '').toString(),
       videoThumbnailSmall: (map['videoThumbnailSmall'] ?? '').toString(),
     );
@@ -33,9 +37,10 @@ class DictionaryVariant {
   Map<String, dynamic> toMap() {
     final m = <String, dynamic>{
       'label': label,
-      'videoUrl': videoUrl,
-      'videoUrlSD': videoUrlSD,
-      'videoUrlHD': videoUrlHD,
+      // New schema only.
+      'videos_360': videos360,
+      'videos_480': videos480,
+      'videos_720': videos720,
       'videoThumbnail': videoThumbnail,
     };
     if (videoThumbnailSmall.isNotEmpty) {

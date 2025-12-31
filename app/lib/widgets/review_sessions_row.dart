@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'package:love_to_learn_sign/video_viewer_page.dart';
 import 'package:love_to_learn_sign/services/share_utils.dart';
 import 'package:flutter/material.dart';
@@ -225,8 +226,9 @@ class _ReviewSessionsRowState extends State<ReviewSessionsRow> {
                         itemBuilder: (context, i) {
                           final d = docs[i];
                           final data = d.data();
-                          final english = (data['english'] ?? '').toString();
-                          final bengali = (data['bengali'] ?? '').toString();
+                          final localLang = context.read<TenantScope>().contentLocale;
+                          final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+                          final bengali = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
 
                           // thumbnail extraction
                           String? thumbnailUrl;

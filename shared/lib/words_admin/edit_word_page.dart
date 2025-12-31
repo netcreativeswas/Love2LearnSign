@@ -115,7 +115,6 @@ class _EditWordPageState extends State<EditWordPage> {
 
   // --- Multi-locale word fields (EN + tenant locales) ---
   List<String> _uiLocales = const ['en', 'bn'];
-  bool _uiLocalesLoaded = false;
   final Map<String, TextEditingController> _labelControllers = {};
   final Map<String, TextEditingController> _noteControllers = {};
   final Map<String, TextEditingController> _synonymsControllers = {};
@@ -303,7 +302,6 @@ class _EditWordPageState extends State<EditWordPage> {
 
     setState(() {
       _uiLocales = normalized;
-      if (markLoaded) _uiLocalesLoaded = true;
     });
   }
 
@@ -521,18 +519,18 @@ class _EditWordPageState extends State<EditWordPage> {
         for (int i = 0; i < variants.length; i++) {
           final v = variants[i];
           _variantFields[i]['label']!.text = (v['label'] ?? 'Version ${i + 1}').toString();
-          _variantFields[i]['videoUrl']!.text = (v['videoUrl'] ?? '').toString();
-          _variantFields[i]['videoUrlSD']!.text = (v['videoUrlSD'] ?? '').toString();
-          _variantFields[i]['videoUrlHD']!.text = (v['videoUrlHD'] ?? '').toString();
+          _variantFields[i]['videoUrl']!.text = (v['videos_480'] ?? v['videoUrl'] ?? '').toString();
+          _variantFields[i]['videoUrlSD']!.text = (v['videos_360'] ?? v['videoUrlSD'] ?? '').toString();
+          _variantFields[i]['videoUrlHD']!.text = (v['videos_720'] ?? v['videoUrlHD'] ?? '').toString();
           _variantFields[i]['thumbnailUrl']!.text = (v['videoThumbnail'] ?? '').toString();
           _variantFields[i]['thumbnailSmallUrl']!.text = (v['videoThumbnailSmall'] ?? '').toString();
         }
       } else {
         // Single-variant fields are represented by first variant where possible
         final first = variants.isNotEmpty ? variants.first : <String, dynamic>{};
-        _videoUrlController.text = (first['videoUrl'] ?? data['videoUrl'] ?? '').toString();
-        _videoUrlSDController.text = (first['videoUrlSD'] ?? data['videoUrlSD'] ?? '').toString();
-        _videoUrlHDController.text = (first['videoUrlHD'] ?? data['videoUrlHD'] ?? '').toString();
+        _videoUrlController.text = (first['videos_480'] ?? first['videoUrl'] ?? data['videos_480'] ?? data['videoUrl'] ?? '').toString();
+        _videoUrlSDController.text = (first['videos_360'] ?? first['videoUrlSD'] ?? data['videos_360'] ?? data['videoUrlSD'] ?? '').toString();
+        _videoUrlHDController.text = (first['videos_720'] ?? first['videoUrlHD'] ?? data['videos_720'] ?? data['videoUrlHD'] ?? '').toString();
         _videoThumbnailSmallUrlController.text =
             (first['videoThumbnailSmall'] ?? data['videoThumbnailSmall'] ?? '').toString();
       }
@@ -559,9 +557,12 @@ class _EditWordPageState extends State<EditWordPage> {
     }
 
     push(data['imageFlashcard']);
-    push(data['videoUrl']);
-    push(data['videoUrlSD']);
-    push(data['videoUrlHD']);
+    push(data['videos_360']);
+    push(data['videos_480']);
+    push(data['videos_720']);
+    push(data['videoUrl']); // legacy
+    push(data['videoUrlSD']); // legacy
+    push(data['videoUrlHD']); // legacy
     push(data['videoThumbnail']);
     push(data['videoThumbnailSmall']);
     final variants = data['variants'];
@@ -569,9 +570,12 @@ class _EditWordPageState extends State<EditWordPage> {
       for (final v in variants) {
         if (v is Map) {
           final m = Map<String, dynamic>.from(v);
-          push(m['videoUrl']);
-          push(m['videoUrlSD']);
-          push(m['videoUrlHD']);
+          push(m['videos_360']);
+          push(m['videos_480']);
+          push(m['videos_720']);
+          push(m['videoUrl']); // legacy
+          push(m['videoUrlSD']); // legacy
+          push(m['videoUrlHD']); // legacy
           push(m['videoThumbnail']);
           push(m['videoThumbnailSmall']);
         }
@@ -586,15 +590,15 @@ class _EditWordPageState extends State<EditWordPage> {
 
     // Main files
     if (_selectedVideo != null) {
-      uploadedUrls['videoUrl'] =
+      uploadedUrls['videos_480'] =
           await _uploadFileToStorage(_selectedVideo!, storageDir: TenantStoragePaths.videosDir(conceptId: conceptId));
     }
     if (_selectedVideoSD != null) {
-      uploadedUrls['videoUrlSD'] =
+      uploadedUrls['videos_360'] =
           await _uploadFileToStorage(_selectedVideoSD!, storageDir: TenantStoragePaths.videosSdDir(conceptId: conceptId));
     }
     if (_selectedVideoHD != null) {
-      uploadedUrls['videoUrlHD'] =
+      uploadedUrls['videos_720'] =
           await _uploadFileToStorage(_selectedVideoHD!, storageDir: TenantStoragePaths.videosHdDir(conceptId: conceptId));
     }
     if (_selectedVideoThumbnailSmall != null) {
@@ -712,9 +716,9 @@ class _EditWordPageState extends State<EditWordPage> {
       final englishWordAntonyms = antonyms['en'] ?? const <String>[];
       final bengaliWordAntonyms = antonyms['bn'] ?? const <String>[];
 
-      final videoUrl = uploadedUrls['videoUrl'] as String? ?? _videoUrlController.text.trim();
-      final videoUrlSD = uploadedUrls['videoUrlSD'] as String? ?? _videoUrlSDController.text.trim();
-      final videoUrlHD = uploadedUrls['videoUrlHD'] as String? ?? _videoUrlHDController.text.trim();
+      final videos480 = uploadedUrls['videos_480'] as String? ?? _videoUrlController.text.trim();
+      final videos360 = uploadedUrls['videos_360'] as String? ?? _videoUrlSDController.text.trim();
+      final videos720 = uploadedUrls['videos_720'] as String? ?? _videoUrlHDController.text.trim();
       final videoThumbnailUrl =
           uploadedUrls['videoThumbnail'] as String? ?? (beforeData['videoThumbnail'] ?? '').toString();
       final videoThumbnailSmallUrl =
@@ -727,9 +731,14 @@ class _EditWordPageState extends State<EditWordPage> {
       if (!_addVariant) {
         final Map<String, String> firstVariant = {
           'label': 'Version 1',
-          'videoUrl': videoUrl,
-          'videoUrlSD': videoUrlSD,
-          'videoUrlHD': videoUrlHD,
+          // Canonical
+          'videos_480': videos480,
+          'videos_360': videos360,
+          'videos_720': videos720,
+          // Legacy mirror (temporary)
+          'videoUrl': videos480,
+          'videoUrlSD': videos360,
+          'videoUrlHD': videos720,
           'videoThumbnail': videoThumbnailUrl,
         };
         if (videoThumbnailSmallUrl.isNotEmpty) {
@@ -745,12 +754,12 @@ class _EditWordPageState extends State<EditWordPage> {
 
         for (int i = 0; i < _variantFields.length; i++) {
           final label = _variantFields[i]['label']!.text.trim();
-          final url =
+          final url480 =
               (i < variantVideos.length && variantVideos[i].isNotEmpty) ? variantVideos[i] : _variantFields[i]['videoUrl']!.text.trim();
-          final urlSD = (i < variantVideosSD.length && variantVideosSD[i].isNotEmpty)
+          final url360 = (i < variantVideosSD.length && variantVideosSD[i].isNotEmpty)
               ? variantVideosSD[i]
               : _variantFields[i]['videoUrlSD']!.text.trim();
-          final urlHD = (i < variantVideosHD.length && variantVideosHD[i].isNotEmpty)
+          final url720 = (i < variantVideosHD.length && variantVideosHD[i].isNotEmpty)
               ? variantVideosHD[i]
               : _variantFields[i]['videoUrlHD']!.text.trim();
           final thumbnailUrl = (i < variantThumbnails.length && variantThumbnails[i].isNotEmpty)
@@ -762,9 +771,14 @@ class _EditWordPageState extends State<EditWordPage> {
 
           final Map<String, String> v = {
             'label': label.isNotEmpty ? label : 'Version ${i + 1}',
-            'videoUrl': url,
-            'videoUrlSD': urlSD,
-            'videoUrlHD': urlHD,
+            // Canonical
+            'videos_480': url480,
+            'videos_360': url360,
+            'videos_720': url720,
+            // Legacy mirror (temporary)
+            'videoUrl': url480,
+            'videoUrlSD': url360,
+            'videoUrlHD': url720,
             'videoThumbnail': thumbnailUrl,
           };
           if (smallThumbUrl.isNotEmpty) v['videoThumbnailSmall'] = smallThumbUrl;
@@ -833,9 +847,9 @@ class _EditWordPageState extends State<EditWordPage> {
       );
 
       // Update controllers to reflect newly uploaded URLs immediately
-      if (uploadedUrls['videoUrl'] is String) _videoUrlController.text = uploadedUrls['videoUrl'] as String;
-      if (uploadedUrls['videoUrlSD'] is String) _videoUrlSDController.text = uploadedUrls['videoUrlSD'] as String;
-      if (uploadedUrls['videoUrlHD'] is String) _videoUrlHDController.text = uploadedUrls['videoUrlHD'] as String;
+      if (uploadedUrls['videos_480'] is String) _videoUrlController.text = uploadedUrls['videos_480'] as String;
+      if (uploadedUrls['videos_360'] is String) _videoUrlSDController.text = uploadedUrls['videos_360'] as String;
+      if (uploadedUrls['videos_720'] is String) _videoUrlHDController.text = uploadedUrls['videos_720'] as String;
       if (uploadedUrls['videoThumbnailSmall'] is String) {
         _videoThumbnailSmallUrlController.text = uploadedUrls['videoThumbnailSmall'] as String;
       }

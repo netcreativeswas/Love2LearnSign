@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'services/history_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'video_viewer_page.dart';
 import 'tenancy/tenant_scope.dart';
@@ -58,8 +59,9 @@ class _HistoryPageState extends State<HistoryPage> {
                   itemBuilder: (context, index) {
                     final doc = orderedDocs[index];
                     final data = doc.data() as Map<String, dynamic>;
-                    final english = data['english'] ?? '';
-                    final bengali = data['bengali'] ?? '';
+                    final localLang = context.read<TenantScope>().contentLocale;
+                    final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+                    final bengali = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
                     final wordId = doc.id;
                     final variants = data['variants'] as List<dynamic>? ?? [];
                     String? thumbnailUrl;

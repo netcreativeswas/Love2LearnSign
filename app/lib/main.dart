@@ -22,6 +22,7 @@ import 'video_viewer_page.dart';
 import 'splashScreen/splash_gate.dart';
 import 'package:app_links/app_links.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'tenancy/tenant_scope.dart';
 
 import 'url_strategy_stub.dart'
@@ -1178,12 +1179,28 @@ bool _sameStringList(List<String> a, List<String> b) {
   return true;
 }
 
+Future<String> _getTenantContentLocale(String tenantId) async {
+  try {
+    final snap = await FirebaseFirestore.instance.collection('tenants').doc(tenantId).get();
+    final data = snap.data() ?? <String, dynamic>{};
+    final uiLocales = data['uiLocales'];
+    if (uiLocales is List && uiLocales.length >= 2) {
+      final v = uiLocales[1].toString().trim().toLowerCase();
+      if (v.isNotEmpty) return v;
+    }
+  } catch (_) {
+    // ignore
+  }
+  return 'en';
+}
+
 Future<void> scheduleDailyTasks(
   FlutterLocalNotificationsPlugin plugin, {
   required String tenantId,
 }) async {
   final prefs = await SharedPreferences.getInstance();
   final now = tz.TZDateTime.now(tz.local);
+  final contentLocale = await _getTenantContentLocale(tenantId);
 
   // 1) New words summary at 12 PM (only if new words in last 24h)
   if (prefs.getBool('notifyNewWords') ?? true) {
@@ -1206,9 +1223,9 @@ Future<void> scheduleDailyTasks(
       final maxWords = 5;
       final wordLines = newWordsSnapshot.docs.take(maxWords).map((d) {
         final data = d.data();
-        final en = data['english'] ?? '';
-        final bn = data['bengali'] ?? '';
-        return "$en — $bn";
+        final en = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+        final local = ConceptText.labelFor(data, lang: contentLocale, fallbackLang: 'en');
+        return "$en — $local";
       }).join('\n');
       final others = newWordsSnapshot.docs.length > maxWords ? '\n…' : '';
       final bodyNew = wordLines + others;
@@ -1254,8 +1271,9 @@ Future<void> scheduleDailyTasks(
     final docs = snapshot.docs.toList()..shuffle();
     if (docs.isEmpty) return;
     final pick = docs.first;
-    final wordEnglish = pick['english'] as String;
-    final wordBengali = pick['bengali'] as String;
+    final pickData = pick.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+    final wordEnglish = ConceptText.labelFor(pickData, lang: 'en', fallbackLang: 'en');
+    final wordBengali = ConceptText.labelFor(pickData, lang: contentLocale, fallbackLang: 'en');
     // Capitalize first letter of English word
     final wordEnglishCapitalized = wordEnglish.isEmpty
         ? wordEnglish
@@ -1292,7 +1310,9 @@ Future<void> sendNewWordsNotification(
 }) async {
   final ctx = navigatorKey.currentContext!;
   final locale = Localizations.localeOf(ctx);
-  final isBengali = locale.languageCode == 'bn';
+  final contentLocale = await _getTenantContentLocale(tenantId);
+  final showLocalFirst = contentLocale == 'bn' || contentLocale != 'en';
+  final isBengali = locale.languageCode == 'bn'; // keep for UI language ordering if desired
 
   final since = DateTime.now().subtract(Duration(days: 1));
   final snapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId)
@@ -1304,10 +1324,15 @@ Future<void> sendNewWordsNotification(
   final maxWords = 5;
   final wordLines = snapshot.docs.take(maxWords).map((doc) {
     final data = doc.data();
-    final en = (data['english'] ?? '').toString();
-    final bn = (data['bengali'] ?? '').toString();
+    final en = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+    final local = ConceptText.labelFor(data, lang: contentLocale, fallbackLang: 'en');
     final enUpper = en.toUpperCase();
-    return isBengali ? "• $bn / $enUpper" : "• $enUpper / $bn";
+    final localUpper = local.toUpperCase();
+    // Prefer tenant content ordering; keep bn UI preference as a secondary signal.
+    if (showLocalFirst && !isBengali) {
+      return "• $localUpper / $enUpper";
+    }
+    return isBengali ? "• $localUpper / $enUpper" : "• $enUpper / $localUpper";
   }).join('\n');
 
   final others = snapshot.docs.length > maxWords ? '\n…' : '';
@@ -1332,12 +1357,14 @@ Future<void> sendLearnWordNotification(
   FlutterLocalNotificationsPlugin plugin, {
   required String tenantId,
 }) async {
+  final contentLocale = await _getTenantContentLocale(tenantId);
   final snapshot = await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).get();
   if (snapshot.docs.isEmpty) return;
   final docs = snapshot.docs..shuffle();
   final pick = docs.first;
-  final wordEnglish = pick['english'] as String;
-  final wordBengali = pick['bengali'] as String;
+  final pickData = pick.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+  final wordEnglish = ConceptText.labelFor(pickData, lang: 'en', fallbackLang: 'en');
+  final wordBengali = ConceptText.labelFor(pickData, lang: contentLocale, fallbackLang: 'en');
   // Capitalize first letter of English word
   final wordEnglishCapitalized = wordEnglish.isEmpty
       ? wordEnglish

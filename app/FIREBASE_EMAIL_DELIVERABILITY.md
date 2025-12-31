@@ -2,7 +2,7 @@
 
 ## 🔴 Problème actuel
 
-Les emails de vérification Firebase Auth (`noreply@love-to-learn-sign.firebaseapp.com`) arrivent dans les spams au lieu de la boîte de réception.
+Les emails de vérification Firebase Auth (`noreply@love2learnsign-1914ce.firebaseapp.com`) arrivent dans les spams au lieu de la boîte de réception.
 
 ## 🔍 Pourquoi ça arrive ?
 
@@ -43,7 +43,7 @@ Les emails de vérification Firebase Auth (`noreply@love-to-learn-sign.firebasea
    - Retournez dans Firebase Console
    - Cliquez sur **Verify** pour vérifier votre domaine
 
-**Résultat** : Les emails viendront de `noreply@lovetolearnsign.app` au lieu de `noreply@love-to-learn-sign.firebaseapp.com`
+**Résultat** : Les emails viendront de `noreply@lovetolearnsign.app` au lieu de `noreply@love2learnsign-1914ce.firebaseapp.com`
 
 ---
 

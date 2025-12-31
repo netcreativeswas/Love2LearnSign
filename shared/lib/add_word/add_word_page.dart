@@ -160,10 +160,8 @@ class _AddWordPageState extends State<AddWordPage> {
     required String objectPath,
   }) async {
     final ref = _storageRoot().child(objectPath);
-    // debug: bucket/path
     final snapshot = await ref.putData(bytes, metadata);
-    final url = await snapshot.ref.getDownloadURL();
-    return url;
+    return await snapshot.ref.getDownloadURL();
   }
   Future<String> _putString({
     required String data,
@@ -690,9 +688,9 @@ class _AddWordPageState extends State<AddWordPage> {
 
     await _ensureSignedIn();
 
-    // Upload main video files
+    // Upload main video files (canonical: videos_480 / videos_360 / videos_720)
     if (_selectedVideo != null) {
-      uploadedUrls['videoUrl'] = await _uploadFileAndGetUrl(
+      uploadedUrls['videos_480'] = await _uploadFileAndGetUrl(
         _selectedVideo!,
         storageDir: TenantStoragePaths.videosDir(
           tenantId: widget.tenantId,
@@ -703,7 +701,7 @@ class _AddWordPageState extends State<AddWordPage> {
     }
 
     if (_selectedVideoSD != null) {
-      uploadedUrls['videoUrlSD'] = await _uploadFileAndGetUrl(
+      uploadedUrls['videos_360'] = await _uploadFileAndGetUrl(
         _selectedVideoSD!,
         storageDir: TenantStoragePaths.videosSdDir(
           tenantId: widget.tenantId,
@@ -714,7 +712,7 @@ class _AddWordPageState extends State<AddWordPage> {
     }
 
     if (_selectedVideoHD != null) {
-      uploadedUrls['videoUrlHD'] = await _uploadFileAndGetUrl(
+      uploadedUrls['videos_720'] = await _uploadFileAndGetUrl(
         _selectedVideoHD!,
         storageDir: TenantStoragePaths.videosHdDir(
           tenantId: widget.tenantId,
@@ -895,10 +893,11 @@ class _AddWordPageState extends State<AddWordPage> {
               'subcategory': (m['subcategory'] ?? '').trim(),
             })
         .toList();
-    // Use uploaded URLs if files were selected, otherwise use manual URLs
-    final videoUrl = uploadedUrls['videoUrl'] as String? ?? _videoUrlController.text.trim();
-    final videoUrlSD = uploadedUrls['videoUrlSD'] as String? ?? _videoUrlSDController.text.trim();
-    final videoUrlHD = uploadedUrls['videoUrlHD'] as String? ?? _videoUrlHDController.text.trim();
+    // Use uploaded URLs if files were selected, otherwise use manual URLs.
+    // Canonical fields: videos_360/480/720. Legacy fields will be mirrored for compatibility.
+    final videos480 = (uploadedUrls['videos_480'] as String?) ?? _videoUrlController.text.trim();
+    final videos360 = (uploadedUrls['videos_360'] as String?) ?? _videoUrlSDController.text.trim();
+    final videos720 = (uploadedUrls['videos_720'] as String?) ?? _videoUrlHDController.text.trim();
     final videoThumbnailUrl = uploadedUrls['videoThumbnail'] as String? ?? '';
     final videoThumbnailSmallUrl = uploadedUrls['videoThumbnailSmall'] as String? ?? _videoThumbnailSmallUrlController.text.trim();
     final imageFlashcardUrl = uploadedUrls['imageFlashcard'] as String? ?? _imageFlashcardUrlController.text.trim();
@@ -933,9 +932,14 @@ class _AddWordPageState extends State<AddWordPage> {
       // Single variant (video is optional)
       final Map<String, String> firstVariant = {
         'label': 'Version 1',
-        'videoUrl': videoUrl,
-        'videoUrlSD': videoUrlSD,
-        'videoUrlHD': videoUrlHD,
+        // Canonical
+        'videos_480': videos480,
+        'videos_360': videos360,
+        'videos_720': videos720,
+        // Legacy mirror
+        'videoUrl': videos480,
+        'videoUrlSD': videos360,
+        'videoUrlHD': videos720,
         'videoThumbnail': videoThumbnailUrl,
       };
       if (videoThumbnailSmallUrl.isNotEmpty) {
@@ -952,16 +956,27 @@ class _AddWordPageState extends State<AddWordPage> {
       final variantThumbnailsSmall = uploadedUrls['variantThumbnailsSmall'] as List<String>;
       for (int i = 0; i < _variantFields.length; i++) {
         final label = _variantFields[i]['label']!.text.trim();
-        final url = (i < variantVideos.length && variantVideos[i].isNotEmpty) ? variantVideos[i] : _variantFields[i]['videoUrl']!.text.trim();
-        final urlSD = (i < variantVideosSD.length && variantVideosSD[i].isNotEmpty) ? variantVideosSD[i] : _variantFields[i]['videoUrlSD']!.text.trim();
-        final urlHD = (i < variantVideosHD.length && variantVideosHD[i].isNotEmpty) ? variantVideosHD[i] : _variantFields[i]['videoUrlHD']!.text.trim();
+        final url480 = (i < variantVideos.length && variantVideos[i].isNotEmpty)
+            ? variantVideos[i]
+            : _variantFields[i]['videoUrl']!.text.trim();
+        final url360 = (i < variantVideosSD.length && variantVideosSD[i].isNotEmpty)
+            ? variantVideosSD[i]
+            : _variantFields[i]['videoUrlSD']!.text.trim();
+        final url720 = (i < variantVideosHD.length && variantVideosHD[i].isNotEmpty)
+            ? variantVideosHD[i]
+            : _variantFields[i]['videoUrlHD']!.text.trim();
         final thumbnailUrl = (i < variantThumbnails.length && variantThumbnails[i].isNotEmpty) ? variantThumbnails[i] : (_variantFields[i]['thumbnailUrl']?.text.trim() ?? '');
         final smallThumbUrl = (i < variantThumbnailsSmall.length && variantThumbnailsSmall[i].isNotEmpty) ? variantThumbnailsSmall[i] : (_variantFields[i]['thumbnailSmallUrl']?.text.trim() ?? '');
         final Map<String, String> v = {
           'label': label.isNotEmpty ? label : 'Version ${i + 1}',
-          'videoUrl': url,
-          'videoUrlSD': urlSD,
-          'videoUrlHD': urlHD,
+          // Canonical
+          'videos_480': url480,
+          'videos_360': url360,
+          'videos_720': url720,
+          // Legacy mirror
+          'videoUrl': url480,
+          'videoUrlSD': url360,
+          'videoUrlHD': url720,
           'videoThumbnail': thumbnailUrl,
         };
         if (smallThumbUrl.isNotEmpty) v['videoThumbnailSmall'] = smallThumbUrl;

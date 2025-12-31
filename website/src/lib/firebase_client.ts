@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
@@ -7,7 +7,7 @@ import { getFirestore } from "firebase/firestore";
 // Firebase web config for project: love2learnsign-1914ce
 // These values are not secrets, but must be correct.
 const firebaseConfig = {
-  apiKey: "AIzaSyDpIzDSemquICXH8VrR5SxeLy2fVbhBzZY",
+  apiKey: "AIzaSyAWnlmqkd7Q2AecPVcgOGHVNyPXw-WU8JU",
   authDomain: "love2learnsign-1914ce.firebaseapp.com",
   projectId: "love2learnsign-1914ce",
   storageBucket: "love2learnsign-1914ce.firebasestorage.app",

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:l2l_shared/tenancy/concept_media.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
@@ -52,7 +53,7 @@ class _OnboardingVideoScreenState extends State<OnboardingVideoScreen>
           .get();
       final data = doc.data() ?? {};
       final enabled = (data['enabled'] as bool?) ?? true;
-      String url = (data['videoUrl'] as String?) ?? '';
+      String url = ConceptMedia.video480FromConcept(Map<String, dynamic>.from(data));
       
       print('🔍 Onboarding: Document data: $data');
       print('🔍 Onboarding: enabled: $enabled, url: $url');

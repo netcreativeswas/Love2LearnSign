@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
+import 'package:l2l_shared/tenancy/concept_media.dart';
 import 'services/cache_service.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'package:provider/provider.dart';
@@ -282,8 +284,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     if (_isDisposed || !mounted) return;
     
     final data = doc.data() as Map<String, dynamic>;
-    _english = data['english'] as String? ?? '';
-    _bengali = data['bengali'] as String? ?? '';
+    final localLang = context.read<TenantScope>().contentLocale;
+    _english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+    _bengali = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
     _categoryMain = data['category_main'] as String? ?? ''; // Note: Firebase uses 'category_main' with underscore
     _categorySub = data['category_sub'] as String? ?? ''; // Load subcategory
     
@@ -329,20 +332,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
       }
     }
     
-    // Handle antonyms - they can be List or String in Firebase
-    final englishAntonyms = data['englishWordAntonyms'];
-    if (englishAntonyms is List && englishAntonyms.isNotEmpty) {
-      _englishWordAntonyms = englishAntonyms.map((e) => e.toString()).toList();
-    } else if (englishAntonyms is String && englishAntonyms.isNotEmpty) {
-      _englishWordAntonyms = [englishAntonyms];
-    }
-    
-    final bengaliAntonyms = data['bengaliWordAntonyms'];
-    if (bengaliAntonyms is List && bengaliAntonyms.isNotEmpty) {
-      _bengaliWordAntonyms = bengaliAntonyms.map((e) => e.toString()).toList();
-    } else if (bengaliAntonyms is String && bengaliAntonyms.isNotEmpty) {
-      _bengaliWordAntonyms = [bengaliAntonyms];
-    }
+    // Multi-language antonyms with legacy fallback.
+    _englishWordAntonyms = ConceptText.antonymsFor(data, lang: 'en');
+    _bengaliWordAntonyms = ConceptText.antonymsFor(data, lang: localLang);
     
     final variants = data['variants'] as List<dynamic>?;
 
@@ -366,7 +358,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
           return;
         }
         
-        final url = variants[i]['videoUrl'];
+        final v = variants[i] is Map ? Map<String, dynamic>.from(variants[i] as Map) : <String, dynamic>{};
+        final url = ConceptMedia.video480FromVariant(v);
         try {
           final sanitizedUrl = Uri.parse(url).toString();
           final file = await CacheService.instance.getSingleFileRespectingSettings(sanitizedUrl);
@@ -670,10 +663,12 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
             // Display English and Bengali words above the video
                     Builder(
                       builder: (context) {
-                        final locale = Localizations.localeOf(context).languageCode;
+                        final uiLang = Localizations.localeOf(context).languageCode.trim().toLowerCase();
+                        final localLang = context.read<TenantScope>().contentLocale.trim().toLowerCase();
                         final englishCap = _capitalizeFirstLetter(_english);
-                        final String topText = locale == 'bn' ? _bengali : englishCap;
-                        final String bottomText = locale == 'bn' ? englishCap : _bengali;
+                        final bool showLocalFirst = localLang.isNotEmpty && localLang != 'en' && uiLang == localLang;
+                        final String topText = showLocalFirst ? _bengali : englishCap;
+                        final String bottomText = showLocalFirst ? englishCap : _bengali;
                         return Column(
               children: [
                 Row(
@@ -924,10 +919,12 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
                       // Display English and Bengali words above the video
                   Builder(
                     builder: (context) {
-                      final locale = Localizations.localeOf(context).languageCode;
+                      final uiLang = Localizations.localeOf(context).languageCode.trim().toLowerCase();
+                      final localLang = context.read<TenantScope>().contentLocale.trim().toLowerCase();
                       final englishCap = _capitalizeFirstLetter(_english);
-                      final String topText = locale == 'bn' ? _bengali : englishCap;
-                      final String bottomText = locale == 'bn' ? englishCap : _bengali;
+                      final bool showLocalFirst = localLang.isNotEmpty && localLang != 'en' && uiLang == localLang;
+                      final String topText = showLocalFirst ? _bengali : englishCap;
+                      final String bottomText = showLocalFirst ? englishCap : _bengali;
                       return Column(
                         children: [
                           Row(
@@ -1304,9 +1301,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
       return const SizedBox.shrink();
     }
     
-    // Get the text based on current locale
-    final locale = Localizations.localeOf(context).languageCode;
-    final learnAlsoText = locale == 'bn' ? 'আরও শিখুন' : 'LEARN ALSO';
+    // Tenant-localized label (BN has a hard-coded string; other locales fall back to EN for now).
+    final localLang = context.read<TenantScope>().contentLocale;
+    final learnAlsoText = localLang == 'bn' ? 'আরও শিখুন' : 'LEARN ALSO';
     
     // If no word selected yet, show loading or empty
     if (_selectedRelatedWordId == null || _selectedRelatedWordData == null) {
@@ -1333,8 +1330,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
               
     // Use the stored word data (doesn't change on Play/Pause)
     final data = _selectedRelatedWordData!;
-              final english = data['english'] as String? ?? '';
-              final bengali = data['bengali'] as String? ?? '';
+    final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+    final bengali = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
               final variants = data['variants'] as List<dynamic>?;
               
               // Get thumbnail
@@ -1391,9 +1388,11 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
                   ),
               title: Builder(
                 builder: (context) {
-                  final locale = Localizations.localeOf(context).languageCode;
+                  final uiLang = Localizations.localeOf(context).languageCode.trim().toLowerCase();
+                  final localLang = context.read<TenantScope>().contentLocale.trim().toLowerCase();
+                  final showLocalFirst = localLang.isNotEmpty && localLang != 'en' && uiLang == localLang;
                   final enCap = _capitalizeFirstLetter(english);
-                  final topText = locale == 'bn' ? bengali : enCap;
+                  final topText = showLocalFirst ? bengali : enCap;
                   return Text(
                     topText,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -1407,9 +1406,11 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
                   ),
               subtitle: Builder(
                 builder: (context) {
-                  final locale = Localizations.localeOf(context).languageCode;
+                  final uiLang = Localizations.localeOf(context).languageCode.trim().toLowerCase();
+                  final localLang = context.read<TenantScope>().contentLocale.trim().toLowerCase();
+                  final showLocalFirst = localLang.isNotEmpty && localLang != 'en' && uiLang == localLang;
                   final enCap = _capitalizeFirstLetter(english);
-                  final bottomText = locale == 'bn' ? enCap : bengali;
+                  final bottomText = showLocalFirst ? enCap : bengali;
                   return Text(
                     bottomText,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1518,9 +1519,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
       return const SizedBox.shrink();
     }
     
-    // Get the text based on current locale
-    final locale = Localizations.localeOf(context).languageCode;
-    final learnOppositeText = locale == 'bn' ? 'বিপরীত শিখুন' : 'LEARN THE OPPOSITE';
+    // Tenant-localized label (BN has a hard-coded string; other locales fall back to EN for now).
+    final localLang = context.read<TenantScope>().contentLocale;
+    final learnOppositeText = localLang == 'bn' ? 'বিপরীত শিখুন' : 'LEARN THE OPPOSITE';
     
     return FutureBuilder<DocumentSnapshot?>(
       future: _findAntonymDocument(),
@@ -1532,8 +1533,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
               
         final doc = snapshot.data!;
               final data = doc.data() as Map<String, dynamic>;
-              final english = data['english'] as String? ?? '';
-              final bengali = data['bengali'] as String? ?? '';
+              final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+              final bengali = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
               final variants = data['variants'] as List<dynamic>?;
               
               // Get thumbnail
@@ -1592,9 +1593,11 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
                   ),
                   title: Builder(
                     builder: (context) {
-                      final locale = Localizations.localeOf(context).languageCode;
+                      final uiLang = Localizations.localeOf(context).languageCode.trim().toLowerCase();
+                      final localLang = context.read<TenantScope>().contentLocale.trim().toLowerCase();
+                      final showLocalFirst = localLang.isNotEmpty && localLang != 'en' && uiLang == localLang;
                       final enCap = _capitalizeFirstLetter(english);
-                      final topText = locale == 'bn' ? bengali : enCap;
+                      final topText = showLocalFirst ? bengali : enCap;
                       return Text(
                         topText,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -1608,9 +1611,11 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
                   ),
                   subtitle: Builder(
                     builder: (context) {
-                      final locale = Localizations.localeOf(context).languageCode;
+                      final uiLang = Localizations.localeOf(context).languageCode.trim().toLowerCase();
+                      final localLang = context.read<TenantScope>().contentLocale.trim().toLowerCase();
+                      final showLocalFirst = localLang.isNotEmpty && localLang != 'en' && uiLang == localLang;
                       final enCap = _capitalizeFirstLetter(english);
-                      final bottomText = locale == 'bn' ? enCap : bengali;
+                      final bottomText = showLocalFirst ? enCap : bengali;
                       return Text(
                         bottomText,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(

@@ -39,7 +39,7 @@ Les règles Firestore vérifient si vous êtes admin **AVANT** de permettre la m
 
 1. **Ouvrez Firebase Console**
    - Allez sur https://console.firebase.google.com
-   - Sélectionnez votre projet `love-to-learn-sign`
+   - Sélectionnez votre projet `love2learnsign-1914ce`
 
 2. **Accédez aux règles Firestore**
    - Menu gauche → **Firestore Database**

@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'tenancy/tenant_scope.dart';
@@ -113,8 +114,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
                           }
                           
                           final data = doc.data() as Map<String, dynamic>;
-                          final english = (data['english'] ?? '').toString().toLowerCase();
-                          final bengali = (data['bengali'] ?? '').toString().toLowerCase();
+                          final localLang = context.read<TenantScope>().contentLocale;
+                          final english = ConceptText.labelLowerFor(data, lang: 'en', fallbackLang: 'en');
+                          final bengali = ConceptText.labelLowerFor(data, lang: localLang, fallbackLang: 'en');
                           return ids.contains(doc.id) &&
                                  (english.contains(_searchText) || bengali.contains(_searchText));
                         })
@@ -147,8 +149,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
                           onExpansionChanged: (expanded) => _setExpandedState(category, expanded),
                           children: items.map((doc) {
                             final data = doc.data() as Map<String, dynamic>;
-                            final english = data['english'] ?? '';
-                            final bengali = data['bengali'] ?? '';
+                            final localLang = context.read<TenantScope>().contentLocale;
+                            final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+                            final bengali = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
                             final wordId = doc.id;
 
                             return ListTile(

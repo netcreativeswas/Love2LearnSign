@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
+import 'package:l2l_shared/tenancy/concept_media.dart';
 import 'package:video_player/video_player.dart';
 import 'services/cache_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -257,22 +259,16 @@ class _QuizCategoryPageState extends State<QuizCategoryPage> {
     pool.removeWhere((doc) => doc.id == correctDoc.id);
     pool.shuffle();
     final incorrectDocs = pool.take(3).toList();
-    // Determine which field to use based on current locale
-    final isBn = Localizations.localeOf(context).languageCode == 'bn';
-    // Fetch correct word in appropriate language
-    final correctWord = isBn
-        ? (correctDoc.data()['bengali'] as String)
-        : (correctDoc.data()['english'] as String);
+    final langCode = context.read<TenantScope>().contentLocale;
+    final correctWord = ConceptText.labelFor(correctDoc.data(), lang: langCode, fallbackLang: 'en');
     final variants = (correctDoc.data()['variants'] as List<dynamic>?) ?? [];
     final correctVideo = variants.isNotEmpty
-        ? (variants[0]['videoUrl'] as String)
+        ? ConceptMedia.video480FromVariant(Map<String, dynamic>.from(variants[0] as Map))
         : '';
     // Fetch incorrect options similarly
     final allOptions = [
       correctWord,
-      ...incorrectDocs.map((e) => isBn
-          ? (e.data()['bengali'] as String)
-          : (e.data()['english'] as String))
+      ...incorrectDocs.map((e) => ConceptText.labelFor(e.data(), lang: langCode, fallbackLang: 'en'))
     ]..shuffle();
     videoUrl = correctVideo;
     correctAnswer = correctWord;
@@ -355,8 +351,8 @@ class _QuizCategoryPageState extends State<QuizCategoryPage> {
         if (!mounted || _isDisposed) break;
         final v = (_quizDocuments[i].data()['variants'] as List<dynamic>?) ?? [];
         if (v.isEmpty) continue;
-        final url = v[0]['videoUrl'] as String?;
-        if (url == null || url.isEmpty) continue;
+        final url = ConceptMedia.video480FromVariant(Map<String, dynamic>.from(v[0] as Map));
+        if (url.isEmpty) continue;
         try {
           final fileInfo = await CacheService.instance.getFromCacheOnly(url);
           if (fileInfo == null) {
@@ -392,8 +388,8 @@ class _QuizCategoryPageState extends State<QuizCategoryPage> {
       final nextDoc = _quizDocuments[nextIndex];
       final variants = (nextDoc.data()['variants'] as List<dynamic>?) ?? [];
       if (variants.isEmpty) return;
-      final nextUrl = variants[0]['videoUrl'] as String?;
-      if (nextUrl == null || nextUrl.isEmpty) return;
+      final nextUrl = ConceptMedia.video480FromVariant(Map<String, dynamic>.from(variants[0] as Map));
+      if (nextUrl.isEmpty) return;
 
       // Skip if already prepared for same URL
       if (_nextController != null && _nextVideoUrl == nextUrl) return;

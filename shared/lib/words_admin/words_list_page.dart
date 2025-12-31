@@ -35,7 +35,7 @@ class _WordsListPageState extends State<WordsListPage> {
 
   Timer? _debounce;
   String _query = '';
-  bool _searchBengali = false; // derived from query (auto-detect)
+  String _searchLang = 'en'; // 'en' or tenant local language (best-effort)
 
   bool _isLoading = false;
   bool _hasMore = true;
@@ -103,8 +103,21 @@ class _WordsListPageState extends State<WordsListPage> {
 
   bool get _isSearching => _query.trim().length >= minQueryChars;
 
-  bool _containsBengali(String s) {
-    return RegExp(r'[\u0980-\u09FF]').hasMatch(s);
+  bool _containsBengali(String s) => RegExp(r'[\u0980-\u09FF]').hasMatch(s);
+
+  String get _localLangGuess {
+    // Best-effort mapping; dashboard does not expose uiLocales yet.
+    // Keep BN for the default BDSL tenant.
+    final s = widget.signLangId.trim().toLowerCase();
+    if (s == 'bdsl') return 'bn';
+    return 'en';
+  }
+
+  List<String> get _supportedSearchLangs {
+    final out = <String>['en'];
+    final local = _localLangGuess;
+    if (local.isNotEmpty && local != 'en') out.add(local);
+    return out;
   }
 
   Future<void> _refresh() async {
@@ -129,7 +142,7 @@ class _WordsListPageState extends State<WordsListPage> {
     setState(() => _isLoading = true);
     try {
       final snap = await _repo.fetchSearchPage(
-        bengali: _searchBengali,
+        langCode: _searchLang,
         queryLower: _query.trim().toLowerCase(),
         limit: pageSize,
         startAfter: _lastDoc,
@@ -158,7 +171,8 @@ class _WordsListPageState extends State<WordsListPage> {
       if (!mounted) return;
       setState(() {
         _query = v;
-        _searchBengali = _containsBengali(v);
+        // Auto-detect Bengali script only; otherwise keep current selection.
+        if (_containsBengali(v)) _searchLang = 'bn';
       });
       await _refresh();
     });
@@ -175,7 +189,9 @@ class _WordsListPageState extends State<WordsListPage> {
 
       // Run a bounded loop to avoid very long UI blocks. User can click again to continue.
       while (!done && batches < 10) {
-        final res = await _repo.backfillWordLowerFields(limit: limit, startAfterDocId: cursor);
+        // Backfill both search-lower fields + canonical video URLs.
+        await _repo.backfillWordLowerFields(limit: limit, startAfterDocId: cursor);
+        final res = await _repo.backfillWordVideoFields(limit: limit, startAfterDocId: cursor);
         final scanned = (res['scanned'] is int) ? res['scanned'] as int : 0;
         final updated = (res['updated'] is int) ? res['updated'] as int : 0;
         totalScanned += scanned;
@@ -252,7 +268,14 @@ class _WordsListPageState extends State<WordsListPage> {
           showBackfill: _isAdmin(context),
           onBackfill: _runBackfill,
           showResults: _isSearching,
-          searchIsBengali: _searchBengali,
+          searchLang: _searchLang,
+          supportedSearchLangs: _supportedSearchLangs,
+          onSearchLangChanged: (v) {
+            final next = v.trim().toLowerCase();
+            if (next.isEmpty || next == _searchLang) return;
+            setState(() => _searchLang = next);
+            _refresh();
+          },
         );
 
         if (!isDesktop) return list;
@@ -296,7 +319,9 @@ class _WordsListPanel extends StatelessWidget {
   final bool showBackfill;
   final Future<void> Function() onBackfill;
   final bool showResults;
-  final bool searchIsBengali;
+  final String searchLang;
+  final List<String> supportedSearchLangs;
+  final ValueChanged<String> onSearchLangChanged;
 
   const _WordsListPanel({
     required this.scroll,
@@ -310,7 +335,9 @@ class _WordsListPanel extends StatelessWidget {
     required this.showBackfill,
     required this.onBackfill,
     required this.showResults,
-    required this.searchIsBengali,
+    required this.searchLang,
+    required this.supportedSearchLangs,
+    required this.onSearchLangChanged,
   });
 
   @override
@@ -345,10 +372,23 @@ class _WordsListPanel extends StatelessWidget {
                     _CountChip(count: wordCount),
                     const Spacer(),
                     if (showResults)
-                      Chip(
-                        label: Text(searchIsBengali ? 'Bengali' : 'English'),
-                        visualDensity: VisualDensity.compact,
-                      ),
+                      (supportedSearchLangs.length <= 1)
+                          ? const SizedBox.shrink()
+                          : DropdownButton<String>(
+                              value: supportedSearchLangs.contains(searchLang) ? searchLang : supportedSearchLangs.first,
+                              items: supportedSearchLangs
+                                  .map(
+                                    (l) => DropdownMenuItem(
+                                      value: l,
+                                      child: Text(l.toUpperCase()),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v == null) return;
+                                onSearchLangChanged(v);
+                              },
+                            ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -392,7 +432,10 @@ class _WordsListPanel extends StatelessWidget {
                       final data = doc.data();
                       final english = (data['english'] ?? '').toString();
                       final bengali = (data['bengali'] ?? '').toString();
-                      final title = searchIsBengali ? (bengali.isEmpty ? '(no bengali)' : bengali) : (english.isEmpty ? '(no english)' : english);
+                      final isBn = searchLang.toLowerCase() == 'bn';
+                      final title = isBn
+                          ? (bengali.isEmpty ? '(no bn)' : bengali)
+                          : (english.isEmpty ? '(no en)' : english);
 
                       return ListTile(
                         title: Text(title),

@@ -29,7 +29,7 @@ class SearchTrackingService {
     final sanitized = _sanitizeQuery(query);
     if (sanitized == null) {
       if (kDebugMode) {
-        debugPrint('Skipping analytics log for invalid query: "$query"');
+      debugPrint('Skipping analytics log for invalid query: "$query"');
       }
       return;
     }
@@ -45,11 +45,11 @@ class SearchTrackingService {
         'category': category ?? 'All',
       });
       if (kDebugMode) {
-        debugPrint('Search logged: $query ($resultCount results)');
+      debugPrint('Search logged: $query ($resultCount results)');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Error logging search: $e');
+      debugPrint('Error logging search: $e');
       }
     }
   }
@@ -183,7 +183,7 @@ class SearchTrackingService {
       // Important: don't silently return {} — it makes the dashboard look "empty"
       // when the real issue is permission/config.
       if (kDebugMode) {
-        debugPrint('Error fetching analytics: $e');
+      debugPrint('Error fetching analytics: $e');
       }
       rethrow;
     }

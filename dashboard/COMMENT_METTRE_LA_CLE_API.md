@@ -45,7 +45,7 @@ flutterfire configure
 ```
 
 **Suis les instructions** :
-- Sélectionne le projet Firebase : **"Love to Learn Sign"** (ou `love-to-learn-sign`)
+- Sélectionne le projet Firebase : **"Love2LearnSign"** (ID: `love2learnsign-1914ce`)
 - Sélectionne les plateformes que tu veux configurer (Web, Android, iOS, etc.)
 - FlutterFire va générer automatiquement `lib/firebase_options.dart` avec ta nouvelle clé API
 

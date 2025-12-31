@@ -30,6 +30,28 @@ class TenantScope extends ChangeNotifier {
   AppConfigDoc? get appConfig => _appConfig;
   TenantConfigDoc? get tenantConfig => _tenantConfig;
 
+  /// Content language for concepts (dictionary words) for this tenant.
+  ///
+  /// Convention:
+  /// - uiLocales[0] should be 'en'
+  /// - uiLocales[1] (if present) is the tenant local language (bn/vi/km/...)
+  String get contentLocale {
+    final locales = uiLocales
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (locales.length >= 2) return locales[1];
+    return 'en';
+  }
+
+  /// Supported search locales: English + tenant local language (deduped).
+  List<String> get searchLocales {
+    final local = contentLocale.trim().toLowerCase();
+    final out = <String>['en'];
+    if (local.isNotEmpty && local != 'en') out.add(local);
+    return out;
+  }
+
   TenantScope._();
 
   static Future<TenantScope> create({FirebaseFirestore? firestore}) async {

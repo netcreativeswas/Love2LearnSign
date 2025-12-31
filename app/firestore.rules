@@ -82,13 +82,13 @@ service cloud.firestore {
       // Admin / platform admin access (get + list + create + update). Client deletes are blocked.
       allow get, list, create, update: if isAdmin() || isPlatformAdmin();
       allow delete: if false;
-
+      
       // Users can read their own document by canonical id (uid) OR legacy id ending with "__{uid}".
-      allow get: if request.auth != null &&
+      allow get: if request.auth != null && 
                  (userId == request.auth.uid || userId.matches('.*__' + request.auth.uid + '$'));
-
+      
       // Users can create only their own document (prefer canonical users/{uid}).
-      allow create: if request.auth != null &&
+      allow create: if request.auth != null && 
                     userId == request.auth.uid &&
                     request.resource.data.uid == request.auth.uid &&
                     request.resource.data.roles is list &&
@@ -108,14 +108,14 @@ service cloud.firestore {
                        request.resource.data.status == 'pending' &&
                        request.resource.data.roles.size() == 0)
                     );
-
+      
       // Users can update their own document, but cannot self-grant roles / approvals.
-      allow update: if request.auth != null &&
+      allow update: if request.auth != null && 
                     userId == request.auth.uid &&
-                    resource != null &&
-                    !('roles' in request.resource.data.diff(resource.data).affectedKeys()) &&
-                    !('approved' in request.resource.data.diff(resource.data).affectedKeys()) &&
-                    !('status' in request.resource.data.diff(resource.data).affectedKeys());
+                     resource != null &&
+                     !('roles' in request.resource.data.diff(resource.data).affectedKeys()) &&
+                     !('approved' in request.resource.data.diff(resource.data).affectedKeys()) &&
+                     !('status' in request.resource.data.diff(resource.data).affectedKeys());
     }
 
     // Per-tenant premium entitlements (Option A co-brand SaaS).

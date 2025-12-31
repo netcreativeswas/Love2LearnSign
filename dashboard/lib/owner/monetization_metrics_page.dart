@@ -53,6 +53,7 @@ class MonetizationMetricsPage extends StatelessWidget {
               return Text('Failed to load: ${snap.error}');
             }
             final docs = snap.data?.docs ?? const [];
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

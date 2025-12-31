@@ -8,7 +8,7 @@ Après la mise à jour du système de rôles, les anciens comptes utilisent le f
 ### Option 1 : Via Firebase Console (Recommandé)
 
 1. Allez dans [Firebase Console](https://console.firebase.google.com/)
-2. Sélectionnez votre projet `love-to-learn-sign`
+2. Sélectionnez votre projet `love2learnsign-1914ce`
 3. Allez dans **Firestore Database**
 4. Trouvez la collection `users`
 5. Trouvez votre document utilisateur (par email ou UID)

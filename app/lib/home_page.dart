@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
+import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
@@ -501,8 +502,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               itemCount: docs.length,
                               proxyDecorator: (child, index, animation) {
                                 final data = docs[index].data();
-                                final english = data['english'] ?? '';
-                                final bengali = data['bengali'] ?? '';
+                                final localLang = context.read<TenantScope>().contentLocale;
+                                final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+                                final bengali = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
 
                                 // Build a drag-optimized thumbnail: only the image (or placeholder) + texts, no bg, no shadows
                                 final variants = data['variants'] as List?;
@@ -587,8 +589,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               },
                               itemBuilder: (context, i) {
                                 final data = docs[i].data();
-                                final english = data['english'] ?? '';
-                                final bengali = data['bengali'] ?? '';
+                                final localLang = context.read<TenantScope>().contentLocale;
+                                final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+                                final bengali = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
                                 final englishLabel = _formatEnglishLabel(english);
 
                                 // --- Begin thumbnail logic (unchanged) ---
@@ -783,8 +786,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           itemCount: filteredDocs.length,
                           itemBuilder: (context, i) {
                             final data = filteredDocs[i].data();
-                            final english = data['english'] ?? '';
-                            final bengali = data['bengali'] ?? '';
+                            final localLang = context.read<TenantScope>().contentLocale;
+                            final english = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
+                            final bengali = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
                             // --- Begin thumbnail logic ---
                             final variants = data['variants'] as List?;
                             String? thumbnailUrl;
@@ -872,17 +876,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                               children: [
                                                 Builder(
                                                   builder: (context) {
-                                                    final locale = Localizations.localeOf(context).languageCode;
+                                                    final uiLang = Localizations.localeOf(context).languageCode.trim().toLowerCase();
+                                                    final localLang = context.read<TenantScope>().contentLocale.trim().toLowerCase();
+                                                    final showLocalFirst = localLang.isNotEmpty && localLang != 'en' && uiLang == localLang;
                                                     // Capitalize first letter of English word
                                                     final englishCapitalized = english.isNotEmpty
                                                         ? english[0].toUpperCase() +
                                                             (english.length > 1 ? english.substring(1) : '')
                                                         : english;
-                                                    final topText = locale == 'bn' ? bengali : englishCapitalized;
-                                                    final bottomText = locale == 'bn' ? englishCapitalized : bengali;
+                                                    final topText = showLocalFirst ? bengali : englishCapitalized;
+                                                    final bottomText = showLocalFirst ? englishCapitalized : bengali;
 
                                                     final textTheme = Theme.of(context).textTheme;
-                                                    final topStyle = (locale == 'bn'
+                                                    final topStyle = (showLocalFirst
                                                             ? textTheme.bodyMedium
                                                             : textTheme.bodySmall)
                                                         ?.copyWith(fontWeight: FontWeight.bold);
