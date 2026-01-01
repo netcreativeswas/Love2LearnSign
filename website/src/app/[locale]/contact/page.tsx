@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { PageShell } from "@/components/PageShell";
@@ -7,7 +8,7 @@ import { SectionCard } from "@/components/SectionCard";
 import { siteConfig } from "@/lib/site-config";
 import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { Locale, getTranslations, getLocalizedPath, locales, defaultLocale } from "@/lib/i18n";
+import { Locale, getLocalizedPath, locales, defaultLocale } from "@/lib/i18n";
 
 // Metadata is handled in the root layout
 
@@ -83,6 +84,29 @@ function ContactPageContent({ locale }: { locale: Locale }) {
                 </a>
               </li>
             </ul>
+          </SectionCard>
+
+          <SectionCard title={t("contact.social.title")}>
+            <div className="flex flex-wrap gap-3">
+              {siteConfig.socialLinks.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                >
+                  <Image
+                    src={item.iconSrc}
+                    alt={t(`social.${item.id}`)}
+                    width={22}
+                    height={22}
+                    className="h-[22px] w-[22px]"
+                  />
+                  <span>{t(`social.${item.id}`)}</span>
+                </a>
+              ))}
+            </div>
           </SectionCard>
 
           <SectionCard title={t("contact.about.title")}>

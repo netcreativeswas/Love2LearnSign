@@ -18,6 +18,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // English is the default locale and must NOT be prefixed.
+  // Redirect any /en/* URLs to their canonical, non-prefixed equivalents.
+  if (pathname === "/en" || pathname.startsWith("/en/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname.replace(/^\/en(?=\/|$)/, "") || "/";
+    return NextResponse.redirect(url, 308);
+  }
+
   // Check if pathname starts with a locale
   const pathnameHasLocale = locales.some(
     (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`

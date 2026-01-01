@@ -36,11 +36,37 @@
         "description": "Cached videos for smoother playback."
       }
     },
-    "sliderTitle": "App Interface Preview"
+    "sliderTitle": "App Interface Preview",
+    "seo": {
+      "learnTitle": "A practical way to learn Bangla Sign Language",
+      "learnP1": "Love to Learn Sign is an Android app that helps you build real vocabulary with short sign videos. Search the dictionary, save favorites, and practice a little every day.",
+      "learnP2": "Quizzes and spaced-repetition flashcards help you remember signs over time — whether you are just starting or reviewing what you learned.",
+      "whoTitle": "Who is it for?",
+      "whoP1": "This project is built to support communication in Bangladesh and beyond. It is useful for:",
+      "whoList1": "Learners who want to start with the basics",
+      "whoList2": "Families, friends, teachers, and support workers",
+      "whoList3": "Organizations building sign language resources",
+      "howTitle": "How it works",
+      "howList1": "Search a word or pick a category",
+      "howList2": "Watch the sign video and save it if needed",
+      "howList3": "Practice with quizzes",
+      "howList4": "Review with flashcards and spaced repetition",
+      "faqTitle": "Quick FAQ",
+      "faqQ1": "Is the app free?",
+      "faqA1": "Yes — it is free to install. Optional premium removes ads.",
+      "faqQ2": "Can I learn in Bengali?",
+      "faqA2": "Yes — the website and app are available in English and Bengali.",
+      "faqQ3": "Want to partner or publish another dictionary?",
+      "faqA3": "Visit the Collaboration page or contact us to discuss a partnership.",
+      "faqLinkText": "Collaboration"
+    }
   },
   "contact": {
     "title": "Contact",
     "description": "Need help with the app, subscriptions, or your account? Reach out to us by email.",
+    "social": {
+      "title": "Social media"
+    },
     "emailSupport": {
       "title": "Email support",
       "text": "For {appName} support, email {email}.",
@@ -59,6 +85,11 @@
       "text2": "Our team combines technical expertise with creative design to build digital solutions that meet the unique needs of our clients. From responsive web applications to native mobile apps, we are committed to delivering high-quality products that make a difference.",
       "text3": "For more information about our services, visit"
     }
+  },
+  "social": {
+    "linkedin": "LinkedIn",
+    "facebookCompany": "Facebook (company)",
+    "facebookDictionary": "Facebook (dictionary updates)"
   },
   "donate": {
     "title": "Donate",

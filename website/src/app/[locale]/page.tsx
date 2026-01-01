@@ -40,6 +40,7 @@ function HomeContent({ locale }: { locale: Locale }) {
           name: siteConfig.developerName,
           url: "https://netcreative-swas.net",
           logo: `${siteConfig.url}/brand/logo.png`,
+          sameAs: siteConfig.socialLinks.map((link) => link.href),
         }}
       />
       <StructuredData
@@ -154,6 +155,126 @@ function HomeContent({ locale }: { locale: Locale }) {
         </div>
 
         <ImageSlider />
+
+        <section className="mt-12 rounded-3xl border border-border bg-surface p-8 shadow-sm">
+          <div className="grid items-start gap-8 lg:grid-cols-2">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Collaboration & white-label
+              </h2>
+              <p className="text-sm leading-7 text-muted-foreground">
+                Want to publish your own sign language dictionary using this platform? We offer
+                co-branding and fully white-labeled options so your community can learn with a
+                modern, mobile-first experience.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link
+                  href={getLocalizedPath("/collaboration", locale)}
+                  className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                >
+                  Explore partnership options
+                </Link>
+                <Link
+                  href={getLocalizedPath("/contact", locale)}
+                  className="text-sm font-semibold text-foreground hover:underline"
+                >
+                  Contact us
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-muted p-4">
+                <div className="text-sm font-semibold">Co-branding</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Fast launch with shared branding.
+                </div>
+              </div>
+              <div className="rounded-2xl bg-muted p-4">
+                <div className="text-sm font-semibold">White-label</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Your own app name and identity.
+                </div>
+              </div>
+              <div className="rounded-2xl bg-muted p-4 sm:col-span-2">
+                <div className="text-sm font-semibold">Built for multiple dictionaries</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  The same learning flow can support other sign languages beyond Bangla Sign
+                  Language.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-12 rounded-3xl border border-border bg-surface p-8 shadow-sm">
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-semibold tracking-tight">
+                {t("home.seo.learnTitle")}
+              </h2>
+              <p className="text-sm leading-7 text-muted-foreground">
+                {t("home.seo.learnP1")}
+              </p>
+              <p className="text-sm leading-7 text-muted-foreground">
+                {t("home.seo.learnP2")}
+              </p>
+
+              <h3 className="pt-2 text-lg font-semibold">{t("home.seo.whoTitle")}</h3>
+              <p className="text-sm leading-7 text-muted-foreground">
+                {t("home.seo.whoP1")}
+              </p>
+              <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                <li>{t("home.seo.whoList1")}</li>
+                <li>{t("home.seo.whoList2")}</li>
+                <li>{t("home.seo.whoList3")}</li>
+              </ul>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">{t("home.seo.howTitle")}</h3>
+              <ol className="list-inside list-decimal space-y-1 text-sm text-muted-foreground">
+                <li>{t("home.seo.howList1")}</li>
+                <li>{t("home.seo.howList2")}</li>
+                <li>{t("home.seo.howList3")}</li>
+                <li>{t("home.seo.howList4")}</li>
+              </ol>
+
+              <h3 className="pt-2 text-lg font-semibold">{t("home.seo.faqTitle")}</h3>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <div className="font-semibold">{t("home.seo.faqQ1")}</div>
+                  <div className="text-muted-foreground">{t("home.seo.faqA1")}</div>
+                </div>
+                <div>
+                  <div className="font-semibold">{t("home.seo.faqQ2")}</div>
+                  <div className="text-muted-foreground">{t("home.seo.faqA2")}</div>
+                </div>
+                <div>
+                  <div className="font-semibold">{t("home.seo.faqQ3")}</div>
+                  <div className="text-muted-foreground">
+                    {t("home.seo.faqA3")}{" "}
+                    <Link
+                      className="font-semibold text-foreground hover:underline"
+                      href={getLocalizedPath("/collaboration", locale)}
+                    >
+                      {t("home.seo.faqLinkText")}
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <Link
+                  href={getLocalizedPath("/contact", locale)}
+                  className="text-sm font-semibold text-foreground hover:underline"
+                >
+                  {t("home.ctaContact")}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
         </div>
       </main>
 

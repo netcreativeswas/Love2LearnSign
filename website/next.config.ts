@@ -31,6 +31,13 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Canonical host: redirect non-www to www
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "love2learnsign.com" }],
+        destination: "https://www.love2learnsign.com/:path*",
+        permanent: true,
+      },
       {
         source: "/login",
         destination: "https://www.love2learnsign.com/sign-in",

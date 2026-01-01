@@ -10,7 +10,13 @@ function safeJsonLdStringify(value: unknown): string {
 }
 
 interface StructuredDataProps {
-  type: "WebSite" | "Organization" | "MobileApplication" | "WebPage" | "BreadcrumbList";
+  type:
+  | "WebSite"
+  | "Organization"
+  | "MobileApplication"
+  | "WebPage"
+  | "BreadcrumbList"
+  | "FAQPage";
   data: Record<string, unknown>;
 }
 

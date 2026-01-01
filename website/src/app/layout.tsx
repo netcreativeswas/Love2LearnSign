@@ -16,11 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: siteConfig.appName,
+    default: `${siteConfig.appName} – Bangla Sign Language Learning App`,
     template: `%s · ${siteConfig.appName}`,
   },
   description:
-    "Learn Bangla Sign Language with a modern dictionary, interactive quizzes, and spaced repetition flashcards. Build your vocabulary with short videos and practice at your own pace.",
+    "Learn Bangla Sign Language with a video dictionary, quizzes, and spaced-repetition flashcards. Build vocabulary fast, at your own pace.",
   keywords: [
     "Bangla sign language",
     "Bengali sign language",
@@ -47,15 +47,20 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: "/",
+    languages: {
+      en: "/",
+      bn: "/bn",
+      "x-default": "/",
+    },
   },
   openGraph: {
     type: "website",
     locale: "en_US",
     url: siteConfig.url,
     siteName: siteConfig.appName,
-    title: siteConfig.appName,
+    title: `${siteConfig.appName} – Bangla Sign Language Learning App`,
     description:
-      "Learn Bangla Sign Language with a modern dictionary, interactive quizzes, and spaced repetition flashcards. Build your vocabulary with short videos and practice at your own pace.",
+      "Learn Bangla Sign Language with a video dictionary, quizzes, and spaced-repetition flashcards. Build vocabulary fast, at your own pace.",
     images: [
       {
         url: `${siteConfig.url}/og-image.png`,
@@ -67,9 +72,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: siteConfig.appName,
+    title: `${siteConfig.appName} – Bangla Sign Language Learning App`,
     description:
-      "Learn Bangla Sign Language with a modern dictionary, interactive quizzes, and spaced repetition flashcards.",
+      "Learn Bangla Sign Language with a video dictionary, quizzes, and spaced-repetition flashcards.",
     images: [`${siteConfig.url}/og-image.png`],
   },
 };

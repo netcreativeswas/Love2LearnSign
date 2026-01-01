@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { siteConfig } from "@/lib/site-config";
 import { TranslationProvider, useTranslations } from "./TranslationProvider";
-import { Locale, getLocaleFromPath, getLocalizedPath } from "@/lib/i18n";
+import { getLocaleFromPath, getLocalizedPath } from "@/lib/i18n";
 
 function SiteFooterContent() {
   const pathname = usePathname();
@@ -78,6 +78,12 @@ function SiteFooterContent() {
             >
               {t("common.contact")}
             </Link>
+            <Link
+              className="text-foreground/90 hover:underline"
+              href={getLocalizedPath("/collaboration", locale)}
+            >
+              Collaboration
+            </Link>
             <a
               className="text-foreground/90 hover:underline"
               href={siteConfig.playStoreUrl}
@@ -87,6 +93,29 @@ function SiteFooterContent() {
               {t("common.googlePlay")}
             </a>
           </div>
+
+          {/* Social icons */}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {siteConfig.socialLinks.map((item) => (
+              <a
+                key={item.id}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={t(`social.${item.id}`)}
+                className="rounded-xl border border-border bg-surface p-2 transition-colors hover:bg-muted"
+              >
+                <Image
+                  src={item.iconSrc}
+                  alt={t(`social.${item.id}`)}
+                  width={22}
+                  height={22}
+                  className="h-[22px] w-[22px]"
+                />
+              </a>
+            ))}
+          </div>
+
           <div className="text-xs text-muted-foreground">
             {t("common.madeBy")}{" "}
             <a

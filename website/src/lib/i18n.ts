@@ -12,27 +12,33 @@ export const translations = {
 } as const;
 
 export function getLocaleFromPath(pathname: string): Locale {
-  if (pathname.startsWith("/bn")) {
+  if (pathname === "/bn" || pathname.startsWith("/bn/")) {
     return "bn";
+  }
+  if (pathname === "/en" || pathname.startsWith("/en/")) {
+    return "en";
   }
   return "en";
 }
 
 export function getPathWithoutLocale(pathname: string): string {
-  if (pathname.startsWith("/bn")) {
-    return pathname.replace("/bn", "") || "/";
+  if (pathname === "/bn" || pathname.startsWith("/bn/")) {
+    return pathname.replace(/^\/bn(?=\/|$)/, "") || "/";
+  }
+  if (pathname === "/en" || pathname.startsWith("/en/")) {
+    return pathname.replace(/^\/en(?=\/|$)/, "") || "/";
   }
   return pathname;
 }
 
 export function getLocalizedPath(path: string, locale: Locale): string {
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  
-  if (locale === "en") {
-    return cleanPath;
-  }
-  
-  return `/bn${cleanPath}`;
+  const withLeadingSlash = path.startsWith("/") ? path : `/${path}`;
+  const cleanPath = getPathWithoutLocale(withLeadingSlash);
+
+  if (locale === "en") return cleanPath;
+
+  // Bengali is the only prefixed locale.
+  return cleanPath === "/" ? "/bn" : `/bn${cleanPath}`;
 }
 
 export function getTranslations(locale: Locale) {
