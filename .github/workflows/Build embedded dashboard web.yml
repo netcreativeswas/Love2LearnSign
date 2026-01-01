@@ -1,0 +1,57 @@
+name: Build embedded dashboard web
+
+on:
+  push:
+    branches: [main]
+    # Rebuild when dashboard code or the build script changes.
+    paths:
+      - "dashboard/**"
+      - "website/scripts/build_dashboard_web.sh"
+    # Don't retrigger just because the workflow committed build artifacts.
+    paths-ignore:
+      - "website/public/dashboard-app/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-dashboard-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      L2L_RECAPTCHA_SITE_KEY: ${{ secrets.L2L_RECAPTCHA_SITE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.6"
+          channel: stable
+          cache: true
+
+      - name: Build dashboard web into website/public/dashboard-app
+        run: |
+          chmod +x website/scripts/build_dashboard_web.sh
+          ./website/scripts/build_dashboard_web.sh
+
+      - name: Commit updated dashboard build (if changed)
+        run: |
+          if git diff --quiet -- website/public/dashboard-app; then
+            echo "No changes in website/public/dashboard-app; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add website/public/dashboard-app
+          git commit -m "chore(dashboard): rebuild embedded dashboard web"
+          git push
+
+
