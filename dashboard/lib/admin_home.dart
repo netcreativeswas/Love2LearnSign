@@ -242,6 +242,11 @@ class _DashboardSidebar extends StatelessWidget {
             return lower != 'freeuser' && lower != 'paiduser' && lower != 'premium';
           }).toList()
         : roles;
+    final tenantRole = tenant.isPlatformAdmin
+        ? 'platformAdmin'
+        : ((tenant.selectedTenantRole ?? 'viewer').toLowerCase().trim().isEmpty
+            ? 'viewer'
+            : (tenant.selectedTenantRole ?? 'viewer').toLowerCase().trim());
 
     final initials = _initialsFrom(displayName.isNotEmpty ? displayName : email);
 
@@ -376,6 +381,20 @@ class _DashboardSidebar extends StatelessWidget {
                                   ),
                               ],
                             ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          Chip(
+                            label: Text(
+                              'tenantRole=$tenantRole',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                            visualDensity: VisualDensity.compact,
                           ),
                         ],
                       ),

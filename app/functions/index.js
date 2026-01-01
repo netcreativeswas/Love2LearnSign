@@ -563,6 +563,48 @@ exports.verifyPlaySubscription = onCall(
       );
     });
 
+    // Backward-compatible global premium state (default tenant only):
+    // - Keep /users subscription_* fields in sync so reconcileSubscriptionRoles can work.
+    // - Update Custom Claims roles (paidUser/freeUser) so the app badge updates immediately.
+    let rolesUpdated = null;
+    if (tenant === "l2l-bdsl") {
+      try {
+        const userRef = await findUserDocRefByUid(uid);
+        const userSnap = await userRef.get();
+        const data = userSnap.exists ? userSnap.data() || {} : {};
+        const currentRoles = Array.isArray(data.roles) ? data.roles : [];
+        const set = new Set(currentRoles.map((r) => String(r)));
+
+        if (active) set.add("paidUser");
+        else set.delete("paidUser");
+
+        const newRoles = normalizeRoles(Array.from(set));
+
+        const update = {
+          uid,
+          roles: newRoles,
+          subscription_active: active,
+          subscription_type: subscriptionType,
+          subscription_platform: "android",
+          subscription_product_id: productId,
+          subscription_renewal_date: renewalDate ? renewalDate : null,
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+
+        // Preserve existing createdAt if present; otherwise set it.
+        if (!data.createdAt) {
+          update.createdAt = FieldValue.serverTimestamp();
+        }
+
+        await userRef.set(update, { merge: true });
+        await setUserRolesInAuth(uid, newRoles);
+        rolesUpdated = newRoles;
+      } catch (e) {
+        console.error("verifyPlaySubscription: failed to update global roles/claims", e);
+        // Non-fatal: entitlement + tenant billing still updated.
+      }
+    }
+
     // Keep tenant member doc in sync for tenant-scoped Admin Panel + filters.
     const tenantRef = db.collection("tenants").doc(tenant);
     const memberRef = tenantRef.collection("members").doc(uid);
@@ -613,6 +655,7 @@ exports.verifyPlaySubscription = onCall(
       renewalDate: renewalDate ? renewalDate.toISOString() : null,
       tenantId: tenant,
       productId,
+      rolesUpdated,
     };
   }
 );
@@ -673,6 +716,12 @@ exports.joinTenant = onCall(
     let profile = {};
     try {
       const authUser = await auth.getUser(uid);
+      const providers = Array.isArray(authUser.providerData)
+        ? authUser.providerData.map((p) => String(p.providerId || "").trim()).filter(Boolean)
+        : [];
+      profile.signInProvider = providers.includes("google.com")
+        ? "google.com"
+        : (providers[0] || null);
       profile.email = authUser.email || null;
       profile.displayName = authUser.displayName || null;
     } catch (_) {
@@ -812,6 +861,13 @@ exports.setTenantMemberRole = onCall(
     let profile = {};
     try {
       const authUser = await auth.getUser(targetUid);
+      const providers = Array.isArray(authUser.providerData)
+        ? authUser.providerData.map((p) => String(p.providerId || "").trim()).filter(Boolean)
+        : [];
+      // Prefer showing google.com if linked; otherwise pick first provider (e.g. password).
+      profile.signInProvider = providers.includes("google.com")
+        ? "google.com"
+        : (providers[0] || null);
       profile.email = authUser.email || null;
       profile.displayName = authUser.displayName || null;
     } catch (_) {
@@ -874,6 +930,253 @@ exports.setTenantMemberRole = onCall(
     });
 
     return { success: true, tenantId, targetUid, role, status };
+  }
+);
+
+/**
+ * Callable: updateTenantMemberProfile
+ *
+ * Purpose:
+ * - Tenant admins/owners can edit key member profile fields (displayName/country/hearingStatus)
+ * - Updates BOTH:
+ *   - users/{uid} (global user profile, Admin SDK)
+ *   - tenants/{tenantId}/members/{uid}.profile (denormalized for tenant admin panel)
+ *
+ * Note: clients cannot update other users' /users docs via Firestore rules, so this must be server-side.
+ */
+exports.updateTenantMemberProfile = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const callerUid = request.auth.uid;
+    const tenantId = (request.data?.tenantId ?? "").toString().trim();
+    const targetUid = (request.data?.targetUid ?? "").toString().trim();
+    const displayName = (request.data?.displayName ?? "").toString().trim();
+    const country = (request.data?.country ?? "").toString().trim();
+    const hearingStatus = (request.data?.hearingStatus ?? "").toString().trim();
+
+    if (!tenantId) throw new HttpsError("invalid-argument", "tenantId is required");
+    if (!targetUid) throw new HttpsError("invalid-argument", "targetUid is required");
+    if (!displayName) throw new HttpsError("invalid-argument", "displayName is required");
+
+    // Authorize: platform admin OR tenant owner/admin.
+    let isPlatformAdmin = false;
+    try {
+      const platform = await db
+        .collection("platform")
+        .doc("platform")
+        .collection("members")
+        .doc(callerUid)
+        .get();
+      isPlatformAdmin = platform.exists;
+    } catch (_) {}
+
+    if (!isPlatformAdmin) {
+      const callerMember = await db
+        .collection("tenants")
+        .doc(tenantId)
+        .collection("members")
+        .doc(callerUid)
+        .get();
+      const callerRole = (callerMember.data()?.role ?? "").toString().trim().toLowerCase();
+      if (!(callerRole === "owner" || callerRole === "admin")) {
+        throw new HttpsError("permission-denied", "Caller is not tenant admin");
+      }
+    }
+
+    // Best-effort read from Auth for email/provider.
+    let authUser = null;
+    try {
+      authUser = await auth.getUser(targetUid);
+    } catch (_) {}
+
+    const providers = authUser && Array.isArray(authUser.providerData)
+      ? authUser.providerData.map((p) => String(p.providerId || "").trim()).filter(Boolean)
+      : [];
+    const signInProvider = providers.includes("google.com") ? "google.com" : (providers[0] || null);
+    const email = authUser?.email || null;
+
+    // Update Firebase Auth displayName (best-effort).
+    try {
+      await auth.updateUser(targetUid, { displayName });
+    } catch (_) {
+      // ignore
+    }
+
+    // Update global user profile.
+    const userRef = await findUserDocRefByUid(targetUid);
+    await userRef.set(
+      {
+        uid: targetUid,
+        displayName,
+        // Store both canonical and legacy fields for backward compatibility in the app.
+        country,
+        countryCode: country,
+        userType: hearingStatus,
+        hearingStatus,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Update tenant member denormalized profile.
+    const memberRef = db.collection("tenants").doc(tenantId).collection("members").doc(targetUid);
+    await memberRef.set(
+      {
+        uid: targetUid,
+        profile: {
+          displayName,
+          email,
+          signInProvider,
+          countryCode: country,
+          hearingStatus,
+          // Keep legacy aliases for older UI readers.
+          country,
+          userType: hearingStatus,
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return {
+      success: true,
+      tenantId,
+      targetUid,
+      profile: { displayName, country, hearingStatus, signInProvider },
+    };
+  }
+);
+
+/**
+ * Callable: refreshTenantMemberProfileFromAuth
+ *
+ * Purpose:
+ * - Tenant admins/owners can force-refresh a member's denormalized tenant profile from:
+ *   - Firebase Auth (email, displayName, provider)
+ *   - users/{uid} (country/hearing fields)
+ *   - users/{uid}/entitlements/{tenantId} (billing premium flags)
+ *
+ * This does NOT change tenant role/status. It only updates the member doc's
+ * profile/billing to keep the admin UI accurate.
+ */
+exports.refreshTenantMemberProfileFromAuth = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const callerUid = request.auth.uid;
+    const tenantId = (request.data?.tenantId ?? "").toString().trim();
+    const targetUid = (request.data?.targetUid ?? "").toString().trim();
+
+    if (!tenantId) throw new HttpsError("invalid-argument", "tenantId is required");
+    if (!targetUid) throw new HttpsError("invalid-argument", "targetUid is required");
+
+    // Authorize: platform admin OR tenant owner/admin.
+    let isPlatformAdmin = false;
+    try {
+      const platform = await db
+        .collection("platform")
+        .doc("platform")
+        .collection("members")
+        .doc(callerUid)
+        .get();
+      isPlatformAdmin = platform.exists;
+    } catch (_) {}
+
+    if (!isPlatformAdmin) {
+      const callerMember = await db
+        .collection("tenants")
+        .doc(tenantId)
+        .collection("members")
+        .doc(callerUid)
+        .get();
+      const callerRole = (callerMember.data()?.role ?? "").toString().trim().toLowerCase();
+      if (!(callerRole === "owner" || callerRole === "admin")) {
+        throw new HttpsError("permission-denied", "Caller is not tenant admin");
+      }
+    }
+
+    // Read Firebase Auth user.
+    let authUser = null;
+    try {
+      authUser = await auth.getUser(targetUid);
+    } catch (e) {
+      throw new HttpsError("not-found", `Auth user not found: ${e?.message || e}`);
+    }
+
+    const providers = Array.isArray(authUser.providerData)
+      ? authUser.providerData.map((p) => String(p.providerId || "").trim()).filter(Boolean)
+      : [];
+    const signInProvider = providers.includes("google.com") ? "google.com" : (providers[0] || null);
+    const email = authUser.email || null;
+    const displayName = authUser.displayName || null;
+
+    // Read global user doc for country/hearing fields.
+    let country = null;
+    let hearingStatus = null;
+    try {
+      const userRef = await findUserDocRefByUid(targetUid);
+      const snap = await userRef.get();
+      const u = snap.exists ? snap.data() || {} : {};
+      country = u.countryCode ?? u.country ?? u.country_code ?? null;
+      hearingStatus = u.hearingStatus ?? u.hearing_status ?? u.userType ?? null;
+    } catch (_) {}
+
+    // Read entitlement for billing.
+    let billing = {};
+    try {
+      const entSnap = await db.collection("users").doc(targetUid).collection("entitlements").doc(tenantId).get();
+      const ent = entSnap.exists ? entSnap.data() || {} : {};
+      billing = {
+        isPremium: ent.active === true,
+        subscriptionType: ent.subscriptionType || null,
+        validUntil: ent.validUntil || null,
+        productId: ent.productId || null,
+        platform: ent.platform || null,
+      };
+    } catch (_) {
+      // ignore
+    }
+
+    const memberRef = db.collection("tenants").doc(tenantId).collection("members").doc(targetUid);
+    await memberRef.set(
+      {
+        uid: targetUid,
+        profile: {
+          displayName,
+          email,
+          signInProvider,
+          countryCode: country,
+          hearingStatus,
+          // legacy aliases
+          country,
+          userType: hearingStatus,
+        },
+        billing,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return {
+      success: true,
+      tenantId,
+      targetUid,
+      profile: { displayName, email, signInProvider, country, hearingStatus },
+      billing,
+    };
   }
 );
 

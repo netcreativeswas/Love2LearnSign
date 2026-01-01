@@ -8,6 +8,20 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:l2l_shared/tenancy/tenant_monetization_config.dart';
 
+class SubscriptionChangeEvent {
+  final bool success;
+  final bool? active;
+  final String? message;
+  final Map<String, dynamic>? data;
+
+  const SubscriptionChangeEvent({
+    required this.success,
+    this.active,
+    this.message,
+    this.data,
+  });
+}
+
 /// Service for managing in-app purchases and subscriptions
 class SubscriptionService {
   static final SubscriptionService _instance = SubscriptionService._internal();
@@ -17,7 +31,8 @@ class SubscriptionService {
   final InAppPurchase _iap = InAppPurchase.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
-  final StreamController<void> _subscriptionChanged = StreamController<void>.broadcast();
+  final StreamController<SubscriptionChangeEvent> _subscriptionChanged =
+      StreamController<SubscriptionChangeEvent>.broadcast();
   
   // Current tenant context (Option A: per-tenant premium).
   String _tenantId = TenantDb.defaultTenantId;
@@ -30,7 +45,7 @@ class SubscriptionService {
   
   bool get isAvailable => _isAvailable;
   List<ProductDetails> get products => _products;
-  Stream<void> get subscriptionChanged => _subscriptionChanged.stream;
+  Stream<SubscriptionChangeEvent> get subscriptionChanged => _subscriptionChanged.stream;
   
   String get _monthlyId => Platform.isAndroid ? _iapProducts.monthlyProductIdAndroid : _iapProducts.monthlyProductIdIOS;
   String get _yearlyId => Platform.isAndroid ? _iapProducts.yearlyProductIdAndroid : _iapProducts.yearlyProductIdIOS;
@@ -256,6 +271,10 @@ class SubscriptionService {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
       debugPrint('⚠️ No user logged in, cannot update subscription');
+      _subscriptionChanged.add(const SubscriptionChangeEvent(
+        success: false,
+        message: 'Not signed in; cannot link purchase to an account.',
+      ));
       return;
     }
 
@@ -265,6 +284,10 @@ class SubscriptionService {
       
       if (!isMonthly && !isYearly) {
         debugPrint('⚠️ Unknown product type: ${purchase.productID}');
+        _subscriptionChanged.add(SubscriptionChangeEvent(
+          success: false,
+          message: 'Unknown productId: ${purchase.productID}',
+        ));
         return;
       }
       final platform = Platform.isAndroid ? 'android' : 'ios';
@@ -276,6 +299,10 @@ class SubscriptionService {
         final token = purchase.verificationData.serverVerificationData;
         if (token.isEmpty) {
           debugPrint('❌ Missing purchase token for ${purchase.productID}');
+          _subscriptionChanged.add(SubscriptionChangeEvent(
+            success: false,
+            message: 'Missing purchase token for ${purchase.productID}',
+          ));
           return;
         }
 
@@ -287,27 +314,66 @@ class SubscriptionService {
           'platform': platform,
         });
 
+        final data = (result.data is Map)
+            ? Map<String, dynamic>.from(result.data as Map)
+            : <String, dynamic>{};
         if (kDebugMode) {
-        debugPrint('✅ verifyPlaySubscription result: ${result.data}');
+          debugPrint('✅ verifyPlaySubscription result: $data');
         }
+
+        final active = data['active'] == true;
+
+        // Force-refresh token to get updated Custom Claims (paidUser/freeUser).
+        await FirebaseAuth.instance.currentUser?.getIdToken(true);
+
+        // Notify listeners (UI can refresh roles/status + show a message).
+        _subscriptionChanged.add(SubscriptionChangeEvent(
+          success: true,
+          active: active,
+          message: active ? 'Premium activated.' : 'Subscription verified, but not active.',
+          data: data,
+        ));
       } else {
         // iOS verification is not implemented yet (needs App Store receipt verification).
         debugPrint('⚠️ iOS subscription verification not implemented yet');
+        _subscriptionChanged.add(const SubscriptionChangeEvent(
+          success: false,
+          message: 'iOS subscription verification not implemented yet.',
+        ));
       }
-
-      // Force-refresh token to get updated Custom Claims.
-      await FirebaseAuth.instance.currentUser?.getIdToken(true);
-
-      // Notify listeners (UI can refresh roles/status).
-      _subscriptionChanged.add(null);
     } catch (e) {
       debugPrint('❌ Error updating subscription: $e');
+      _subscriptionChanged.add(SubscriptionChangeEvent(
+        success: false,
+        message: 'Subscription verification failed: $e',
+      ));
     }
   }
 
   /// Handle purchase error
   Future<void> _handlePurchaseError(PurchaseDetails purchase) async {
     debugPrint('❌ Purchase error for ${purchase.productID}: ${purchase.error}');
+    final msg = (purchase.error?.message ?? '').toString();
+    // Common Android test-case: user already owns the subscription.
+    // Instead of forcing the user to manually hit "Restore purchase", auto-trigger a restore/sync.
+    if (msg.contains('itemAlreadyOwned') || msg.contains('BillingResponse.itemAlreadyOwned')) {
+      _subscriptionChanged.add(const SubscriptionChangeEvent(
+        success: false,
+        message: 'Subscription already owned — syncing purchases…',
+      ));
+      // Run restore asynchronously so we don't re-enter purchase stream handling.
+      Future(() async {
+        try {
+          await restorePurchases();
+        } catch (e) {
+          debugPrint('❌ Auto-restore failed: $e');
+          _subscriptionChanged.add(SubscriptionChangeEvent(
+            success: false,
+            message: 'Auto-restore failed: $e',
+          ));
+        }
+      });
+    }
     if (purchase.pendingCompletePurchase) {
       await _iap.completePurchase(purchase);
     }

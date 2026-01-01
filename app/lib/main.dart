@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -28,6 +29,7 @@ import 'tenancy/tenant_scope.dart';
 import 'url_strategy_stub.dart'
     if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
+import 'dart:async';
 // import 'dart:ui' as ui;
 import 'dart:ui' as ui;
 import 'dart:convert';
@@ -150,6 +152,38 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Firebase App Check:
+  // - Emulator / debug builds: use Debug provider (prints a debug token in logs)
+  // - Release builds on Android: use Play Integrity
+  try {
+    if (!kIsWeb && Platform.isAndroid) {
+      await FirebaseAppCheck.instance.activate(
+        androidProvider: kReleaseMode ? AndroidProvider.playIntegrity : AndroidProvider.debug,
+      );
+      await FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
+      if (kDebugMode) {
+        debugPrint(
+          'App Check active (Android): ${kReleaseMode ? 'Play Integrity' : 'Debug provider'}',
+        );
+      }
+    } else if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+      // iOS can be enabled later (needs real device for App Attest).
+      await FirebaseAppCheck.instance.activate(
+        appleProvider: kReleaseMode ? AppleProvider.appAttest : AppleProvider.debug,
+      );
+      await FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
+      if (kDebugMode) {
+        debugPrint(
+          'App Check active (Apple): ${kReleaseMode ? 'App Attest' : 'Debug provider'}',
+        );
+      }
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('App Check activation failed: $e');
+    }
+  }
 
   // #region agent log
   AgentLogger.log({
@@ -409,9 +443,11 @@ void main() async {
           ChangeNotifierProvider<HistoryRepository>.value(value: historyRepo),
           ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
         ],
-        child: MyApp(
-            // Repos are provided via Provider; no need to pass notifiers down
-            ),
+        child: SubscriptionSyncer(
+          child: MyApp(
+              // Repos are provided via Provider; no need to pass notifiers down
+              ),
+        ),
       ),
     ),
   );
@@ -676,6 +712,53 @@ void main() async {
       // #endregion
     });
   });
+}
+
+/// Listens for subscription lifecycle events and refreshes auth roles globally.
+/// This ensures the drawer badge + premium gating update immediately after an in-app purchase,
+/// without requiring the user to tap "Restore purchase".
+class SubscriptionSyncer extends StatefulWidget {
+  final Widget child;
+  const SubscriptionSyncer({super.key, required this.child});
+
+  @override
+  State<SubscriptionSyncer> createState() => _SubscriptionSyncerState();
+}
+
+class _SubscriptionSyncerState extends State<SubscriptionSyncer> {
+  StreamSubscription<SubscriptionChangeEvent>? _sub;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = SubscriptionService().subscriptionChanged.listen((evt) async {
+      if (!mounted) return;
+      if (_refreshing) return;
+      // Only refresh when we have an authenticated user.
+      if (fb_auth.FirebaseAuth.instance.currentUser == null) return;
+
+      try {
+        _refreshing = true;
+        await context.read<AuthProvider>().loadUserData();
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('⚠️ SubscriptionSyncer: failed to refresh roles: $e');
+        }
+      } finally {
+        _refreshing = false;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Planifie une notification pour de nouveaux mots

@@ -106,6 +106,7 @@ git filter-repo --path app/android/key.properties --invert-paths --force
 ⚠️ Ceci réécrit l’histoire du repo. À faire quand tu es prêt.
 
 ```bash
+cd /Users/jl/Love2LearnSign && git remote add origin git@github.com:netcreativeswas/Love2LearnSign.git && git remote -v
 git push --force --all
 git push --force --tags
 ```

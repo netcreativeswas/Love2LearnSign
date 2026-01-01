@@ -25,6 +25,7 @@ import 'l10n/dynamic_l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'pages/premium_settings_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -57,6 +58,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _selectedCategory = 'Random';
   bool _refreshingCache = false;
   String _appVersion = 'Loading...';
+  bool _dashboardPwdBusy = false;
   
   String _prettyCategoryLabel(BuildContext context, String value) {
     if (value == 'Random') {
@@ -448,6 +450,80 @@ class _SettingsPageState extends State<SettingsPage> {
             },
           ),
           const Divider(),
+          // Dashboard access (Email/Password only) — ONLY for Google-only users who have a special tenant role.
+          Builder(
+            builder: (context) {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user == null) return const SizedBox.shrink();
+
+              final hasGoogleProvider = user.providerData.any((p) => p.providerId == 'google.com');
+              final hasPasswordProvider = user.providerData.any((p) => p.providerId == 'password');
+              if (!hasGoogleProvider || hasPasswordProvider) return const SizedBox.shrink();
+
+              final docRef = FirebaseFirestore.instance.collection('userTenants').doc(user.uid);
+              return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: docRef.snapshots(),
+                builder: (context, snap) {
+                  // Default: hide until we confirm the user has a special tenant role.
+                  if (!snap.hasData) return const SizedBox.shrink();
+
+                  final data = snap.data?.data() ?? const <String, dynamic>{};
+                  final tenants = data['tenants'];
+                  final specialRoles = <String>{'admin', 'editor', 'analyst', 'owner'};
+
+                  var hasSpecialRole = false;
+                  if (tenants is Map) {
+                    for (final v in tenants.values) {
+                      if (v is! Map) continue;
+                      final status = (v['status'] ?? 'active').toString().trim().toLowerCase();
+                      if (status.isNotEmpty && status != 'active') continue;
+                      final role = (v['role'] ?? '').toString().trim().toLowerCase();
+                      if (specialRoles.contains(role)) {
+                        hasSpecialRole = true;
+                        break;
+                      }
+                    }
+                  }
+
+                  if (!hasSpecialRole) return const SizedBox.shrink();
+
+                  return Column(
+                    children: [
+                      const Divider(),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
+                        child: Text(
+                          'Dashboard Access',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontSize: 18, color: Theme.of(context).colorScheme.primary),
+                        ),
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.admin_panel_settings, color: Theme.of(context).colorScheme.secondary),
+                        title: Text(
+                          'Set password (Google accounts)',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        subtitle: Text(
+                          'The dashboard only supports Email/Password login. Set a password to access it.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Theme.of(context).colorScheme.primary),
+                        ),
+                        trailing: _dashboardPwdBusy
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.chevron_right),
+                        onTap: _dashboardPwdBusy ? null : _showDashboardPasswordDialog,
+                      ),
+                      const Divider(),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
           Padding(
             padding: EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
             child: Text(
@@ -972,6 +1048,132 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _showDashboardPasswordDialog() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in first.')),
+      );
+      return;
+    }
+    final email = (user.email ?? '').trim();
+    if (email.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No email found for this account.')),
+      );
+      return;
+    }
+
+    final pass1 = TextEditingController();
+    final pass2 = TextEditingController();
+    bool obscure1 = true;
+    bool obscure2 = true;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) => AlertDialog(
+            title: const Text('Enable Dashboard Access'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Account: $email'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: pass1,
+                  obscureText: obscure1,
+                  decoration: InputDecoration(
+                    labelText: 'New password',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscure1 ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setLocal(() => obscure1 = !obscure1),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: pass2,
+                  obscureText: obscure2,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm password',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscure2 ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setLocal(() => obscure2 = !obscure2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'After setting a password, you can sign in to the Dashboard with Email + Password.',
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () async {
+                  final p1 = pass1.text;
+                  final p2 = pass2.text;
+                  if (p1.length < 8) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Password must be at least 8 characters.')),
+                    );
+                    return;
+                  }
+                  if (p1 != p2) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Passwords do not match.')),
+                    );
+                    return;
+                  }
+                  Navigator.of(ctx).pop();
+                  await _linkPasswordToCurrentUser(email: email, password: p1);
+                },
+                child: const Text('Set password'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _linkPasswordToCurrentUser({required String email, required String password}) async {
+    if (_dashboardPwdBusy) return;
+    setState(() => _dashboardPwdBusy = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('Not signed in');
+
+      final cred = EmailAuthProvider.credential(email: email, password: password);
+      await user.linkWithCredential(cred);
+      await user.getIdToken(true);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dashboard access enabled. You can now log in with Email + Password.')),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      final msg = e.code == 'requires-recent-login'
+          ? 'Please sign out and sign in again, then try again.'
+          : '${e.code}: ${e.message ?? 'Failed to set password'}';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to set password: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _dashboardPwdBusy = false);
+    }
   }
   
   void _showPrivacyPolicy(BuildContext context) {

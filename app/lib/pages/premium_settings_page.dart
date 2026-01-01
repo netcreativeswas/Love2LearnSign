@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:overlay_support/overlay_support.dart';
 import '../services/subscription_service.dart';
 import '../services/premium_service.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
@@ -25,17 +26,41 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
   bool _isLoading = false;
   bool _isPremium = false;
   Map<String, dynamic>? _subscriptionInfo;
-  StreamSubscription<void>? _subChanged;
+  StreamSubscription<SubscriptionChangeEvent>? _subChanged;
   bool _didPromptSignInOnOpen = false;
+  bool _autoCloseOnNextSuccess = false;
 
   @override
   void initState() {
     super.initState();
-    _subChanged = _subscriptionService.subscriptionChanged.listen((_) async {
+    _subChanged = _subscriptionService.subscriptionChanged.listen((evt) async {
       if (!mounted) return;
       // Refresh roles + status after a purchase/restore completes.
       await Provider.of<AuthProvider>(context, listen: false).loadUserData();
       await _loadSubscriptionStatus();
+
+      final msg = (evt.message ?? '').trim();
+      if (msg.isNotEmpty && mounted) {
+        final isSuccess = evt.success && (evt.active == true);
+        showSimpleNotification(
+          Text(
+            msg,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          background: isSuccess ? Colors.green.shade700 : Colors.red.shade700,
+          foreground: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+      }
+
+      // If the user initiated a purchase from THIS screen, auto-close on successful activation.
+      // (Do not auto-close on Restore; that flow shows the Premium status card.)
+      if (_autoCloseOnNextSuccess && evt.success && (evt.active == true)) {
+        _autoCloseOnNextSuccess = false;
+        await Future.delayed(const Duration(milliseconds: 800));
+        if (!mounted) return;
+        Navigator.of(context).maybePop();
+      }
     });
     _loadSubscriptionStatus();
 
@@ -427,6 +452,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
 
     setState(() => _isLoading = true);
     try {
+      _autoCloseOnNextSuccess = true;
       final success = await _subscriptionService.purchaseSubscription(product);
       if (!mounted) return;
 
@@ -445,6 +471,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
       await _loadSubscriptionStatus();
     } catch (e) {
       if (!mounted) return;
+      _autoCloseOnNextSuccess = false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${S.of(context)!.errorPrefix}: $e'),
@@ -462,6 +489,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
     setState(() => _isLoading = true);
 
     try {
+      _autoCloseOnNextSuccess = true;
       final success = await _subscriptionService.upgradeToYearly();
       
       if (success && mounted) {
@@ -474,6 +502,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
         );
         await _loadSubscriptionStatus();
       } else if (mounted) {
+        _autoCloseOnNextSuccess = false;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -484,6 +513,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
       }
     } catch (e) {
       if (mounted) {
+        _autoCloseOnNextSuccess = false;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -506,6 +536,8 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
     setState(() => _isLoading = true);
 
     try {
+      // Restore should NOT auto-close the Premium page; user expects to see the status card.
+      _autoCloseOnNextSuccess = false;
       final success = await _subscriptionService.restorePurchases();
       
       if (success && mounted) {

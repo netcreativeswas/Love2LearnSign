@@ -14,6 +14,7 @@ import 'package:l2l_shared/words_admin/words_list_page.dart';
 import '../tenancy/tenant_scope.dart';
 import '../theme.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
+import '../utils/role_labels.dart';
 
 class MainDrawerWidget extends StatelessWidget {
   final String countryCode;
@@ -34,29 +35,7 @@ class MainDrawerWidget extends StatelessWidget {
   });
 
   String _formatRoleLabel(String role) {
-    // Keep underlying role keys unchanged (used for auth logic), only prettify display.
-    switch (role) {
-      case 'freeuser':
-      case 'freeUser':
-        return 'Free User';
-      case 'paiduser':
-      case 'paidUser':
-      case 'premium':
-        return 'Paid User';
-      case 'admin':
-        return 'Admin';
-      case 'editor':
-        return 'Editor';
-      default:
-        // Generic fallback: handle camelCase / snake_case / lowercase
-        final r = role.replaceAll('_', ' ').trim();
-        final spaced = r.replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m[1]} ${m[2]}');
-        return spaced
-            .split(RegExp(r'\s+'))
-            .where((p) => p.isNotEmpty)
-            .map((p) => p[0].toUpperCase() + p.substring(1))
-            .join(' ');
-    }
+    return roleLabel(role);
   }
 
   Color _roleBadgeColor(String role) {

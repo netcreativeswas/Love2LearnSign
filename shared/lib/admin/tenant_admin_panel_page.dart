@@ -4,6 +4,40 @@ import 'package:flutter/material.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
 import 'package:l2l_shared/utils/countries.dart' as shared_countries;
 
+Widget _chip(
+  ThemeData theme, {
+  required String label,
+  IconData? icon,
+  Color? bg,
+  Color? fg,
+}) {
+  final background = bg ?? theme.colorScheme.surfaceContainerHighest;
+  final foreground = fg ?? theme.colorScheme.onSurface;
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: background,
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 6),
+        ],
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: foreground,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class TenantAdminPanelPage extends StatefulWidget {
   final String tenantId;
 
@@ -43,6 +77,27 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     final b = data['billing'];
     if (b is Map) return Map<String, dynamic>.from(b as Map);
     return const {};
+  }
+
+  String _signInProviderLabel(Map<String, dynamic> profile) {
+    final p = (profile['signInProvider'] ?? profile['provider'] ?? '').toString().trim();
+    // We only show Google vs Email per your request.
+    if (p == 'google.com') return 'Google';
+    if (p == 'password') return 'Email';
+    if (p.isEmpty) return 'Email'; // fallback (best-effort)
+    return 'Email';
+  }
+
+  IconData _hearingIcon(String hearing) {
+    final h = hearing.toLowerCase().trim();
+    if (h.contains('deaf')) return Icons.hearing_disabled;
+    return Icons.hearing;
+  }
+
+  String _hearingLabel(String hearing) {
+    final h = hearing.trim();
+    if (h.isEmpty) return '';
+    return h;
   }
 
   bool _isPremium(Map<String, dynamic> data) {
@@ -126,6 +181,37 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     });
   }
 
+  Future<void> _updateMemberProfile({
+    required String uid,
+    required String displayName,
+    required String country,
+    required String hearingStatus,
+  }) async {
+    final callable = FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('updateTenantMemberProfile');
+    await callable.call({
+      'tenantId': widget.tenantId,
+      'targetUid': uid,
+      'displayName': displayName.trim(),
+      'country': country.trim(),
+      'hearingStatus': hearingStatus.trim(),
+    });
+  }
+
+  Future<Map<String, dynamic>?> _refreshMemberProfileFromAuth({
+    required String uid,
+  }) async {
+    final callable =
+        FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('refreshTenantMemberProfileFromAuth');
+    final res = await callable.call({
+      'tenantId': widget.tenantId,
+      'targetUid': uid,
+    });
+    if (res.data is Map) {
+      return Map<String, dynamic>.from(res.data as Map);
+    }
+    return null;
+  }
+
   Future<void> _showMemberDetails(BuildContext context, Map<String, dynamic> data) async {
     final profile = _profileFrom(data);
     final billing = _billingFrom(data);
@@ -138,31 +224,35 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     final hearing = (profile['hearingStatus'] ?? profile['userType'] ?? '').toString();
     final productId = (billing['productId'] ?? '').toString();
     final validUntil = billing['validUntil'];
+    final premium = _isPremium(data);
+    final providerLabel = _signInProviderLabel(profile);
 
     return showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Member'),
-        content: SingleChildScrollView(
-          child: SelectableText(
-            [
-              'tenantId: ${widget.tenantId}',
-              'uid: $uid',
-              'displayName: $name',
-              'email: $email',
-              'country: $country',
-              'hearingStatus: $hearing',
-              'role: $role',
-              'status: $status',
-              'premium: ${_isPremium(data)}',
-              if (productId.isNotEmpty) 'productId: $productId',
-              if (validUntil is Timestamp) 'validUntil: ${validUntil.toDate().toIso8601String()}',
-            ].where((l) => l.trim().isNotEmpty).join('\n'),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
-        ],
+      builder: (_) => _EditMemberDialog(
+        tenantId: widget.tenantId,
+        uid: uid,
+        email: email,
+        role: role,
+        status: status,
+        premium: premium,
+        providerLabel: providerLabel,
+        initialDisplayName: name,
+        initialCountry: country,
+        initialHearingStatus: hearing,
+        productId: productId,
+        validUntil: validUntil is Timestamp ? validUntil.toDate() : null,
+        onSave: (nextName, nextCountry, nextHearing) async {
+          await _updateMemberProfile(
+            uid: uid,
+            displayName: nextName,
+            country: nextCountry,
+            hearingStatus: nextHearing,
+          );
+        },
+        onRefresh: () async {
+          return await _refreshMemberProfileFromAuth(uid: uid);
+        },
       ),
     );
   }
@@ -311,6 +401,7 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                     final country = (profile['countryCode'] ?? profile['country'] ?? '').toString();
                     final hearing = (profile['hearingStatus'] ?? profile['userType'] ?? '').toString();
                     final premium = _isPremium(data);
+                    final providerLabel = _signInProviderLabel(profile);
 
                     return InkWell(
                       onTap: () => _showMemberDetails(context, data),
@@ -336,6 +427,44 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                                         name.trim().isNotEmpty ? name.trim() : '(no displayName)',
                                         style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                                       ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 6,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        children: [
+                                          if (hearing.trim().isNotEmpty)
+                                            Tooltip(
+                                              message: _hearingLabel(hearing),
+                                              child: Icon(
+                                                _hearingIcon(hearing),
+                                                size: 18,
+                                                color: theme.colorScheme.onSurfaceVariant,
+                                              ),
+                                            ),
+                                          _chip(
+                                            theme,
+                                            label: premium ? 'Premium' : 'Learner',
+                                            bg: premium
+                                                ? theme.colorScheme.secondaryContainer
+                                                : theme.colorScheme.surfaceContainerHighest,
+                                            fg: premium
+                                                ? theme.colorScheme.onSecondaryContainer
+                                                : theme.colorScheme.onSurfaceVariant,
+                                          ),
+                                          _chip(
+                                            theme,
+                                            label: providerLabel,
+                                            icon: providerLabel == 'Google' ? Icons.g_mobiledata : Icons.email,
+                                            bg: providerLabel == 'Google'
+                                                ? theme.colorScheme.primaryContainer
+                                                : theme.colorScheme.surfaceContainerHighest,
+                                            fg: providerLabel == 'Google'
+                                                ? theme.colorScheme.onPrimaryContainer
+                                                : theme.colorScheme.onSurfaceVariant,
+                                          ),
+                                        ],
+                                      ),
                                       const SizedBox(height: 2),
                                       Text(
                                         email.trim().isNotEmpty ? email.trim() : uid,
@@ -349,8 +478,6 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                                           _pill(theme, 'role=$role'),
                                           _pill(theme, 'status=$status'),
                                           if (country.trim().isNotEmpty) _pill(theme, 'country=$country'),
-                                          if (hearing.trim().isNotEmpty) _pill(theme, 'hearing=$hearing'),
-                                          if (premium) _pill(theme, 'premium', color: theme.colorScheme.secondaryContainer),
                                         ],
                                       ),
                                     ],
@@ -436,6 +563,261 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
         label,
         style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
+    );
+  }
+}
+
+class _EditMemberDialog extends StatefulWidget {
+  final String tenantId;
+  final String uid;
+  final String email;
+  final String role;
+  final String status;
+  final bool premium;
+  final String providerLabel;
+  final String initialDisplayName;
+  final String initialCountry;
+  final String initialHearingStatus;
+  final String productId;
+  final DateTime? validUntil;
+  final Future<void> Function(String displayName, String country, String hearingStatus) onSave;
+  final Future<Map<String, dynamic>?> Function() onRefresh;
+
+  const _EditMemberDialog({
+    required this.tenantId,
+    required this.uid,
+    required this.email,
+    required this.role,
+    required this.status,
+    required this.premium,
+    required this.providerLabel,
+    required this.initialDisplayName,
+    required this.initialCountry,
+    required this.initialHearingStatus,
+    required this.productId,
+    required this.validUntil,
+    required this.onSave,
+    required this.onRefresh,
+  });
+
+  @override
+  State<_EditMemberDialog> createState() => _EditMemberDialogState();
+}
+
+class _EditMemberDialogState extends State<_EditMemberDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameCtrl;
+  String? _country;
+  String? _hearing;
+  bool _saving = false;
+  bool _refreshing = false;
+  String _providerLabel = '';
+  String _email = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.initialDisplayName);
+    _country = widget.initialCountry.trim().isEmpty ? null : widget.initialCountry.trim();
+    _hearing = widget.initialHearingStatus.trim().isEmpty ? null : widget.initialHearingStatus.trim();
+    _providerLabel = widget.providerLabel;
+    _email = widget.email;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  void _applyProfileFromResult(Map<String, dynamic>? res) {
+    final profile =
+        (res?['profile'] is Map) ? Map<String, dynamic>.from(res!['profile'] as Map) : <String, dynamic>{};
+    final displayName = (profile['displayName'] ?? '').toString().trim();
+    final email = (profile['email'] ?? '').toString().trim();
+    final provider = (profile['signInProvider'] ?? '').toString().trim();
+    final country = (profile['country'] ?? profile['countryCode'] ?? '').toString().trim();
+    final hearing = (profile['hearingStatus'] ?? profile['userType'] ?? '').toString().trim();
+
+    if (displayName.isNotEmpty) _nameCtrl.text = displayName;
+    if (country.isNotEmpty) _country = country;
+    if (hearing.isNotEmpty) _hearing = hearing;
+    if (email.isNotEmpty) _email = email;
+    _providerLabel = provider == 'google.com' ? 'Google' : 'Email';
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(
+        _nameCtrl.text.trim(),
+        (_country ?? '').trim(),
+        (_hearing ?? '').trim(),
+      );
+      if (!mounted) return;
+
+      // Immediately pull fresh values and keep the modal open (equivalent to auto re-open).
+      final res = await widget.onRefresh();
+      if (!mounted) return;
+      _applyProfileFromResult(res);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saved.')),
+      );
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing || _saving) return;
+    setState(() => _refreshing = true);
+    try {
+      final res = await widget.onRefresh();
+      if (!mounted) return;
+      _applyProfileFromResult(res);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Refreshed from Auth.')),
+      );
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Refresh failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : 'Member',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: widget.premium ? theme.colorScheme.secondaryContainer : theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              widget.premium ? 'Premium' : 'Learner',
+              style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                _email.trim().isNotEmpty ? _email.trim() : widget.uid,
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  _chip(theme, label: 'role=${widget.role.toLowerCase()}'),
+                  _chip(theme, label: 'status=${widget.status.toLowerCase()}'),
+                  _chip(theme, label: _providerLabel, icon: _providerLabel == 'Google' ? Icons.g_mobiledata : Icons.email),
+                  if (widget.productId.trim().isNotEmpty) _chip(theme, label: widget.productId.trim()),
+                  if (widget.validUntil != null) _chip(theme, label: 'until ${widget.validUntil!.toIso8601String()}'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Display Name',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) {
+                        final s = (v ?? '').trim();
+                        if (s.isEmpty) return 'Display Name is required';
+                        if (s.length < 2) return 'Too short';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _country,
+                      decoration: const InputDecoration(
+                        labelText: 'Country',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: shared_countries.countries
+                          .map((c) => DropdownMenuItem<String>(value: c, child: Text(c)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _country = v),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _hearing,
+                      decoration: const InputDecoration(
+                        labelText: 'Hearing Status',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'Hearing', child: Text('Hearing')),
+                        DropdownMenuItem(value: 'Deaf', child: Text('Deaf')),
+                        DropdownMenuItem(value: 'Hard of Hearing', child: Text('Hard of Hearing')),
+                      ],
+                      onChanged: (v) => setState(() => _hearing = v),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton.icon(
+          onPressed: _refreshing || _saving ? null : _refresh,
+          icon: _refreshing
+              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.refresh, size: 18),
+          label: const Text('Refresh'),
+        ),
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Save'),
+        ),
+      ],
     );
   }
 }
