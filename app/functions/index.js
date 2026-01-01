@@ -563,6 +563,50 @@ exports.verifyPlaySubscription = onCall(
       );
     });
 
+    // Keep tenant member doc in sync for tenant-scoped Admin Panel + filters.
+    const tenantRef = db.collection("tenants").doc(tenant);
+    const memberRef = tenantRef.collection("members").doc(uid);
+    const userTenantsRef = db.collection("userTenants").doc(uid);
+    const billing = {
+      isPremium: active,
+      subscriptionType,
+      validUntil: renewalDate ? renewalDate : null,
+      productId,
+      platform: "android",
+    };
+
+    await db.runTransaction(async (tx) => {
+      const memberSnap = await tx.get(memberRef);
+      const createdAt =
+        memberSnap.exists && memberSnap.data()?.createdAt ? memberSnap.data().createdAt : FieldValue.serverTimestamp();
+      const existingRole = memberSnap.exists ? (memberSnap.data()?.role ?? "viewer") : "viewer";
+      const existingStatus = memberSnap.exists ? (memberSnap.data()?.status ?? "active") : "active";
+
+      tx.set(
+        memberRef,
+        {
+          uid,
+          role: existingRole,
+          status: existingStatus,
+          billing,
+          updatedAt: FieldValue.serverTimestamp(),
+          createdAt,
+        },
+        { merge: true }
+      );
+
+      tx.set(
+        userTenantsRef,
+        {
+          tenants: {
+            [tenant]: { role: existingRole, status: existingStatus },
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+
     return {
       success: true,
       active,
@@ -570,6 +614,266 @@ exports.verifyPlaySubscription = onCall(
       tenantId: tenant,
       productId,
     };
+  }
+);
+
+/**
+ * Callable: joinTenant
+ *
+ * Purpose:
+ * - Allow a signed-in user to join a tenant without opening client-side writes to
+ *   tenants/{tenantId}/members/{uid} or userTenants/{uid}.
+ *
+ * Behavior:
+ * - If tenant is public => user can join as viewer.
+ * - If tenant is private => only platform admins can join users (for now).
+ * - Denormalizes basic profile fields into the membership doc for tenant-admin UI.
+ */
+exports.joinTenant = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const uid = request.auth.uid;
+    const tenantId = (request.data?.tenantId ?? "").toString().trim();
+    if (!tenantId) {
+      throw new HttpsError("invalid-argument", "tenantId is required");
+    }
+
+    // Load tenant doc (must exist).
+    const tenantRef = db.collection("tenants").doc(tenantId);
+    const tenantSnap = await tenantRef.get();
+    if (!tenantSnap.exists) {
+      throw new HttpsError("not-found", "Tenant not found");
+    }
+
+    const tenantData = tenantSnap.data() || {};
+    const visibility = (tenantData.visibility ?? "public").toString();
+    const isPublic = visibility !== "private";
+
+    // For private tenants, require platform admin (simple + safe).
+    if (!isPublic) {
+      const platformMember = await db
+        .collection("platform")
+        .doc("platform")
+        .collection("members")
+        .doc(uid)
+        .get();
+      if (!platformMember.exists) {
+        throw new HttpsError("permission-denied", "Tenant is private");
+      }
+    }
+
+    // Pull user profile (best-effort) for denormalization.
+    let profile = {};
+    try {
+      const authUser = await auth.getUser(uid);
+      profile.email = authUser.email || null;
+      profile.displayName = authUser.displayName || null;
+    } catch (_) {
+      // ignore
+    }
+    try {
+      const userRef = await findUserDocRefByUid(uid);
+      const userSnap = await userRef.get();
+      const u = userSnap.exists ? userSnap.data() || {} : {};
+      profile.countryCode = u.countryCode ?? u.country ?? u.country_code ?? null;
+      profile.hearingStatus = u.hearingStatus ?? u.hearing_status ?? u.userType ?? null;
+      profile.createdAt = u.createdAt ?? null;
+    } catch (_) {
+      // ignore
+    }
+
+    // Best-effort: include billing info from entitlements for tenant admin panel filters.
+    let billing = {};
+    try {
+      const entSnap = await db.collection("users").doc(uid).collection("entitlements").doc(tenantId).get();
+      const ent = entSnap.exists ? entSnap.data() || {} : {};
+      const activeEnt = ent.active === true;
+      const validUntil = ent.validUntil || null;
+      billing = {
+        isPremium: activeEnt,
+        subscriptionType: ent.subscriptionType || null,
+        validUntil,
+        productId: ent.productId || null,
+        platform: ent.platform || null,
+      };
+    } catch (_) {
+      // ignore
+    }
+
+    // Write membership + index.
+    const memberRef = tenantRef.collection("members").doc(uid);
+    const userTenantsRef = db.collection("userTenants").doc(uid);
+
+    await db.runTransaction(async (tx) => {
+      const memberSnap = await tx.get(memberRef);
+      const existingRole = memberSnap.exists ? (memberSnap.data()?.role ?? "viewer") : "viewer";
+      const existingStatus = memberSnap.exists ? (memberSnap.data()?.status ?? "active") : "active";
+      const createdAt = memberSnap.exists && memberSnap.data()?.createdAt ? memberSnap.data().createdAt : FieldValue.serverTimestamp();
+
+      tx.set(
+        memberRef,
+        {
+          uid,
+          role: existingRole,
+          status: existingStatus,
+          profile,
+          billing,
+          updatedAt: FieldValue.serverTimestamp(),
+          createdAt,
+        },
+        { merge: true }
+      );
+
+      tx.set(
+        userTenantsRef,
+        {
+          tenants: {
+            [tenantId]: { role: existingRole, status: existingStatus },
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+
+    return { success: true, tenantId, uid };
+  }
+);
+
+/**
+ * Callable: setTenantMemberRole
+ *
+ * Purpose:
+ * - Tenant admins/owners can manage roles for members of THEIR tenant.
+ * - Keeps userTenants/{uid} index in sync.
+ */
+exports.setTenantMemberRole = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const callerUid = request.auth.uid;
+    const tenantId = (request.data?.tenantId ?? "").toString().trim();
+    const targetUid = (request.data?.targetUid ?? "").toString().trim();
+    const role = (request.data?.role ?? "").toString().trim().toLowerCase();
+    const status = (request.data?.status ?? "active").toString().trim().toLowerCase();
+
+    if (!tenantId) throw new HttpsError("invalid-argument", "tenantId is required");
+    if (!targetUid) throw new HttpsError("invalid-argument", "targetUid is required");
+    if (!role) throw new HttpsError("invalid-argument", "role is required");
+
+    const allowedRoles = new Set(["viewer", "analyst", "editor", "admin", "owner"]);
+    const allowedStatus = new Set(["active", "inactive"]);
+    if (!allowedRoles.has(role)) throw new HttpsError("invalid-argument", "Invalid role");
+    if (!allowedStatus.has(status)) throw new HttpsError("invalid-argument", "Invalid status");
+
+    // Authorize: platform admin OR tenant owner/admin.
+    let isPlatformAdmin = false;
+    try {
+      const platform = await db
+        .collection("platform")
+        .doc("platform")
+        .collection("members")
+        .doc(callerUid)
+        .get();
+      isPlatformAdmin = platform.exists;
+    } catch (_) {}
+
+    if (!isPlatformAdmin) {
+      const callerMember = await db
+        .collection("tenants")
+        .doc(tenantId)
+        .collection("members")
+        .doc(callerUid)
+        .get();
+      const callerRole = (callerMember.data()?.role ?? "").toString().trim().toLowerCase();
+      if (!(callerRole === "owner" || callerRole === "admin")) {
+        throw new HttpsError("permission-denied", "Caller is not tenant admin");
+      }
+    }
+
+    const tenantRef = db.collection("tenants").doc(tenantId);
+    const memberRef = tenantRef.collection("members").doc(targetUid);
+    const userTenantsRef = db.collection("userTenants").doc(targetUid);
+
+    // Best-effort denormalization for admin UI.
+    let profile = {};
+    try {
+      const authUser = await auth.getUser(targetUid);
+      profile.email = authUser.email || null;
+      profile.displayName = authUser.displayName || null;
+    } catch (_) {
+      // ignore
+    }
+    try {
+      const userRef = await findUserDocRefByUid(targetUid);
+      const userSnap = await userRef.get();
+      const u = userSnap.exists ? userSnap.data() || {} : {};
+      profile.countryCode = u.countryCode ?? u.country ?? u.country_code ?? null;
+      profile.hearingStatus = u.hearingStatus ?? u.hearing_status ?? u.userType ?? null;
+      profile.createdAt = u.createdAt ?? null;
+    } catch (_) {
+      // ignore
+    }
+
+    // Best-effort billing sync for tenant admin panel filters.
+    let billing = {};
+    try {
+      const entSnap = await db.collection("users").doc(targetUid).collection("entitlements").doc(tenantId).get();
+      const ent = entSnap.exists ? entSnap.data() || {} : {};
+      billing = {
+        isPremium: ent.active === true,
+        subscriptionType: ent.subscriptionType || null,
+        validUntil: ent.validUntil || null,
+        productId: ent.productId || null,
+        platform: ent.platform || null,
+      };
+    } catch (_) {
+      // ignore
+    }
+
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(memberRef);
+      const createdAt = snap.exists && snap.data()?.createdAt ? snap.data().createdAt : FieldValue.serverTimestamp();
+      tx.set(
+        memberRef,
+        {
+          uid: targetUid,
+          role,
+          status,
+          profile,
+          billing,
+          updatedAt: FieldValue.serverTimestamp(),
+          createdAt,
+        },
+        { merge: true }
+      );
+
+      tx.set(
+        userTenantsRef,
+        {
+          tenants: {
+            [tenantId]: { role, status },
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+
+    return { success: true, tenantId, targetUid, role, status };
   }
 );
 

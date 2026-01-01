@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
-import 'package:l2l_shared/admin/admin_panel_page.dart';
+import 'package:l2l_shared/admin/tenant_admin_panel_page.dart';
 import 'package:l2l_shared/analytics/search_analytics_page.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
@@ -141,10 +141,15 @@ List<_NavItem> _navItemsForRole({
           },
         ),
       ),
-      const _NavItem(
+      _NavItem(
         label: 'Admin Panel',
         icon: Icons.manage_accounts_outlined,
-        builder: AdminPanelPage.new,
+        builder: () => Builder(
+          builder: (ctx) {
+            final t = ctx.watch<DashboardTenantScope>();
+            return TenantAdminPanelPage(tenantId: t.tenantId);
+          },
+        ),
       ),
       _NavItem(
         label: 'Search Analytics',

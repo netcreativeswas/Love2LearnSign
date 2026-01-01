@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
 import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:l2l_shared/tenancy/app_config.dart';
@@ -22,6 +25,9 @@ class TenantScope extends ChangeNotifier {
   List<String> _uiLocales = const ['en'];
   AppConfigDoc? _appConfig;
   TenantConfigDoc? _tenantConfig;
+  StreamSubscription<User?>? _authSub;
+  String? _lastJoinTenantId;
+  DateTime? _lastJoinAttemptAt;
 
   String get tenantId => _tenantId;
   String? get appId => _appId;
@@ -58,7 +64,47 @@ class TenantScope extends ChangeNotifier {
     final scope = TenantScope._();
     await scope._loadFromPrefs();
     await scope.refreshFromFirestore(firestore: firestore);
+    scope._startAuthListener();
+    // Best-effort: if already signed in at startup, ensure membership for current tenant.
+    await scope.ensureTenantMembership();
     return scope;
+  }
+
+  void _startAuthListener() {
+    _authSub?.cancel();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+      if (user == null) return;
+      await ensureTenantMembership();
+    });
+  }
+
+  /// Best-effort: ensure the signed-in user is a member of the current tenant.
+  ///
+  /// This is required for tenant-scoped Admin Panel (tenants/{tenantId}/members)
+  /// and for multi-tenant-per-account.
+  Future<void> ensureTenantMembership() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Simple throttle to avoid spamming callable on frequent rebuilds.
+    final now = DateTime.now();
+    if (_lastJoinTenantId == _tenantId &&
+        _lastJoinAttemptAt != null &&
+        now.difference(_lastJoinAttemptAt!) < const Duration(seconds: 10)) {
+      return;
+    }
+    _lastJoinTenantId = _tenantId;
+    _lastJoinAttemptAt = now;
+
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('joinTenant');
+      await callable.call({'tenantId': _tenantId});
+    } catch (e) {
+      // Non-fatal: user can still use the app content; membership is primarily for dashboard/admin tooling.
+      if (kDebugMode) {
+        debugPrint('⚠️ ensureTenantMembership failed for tenant=$_tenantId: $e');
+      }
+    }
   }
 
   Future<void> _loadFromPrefs() async {
@@ -112,6 +158,7 @@ class TenantScope extends ChangeNotifier {
 
     await persistSelection(tenantId: _tenantId, appId: _appId, uiLocale: ui);
     await refreshFromFirestore(firestore: firestore);
+    await ensureTenantMembership();
     notifyListeners();
   }
 
@@ -129,6 +176,7 @@ class TenantScope extends ChangeNotifier {
     _tenantConfig = null;
 
     await refreshFromFirestore(firestore: firestore);
+    await ensureTenantMembership();
     notifyListeners();
   }
 
@@ -166,6 +214,12 @@ class TenantScope extends ChangeNotifier {
     } catch (_) {
       // non-fatal
     }
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 }
 

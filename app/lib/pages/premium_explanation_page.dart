@@ -35,6 +35,16 @@ class _PremiumExplanationPageState extends State<PremiumExplanationPage> {
   Widget build(BuildContext context) {
     final monthlyProduct = _subscriptionService.monthlyProduct;
     final yearlyProduct = _subscriptionService.yearlyProduct;
+    final tenantScope = context.watch<TenantScope>();
+
+    String tenantDisplayName() {
+      final a = tenantScope.appConfig?.displayName.trim() ?? '';
+      if (a.isNotEmpty) return a;
+      final t = tenantScope.tenantConfig?.displayName.trim() ?? '';
+      if (t.isNotEmpty) return t;
+      return tenantScope.tenantId;
+    }
+    final tenantName = tenantDisplayName();
 
     return Scaffold(
       appBar: AppBar(
@@ -128,6 +138,23 @@ class _PremiumExplanationPageState extends State<PremiumExplanationPage> {
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                'This subscription applies to the selected dictionary (tenant=$tenantName).',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
             const SizedBox(height: 16),
 

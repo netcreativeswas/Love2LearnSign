@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 
 class AssignAccessPage extends StatelessWidget {
@@ -114,30 +115,13 @@ class _AssignAccessFormState extends State<AssignAccessForm> {
     });
 
     try {
-      final db = FirebaseFirestore.instance;
-
-      // tenants/{tenantId}/members/{uid}
-      await db.collection('tenants').doc(tenantId).collection('members').doc(uid).set(
-        {
-          'uid': uid,
-          'role': _role,
-          'status': _status,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-
-      // userTenants/{uid} merge index
-      await db.collection('userTenants').doc(uid).set(
-        {
-          'tenants': {
-            tenantId: {'role': _role, 'status': _status}
-          },
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('setTenantMemberRole');
+      await callable.call({
+        'tenantId': tenantId,
+        'targetUid': uid,
+        'role': _role,
+        'status': _status,
+      });
 
       if (!mounted) return;
       setState(() => _loading = false);
@@ -281,9 +265,6 @@ class _AssignAccessFormState extends State<AssignAccessForm> {
           items: const [
             DropdownMenuItem(value: 'owner', child: Text('owner')),
             DropdownMenuItem(value: 'admin', child: Text('admin')),
-            DropdownMenuItem(value: 'editor', child: Text('editor')),
-            DropdownMenuItem(value: 'analyst', child: Text('analyst')),
-            DropdownMenuItem(value: 'viewer', child: Text('viewer')),
           ],
           onChanged: _loading ? null : (v) => setState(() => _role = v ?? 'admin'),
         ),
@@ -325,7 +306,12 @@ class _AssignAccessFormState extends State<AssignAccessForm> {
               if (snap.hasError) {
                 return Text('Failed to load members: ${snap.error}');
               }
-              final docs = snap.data?.docs ?? const [];
+              final allDocs = snap.data?.docs ?? const [];
+              final docs = allDocs.where((m) {
+                final data = m.data();
+                final role = (data['role'] ?? '').toString().toLowerCase().trim();
+                return role == 'owner' || role == 'admin';
+              }).toList();
               if (docs.isEmpty) return const Text('No members');
               return Column(
                 children: docs.map((m) {
