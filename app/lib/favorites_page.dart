@@ -6,11 +6,11 @@ import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'tenancy/tenant_scope.dart';
+import 'tenancy/tenant_member_access_provider.dart';
 import 'services/favorites_repository.dart';
 import 'video_viewer_page.dart';
 import 'widgets/custom_search_bar.dart';
 import 'l10n/dynamic_l10n.dart';
-import 'package:l2l_shared/auth/auth_provider.dart';
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({
@@ -86,9 +86,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-                    // Get user roles for filtering restricted content
-                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                    final userRoles = authProvider.userRoles;
+                    // Tenant-scoped access for filtering restricted content (e.g. JW).
+                    final hasJw = context.watch<TenantMemberAccessProvider>().isJw;
                     
                     // Helper function to check if a video should be filtered
                     bool shouldFilterVideo(QueryDocumentSnapshot doc) {
@@ -103,7 +102,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
                       final restrictedRole = restrictedCategories[categoryMain];
                       if (restrictedRole == null) return false;
                       
-                      return !userRoles.contains(restrictedRole);
+                      if (restrictedRole == 'jw') return !hasJw;
+                      return false;
                     }
                     
                     final docs = snapshot.data!.docs

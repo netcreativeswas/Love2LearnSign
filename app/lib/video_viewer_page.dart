@@ -17,6 +17,7 @@ import 'theme.dart';
 import 'widgets/fullscreen_video_player.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 import 'tenancy/tenant_scope.dart';
+import 'tenancy/tenant_member_access_provider.dart';
 import 'services/ad_service.dart';
 import 'services/session_counter_service.dart';
 import 'services/premium_service.dart';
@@ -321,8 +322,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     };
     final restrictedRole = restrictedCategories[_categoryMain.trim()];
     if (restrictedRole != null) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (!authProvider.userRoles.contains(restrictedRole)) {
+      final hasJw = Provider.of<TenantMemberAccessProvider>(context, listen: false).isJw;
+      if (restrictedRole == 'jw' && !hasJw) {
         // User doesn't have required role, block access
         setState(() {
           _isLoading = false;

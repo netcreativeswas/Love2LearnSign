@@ -25,6 +25,7 @@ import 'package:app_links/app_links.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'tenancy/tenant_scope.dart';
+import 'tenancy/tenant_member_access_provider.dart';
 
 import 'url_strategy_stub.dart'
     if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart';
@@ -438,6 +439,16 @@ void main() async {
               create: (_) => LocaleProvider()),
           ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
           ChangeNotifierProvider<TenantScope>.value(value: tenantScope),
+          ChangeNotifierProxyProvider<TenantScope, TenantMemberAccessProvider>(
+            create: (ctx) => TenantMemberAccessProvider(
+              tenantId: ctx.read<TenantScope>().tenantId,
+            ),
+            update: (_, scope, prev) {
+              if (prev == null) return TenantMemberAccessProvider(tenantId: scope.tenantId);
+              prev.updateTenantId(scope.tenantId);
+              return prev;
+            },
+          ),
           ChangeNotifierProvider<FavoritesRepository>.value(
               value: favoritesRepo),
           ChangeNotifierProvider<HistoryRepository>.value(value: historyRepo),

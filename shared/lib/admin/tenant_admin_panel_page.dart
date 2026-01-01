@@ -79,6 +79,14 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     return const {};
   }
 
+  List<String> _featureRolesFrom(Map<String, dynamic> data) {
+    final v = data['featureRoles'];
+    if (v is List) {
+      return v.map((e) => (e ?? '').toString().trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
+    }
+    return const [];
+  }
+
   String _signInProviderLabel(Map<String, dynamic> profile) {
     final p = (profile['signInProvider'] ?? profile['provider'] ?? '').toString().trim();
     // We only show Google vs Email per your request.
@@ -181,6 +189,21 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     });
   }
 
+  Future<void> _setAccess({
+    required String uid,
+    bool? jw,
+    bool? premium,
+  }) async {
+    final callable = FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('setTenantMemberAccess');
+    final payload = <String, dynamic>{
+      'tenantId': widget.tenantId,
+      'targetUid': uid,
+    };
+    if (jw != null) payload['jw'] = jw;
+    if (premium != null) payload['premium'] = premium;
+    await callable.call(payload);
+  }
+
   Future<void> _updateMemberProfile({
     required String uid,
     required String displayName,
@@ -215,6 +238,7 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
   Future<void> _showMemberDetails(BuildContext context, Map<String, dynamic> data) async {
     final profile = _profileFrom(data);
     final billing = _billingFrom(data);
+    final featureRoles = _featureRolesFrom(data);
     final uid = (data['uid'] ?? '').toString();
     final role = (data['role'] ?? '').toString();
     final status = (data['status'] ?? '').toString();
@@ -225,6 +249,8 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     final productId = (billing['productId'] ?? '').toString();
     final validUntil = billing['validUntil'];
     final premium = _isPremium(data);
+    final isComplimentary = billing['isComplimentary'] == true;
+    final isJw = featureRoles.contains('jw');
     final providerLabel = _signInProviderLabel(profile);
 
     return showDialog<void>(
@@ -236,6 +262,8 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
         role: role,
         status: status,
         premium: premium,
+        jw: isJw,
+        complimentaryPremium: isComplimentary,
         providerLabel: providerLabel,
         initialDisplayName: name,
         initialCountry: country,
@@ -248,6 +276,13 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
             displayName: nextName,
             country: nextCountry,
             hearingStatus: nextHearing,
+          );
+        },
+        onSaveAccess: (nextJw, nextComplimentaryPremium) async {
+          await _setAccess(
+            uid: uid,
+            jw: nextJw,
+            premium: nextComplimentaryPremium,
           );
         },
         onRefresh: () async {
@@ -401,6 +436,8 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                     final country = (profile['countryCode'] ?? profile['country'] ?? '').toString();
                     final hearing = (profile['hearingStatus'] ?? profile['userType'] ?? '').toString();
                     final premium = _isPremium(data);
+                    final featureRoles = _featureRolesFrom(data);
+                    final isJw = featureRoles.contains('jw');
                     final providerLabel = _signInProviderLabel(profile);
 
                     return InkWell(
@@ -452,6 +489,14 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                                                 ? theme.colorScheme.onSecondaryContainer
                                                 : theme.colorScheme.onSurfaceVariant,
                                           ),
+                                          if (isJw)
+                                            _chip(
+                                              theme,
+                                              label: 'JW',
+                                              icon: Icons.verified_user,
+                                              bg: theme.colorScheme.tertiaryContainer,
+                                              fg: theme.colorScheme.onTertiaryContainer,
+                                            ),
                                           _chip(
                                             theme,
                                             label: providerLabel,
@@ -574,6 +619,8 @@ class _EditMemberDialog extends StatefulWidget {
   final String role;
   final String status;
   final bool premium;
+  final bool jw;
+  final bool complimentaryPremium;
   final String providerLabel;
   final String initialDisplayName;
   final String initialCountry;
@@ -581,6 +628,7 @@ class _EditMemberDialog extends StatefulWidget {
   final String productId;
   final DateTime? validUntil;
   final Future<void> Function(String displayName, String country, String hearingStatus) onSave;
+  final Future<void> Function(bool jw, bool complimentaryPremium) onSaveAccess;
   final Future<Map<String, dynamic>?> Function() onRefresh;
 
   const _EditMemberDialog({
@@ -590,6 +638,8 @@ class _EditMemberDialog extends StatefulWidget {
     required this.role,
     required this.status,
     required this.premium,
+    required this.jw,
+    required this.complimentaryPremium,
     required this.providerLabel,
     required this.initialDisplayName,
     required this.initialCountry,
@@ -597,6 +647,7 @@ class _EditMemberDialog extends StatefulWidget {
     required this.productId,
     required this.validUntil,
     required this.onSave,
+    required this.onSaveAccess,
     required this.onRefresh,
   });
 
@@ -609,10 +660,15 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
   late final TextEditingController _nameCtrl;
   String? _country;
   String? _hearing;
+  bool _jw = false;
+  bool _complimentaryPremium = false;
+  bool _premiumEffective = false;
   bool _saving = false;
   bool _refreshing = false;
   String _providerLabel = '';
   String _email = '';
+  String _productId = '';
+  DateTime? _validUntil;
 
   @override
   void initState() {
@@ -622,6 +678,11 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
     _hearing = widget.initialHearingStatus.trim().isEmpty ? null : widget.initialHearingStatus.trim();
     _providerLabel = widget.providerLabel;
     _email = widget.email;
+    _jw = widget.jw;
+    _complimentaryPremium = widget.complimentaryPremium;
+    _premiumEffective = widget.premium || _complimentaryPremium;
+    _productId = widget.productId;
+    _validUntil = widget.validUntil;
   }
 
   @override
@@ -633,6 +694,8 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
   void _applyProfileFromResult(Map<String, dynamic>? res) {
     final profile =
         (res?['profile'] is Map) ? Map<String, dynamic>.from(res!['profile'] as Map) : <String, dynamic>{};
+    final billing =
+        (res?['billing'] is Map) ? Map<String, dynamic>.from(res!['billing'] as Map) : <String, dynamic>{};
     final displayName = (profile['displayName'] ?? '').toString().trim();
     final email = (profile['email'] ?? '').toString().trim();
     final provider = (profile['signInProvider'] ?? '').toString().trim();
@@ -644,6 +707,16 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
     if (hearing.isNotEmpty) _hearing = hearing;
     if (email.isNotEmpty) _email = email;
     _providerLabel = provider == 'google.com' ? 'Google' : 'Email';
+
+    // Keep premium display in sync if server returns billing.
+    final isPremium = billing['isPremium'] == true;
+    final isComplimentary = billing['isComplimentary'] == true;
+    final productId = (billing['productId'] ?? '').toString().trim();
+    final validUntil = billing['validUntil'];
+    _complimentaryPremium = isComplimentary || _complimentaryPremium;
+    _premiumEffective = isPremium || _complimentaryPremium;
+    if (productId.isNotEmpty) _productId = productId;
+    if (validUntil is Timestamp) _validUntil = validUntil.toDate();
   }
 
   Future<void> _save() async {
@@ -651,6 +724,7 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _saving = true);
     try {
+      await widget.onSaveAccess(_jw, _complimentaryPremium);
       await widget.onSave(
         _nameCtrl.text.trim(),
         (_country ?? '').trim(),
@@ -702,6 +776,7 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final premiumNow = _premiumEffective || _complimentaryPremium;
     return AlertDialog(
       title: Row(
         children: [
@@ -716,11 +791,11 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: widget.premium ? theme.colorScheme.secondaryContainer : theme.colorScheme.surfaceContainerHighest,
+              color: premiumNow ? theme.colorScheme.secondaryContainer : theme.colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              widget.premium ? 'Premium' : 'Learner',
+              premiumNow ? 'Premium' : 'Learner',
               style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
@@ -744,11 +819,32 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
                   _chip(theme, label: 'role=${widget.role.toLowerCase()}'),
                   _chip(theme, label: 'status=${widget.status.toLowerCase()}'),
                   _chip(theme, label: _providerLabel, icon: _providerLabel == 'Google' ? Icons.g_mobiledata : Icons.email),
-                  if (widget.productId.trim().isNotEmpty) _chip(theme, label: widget.productId.trim()),
-                  if (widget.validUntil != null) _chip(theme, label: 'until ${widget.validUntil!.toIso8601String()}'),
+                  if (_jw) _chip(theme, label: 'JW', icon: Icons.verified_user),
+                  if (_complimentaryPremium) _chip(theme, label: 'Complimentary', icon: Icons.card_giftcard),
+                  if (_productId.trim().isNotEmpty) _chip(theme, label: _productId.trim()),
+                  if (_validUntil != null) _chip(theme, label: 'until ${_validUntil!.toIso8601String()}'),
                 ],
               ),
               const SizedBox(height: 16),
+              const Divider(),
+              SwitchListTile(
+                title: const Text('JW access'),
+                subtitle: const Text('Allow access to JW-only categories/words for this tenant.'),
+                value: _jw,
+                onChanged: (_saving || _refreshing) ? null : (v) => setState(() => _jw = v),
+              ),
+              SwitchListTile(
+                title: const Text('Complimentary Premium'),
+                subtitle: const Text('Grant premium for this tenant (no expiry). Does not remove paid subscriptions.'),
+                value: _complimentaryPremium,
+                onChanged: (_saving || _refreshing)
+                    ? null
+                    : (v) => setState(() {
+                          _complimentaryPremium = v;
+                          _premiumEffective = widget.premium || _complimentaryPremium;
+                        }),
+              ),
+              const Divider(),
               Form(
                 key: _formKey,
                 child: Column(

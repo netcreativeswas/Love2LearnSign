@@ -26,6 +26,7 @@ import 'package:provider/provider.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 import 'package:audioplayers/audioplayers.dart';
 import 'tenancy/tenant_scope.dart';
+import 'tenancy/tenant_member_access_provider.dart';
 
 class GameMasterPage extends StatefulWidget {
   final String? countryCode;
@@ -656,9 +657,8 @@ class _GameMasterPageState extends State<GameMasterPage>
                   var categories = categoryMap.keys.toList()..sort();
                   // JW filtering for selectors if user lacks 'jw' role
                   try {
-                    final roles =
-                        context.read<app_auth.AuthProvider>().userRoles;
-                    if (!roles.contains('jw')) {
+                    final hasJw = context.read<TenantMemberAccessProvider>().isJw;
+                    if (!hasJw) {
                       final restricted = {
                         'JW Organisation',
                         'JW Organization',

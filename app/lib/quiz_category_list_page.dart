@@ -5,6 +5,7 @@ import 'quiz_page.dart'; // Use unified quiz page
 import 'l10n/dynamic_l10n.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'tenancy/tenant_scope.dart';
+import 'tenancy/tenant_member_access_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 
@@ -83,8 +84,7 @@ class QuizCategoryListPage extends StatelessWidget {
           final categoryMap = snapshot.data ?? {};
           var categories = categoryMap.keys.toList()..sort();
           // Filter out restricted JW categories if user lacks 'jw' role
-          final userRoles = context.read<app_auth.AuthProvider>().userRoles;
-          final hasJW = userRoles.contains('jw');
+          final hasJW = context.read<TenantMemberAccessProvider>().isJw;
           if (!hasJW) {
             final restricted = {
               'JW Organisation',

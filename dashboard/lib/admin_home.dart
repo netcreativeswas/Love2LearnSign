@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:l2l_shared/admin/tenant_admin_panel_page.dart';
 import 'package:l2l_shared/analytics/search_analytics_page.dart';
@@ -236,12 +237,14 @@ class _DashboardSidebar extends StatelessWidget {
     final displayName = (auth.displayName ?? user?.displayName ?? 'Dashboard User').trim();
     final email = (user?.email ?? '').trim();
     final roles = auth.userRoles;
-    final displayRoles = roles.contains('admin')
-        ? roles.where((r) {
-            final lower = r.toLowerCase();
-            return lower != 'freeuser' && lower != 'paiduser' && lower != 'premium';
-          }).toList()
-        : roles;
+    // Avoid confusing users with baseline/global roles like freeUser. We only show meaningful global roles.
+    final displayRoles = roles
+        .map((r) => r.toLowerCase().trim())
+        .where((r) => r.isNotEmpty)
+        .where((r) => r != 'freeuser' && r != 'paiduser' && r != 'premium')
+        .toSet()
+        .toList()
+      ..sort();
     final tenantRole = tenant.isPlatformAdmin
         ? 'platformAdmin'
         : ((tenant.selectedTenantRole ?? 'viewer').toLowerCase().trim().isEmpty
@@ -385,18 +388,62 @@ class _DashboardSidebar extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          Chip(
-                            label: Text(
-                              'tenantRole=$tenantRole',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                            ),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
+                      StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                        stream: (user == null)
+                            ? const Stream.empty()
+                            : FirebaseFirestore.instance
+                                .collection('tenants')
+                                .doc(tenant.tenantId)
+                                .collection('members')
+                                .doc(user.uid)
+                                .snapshots(),
+                        builder: (context, snap) {
+                          final data = snap.data?.data() ?? const <String, dynamic>{};
+                          final billing = (data['billing'] is Map) ? Map<String, dynamic>.from(data['billing'] as Map) : const <String, dynamic>{};
+                          final featureRoles = (data['featureRoles'] is List)
+                              ? (data['featureRoles'] as List).map((e) => (e ?? '').toString().trim().toLowerCase()).where((e) => e.isNotEmpty).toList()
+                              : const <String>[];
+                          final isPremium = billing['isPremium'] == true;
+                          final isComplimentary = billing['isComplimentary'] == true;
+                          final isJw = featureRoles.contains('jw');
+
+                          return Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              Chip(
+                                label: Text(
+                                  'tenantRole=$tenantRole',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              Chip(
+                                label: Text(
+                                  'tenantPremium=${isPremium ? 'yes' : 'no'}',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              if (isComplimentary)
+                                const Chip(
+                                  label: Text(
+                                    'complimentary',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              if (isJw)
+                                const Chip(
+                                  label: Text(
+                                    'JW',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                            ],
+                          );
+                        },
                       ),
                       if (displayRoles.isNotEmpty) ...[
                         const SizedBox(height: 10),

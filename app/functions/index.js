@@ -544,17 +544,44 @@ exports.verifyPlaySubscription = onCall(
     const entRef = db.collection("users").doc(uid).collection("entitlements").doc(tenant);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(entRef);
-      const createdAt = snap.exists && snap.data()?.createdAt ? snap.data().createdAt : FieldValue.serverTimestamp();
+      const existing = snap.exists ? (snap.data() || {}) : {};
+      const createdAt = snap.exists && existing.createdAt ? existing.createdAt : FieldValue.serverTimestamp();
+
+      // If a tenant admin granted complimentary premium, keep it even if the store purchase expires.
+      const manualActive = existing.manualActive === true;
+
+      // Store purchase fields (do not overwrite manual fields).
+      const purchaseActive = active;
+      const purchaseValidUntil = renewalDate ? renewalDate : null;
+      const purchasePlatform = "android";
+      const purchaseSubscriptionType = subscriptionType;
+      const purchaseProductId = productId;
+
+      const effectiveActive = manualActive || purchaseActive;
+      const effectiveValidUntil = manualActive ? null : purchaseValidUntil;
+      const platformEffective = manualActive ? "manual" : purchasePlatform;
+      const subscriptionTypeEffective = manualActive ? "complimentary" : purchaseSubscriptionType;
+
       tx.set(
         entRef,
         {
           uid,
           tenantId: tenant,
-          productId,
-          subscriptionType,
-          platform: "android",
-          active,
-          validUntil: renewalDate ? renewalDate : null,
+          // Backward compatible top-level fields (effective):
+          productId: purchaseProductId,
+          subscriptionType: subscriptionTypeEffective,
+          platform: platformEffective,
+          active: effectiveActive,
+          validUntil: effectiveValidUntil,
+
+          // Preserve both sources explicitly:
+          manualActive,
+          purchaseActive,
+          purchaseValidUntil,
+          purchasePlatform,
+          purchaseSubscriptionType,
+          purchaseProductId,
+
           purchaseTokenHash,
           createdAt,
           updatedAt: FieldValue.serverTimestamp(),
@@ -609,15 +636,21 @@ exports.verifyPlaySubscription = onCall(
     const tenantRef = db.collection("tenants").doc(tenant);
     const memberRef = tenantRef.collection("members").doc(uid);
     const userTenantsRef = db.collection("userTenants").doc(uid);
-    const billing = {
-      isPremium: active,
-      subscriptionType,
-      validUntil: renewalDate ? renewalDate : null,
-      productId,
-      platform: "android",
-    };
+    // Billing is derived from the entitlement doc (effective fields), so manual grants are respected.
 
     await db.runTransaction(async (tx) => {
+      const entSnap = await tx.get(entRef);
+      const ent = entSnap.exists ? (entSnap.data() || {}) : {};
+      const isComplimentary = ent.manualActive === true || ent.platform === "manual" || ent.subscriptionType === "complimentary";
+      const billing = {
+        isPremium: ent.active === true,
+        isComplimentary,
+        subscriptionType: ent.subscriptionType || null,
+        validUntil: ent.validUntil || null,
+        productId: ent.productId || null,
+        platform: ent.platform || null,
+      };
+
       const memberSnap = await tx.get(memberRef);
       const createdAt =
         memberSnap.exists && memberSnap.data()?.createdAt ? memberSnap.data().createdAt : FieldValue.serverTimestamp();
@@ -745,8 +778,10 @@ exports.joinTenant = onCall(
       const ent = entSnap.exists ? entSnap.data() || {} : {};
       const activeEnt = ent.active === true;
       const validUntil = ent.validUntil || null;
+      const isComplimentary = ent.manualActive === true || ent.platform === "manual" || ent.subscriptionType === "complimentary";
       billing = {
         isPremium: activeEnt,
+        isComplimentary,
         subscriptionType: ent.subscriptionType || null,
         validUntil,
         productId: ent.productId || null,
@@ -889,8 +924,10 @@ exports.setTenantMemberRole = onCall(
     try {
       const entSnap = await db.collection("users").doc(targetUid).collection("entitlements").doc(tenantId).get();
       const ent = entSnap.exists ? entSnap.data() || {} : {};
+      const isComplimentary = ent.manualActive === true || ent.platform === "manual" || ent.subscriptionType === "complimentary";
       billing = {
         isPremium: ent.active === true,
+        isComplimentary,
         subscriptionType: ent.subscriptionType || null,
         validUntil: ent.validUntil || null,
         productId: ent.productId || null,
@@ -930,6 +967,193 @@ exports.setTenantMemberRole = onCall(
     });
 
     return { success: true, tenantId, targetUid, role, status };
+  }
+);
+
+/**
+ * Callable: setTenantMemberAccess
+ *
+ * Purpose:
+ * - Tenant owners/admins can grant per-tenant feature access (e.g. JW) and
+ *   complimentary premium (manual entitlement) WITHOUT changing global roles.
+ *
+ * Data model:
+ * - tenants/{tenantId}/members/{uid}.featureRoles: ['jw', ...]
+ * - users/{uid}/entitlements/{tenantId}:
+ *     - manualActive: boolean
+ *     - purchaseActive/purchaseValidUntil/... (kept from store purchases)
+ *     - active/validUntil/platform/subscriptionType (effective, derived)
+ */
+exports.setTenantMemberAccess = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const callerUid = request.auth.uid;
+    const tenantId = (request.data?.tenantId ?? "").toString().trim();
+    const targetUid = (request.data?.targetUid ?? "").toString().trim();
+    const jw = request.data?.jw;
+    const premium = request.data?.premium;
+
+    if (!tenantId) throw new HttpsError("invalid-argument", "tenantId is required");
+    if (!targetUid) throw new HttpsError("invalid-argument", "targetUid is required");
+    if (jw !== undefined && typeof jw !== "boolean") {
+      throw new HttpsError("invalid-argument", "jw must be boolean");
+    }
+    if (premium !== undefined && typeof premium !== "boolean") {
+      throw new HttpsError("invalid-argument", "premium must be boolean");
+    }
+    if (jw === undefined && premium === undefined) {
+      throw new HttpsError("invalid-argument", "At least one of jw/premium must be provided");
+    }
+
+    // Authorize: platform admin OR tenant owner/admin.
+    let isPlatformAdmin = false;
+    try {
+      const platform = await db
+        .collection("platform")
+        .doc("platform")
+        .collection("members")
+        .doc(callerUid)
+        .get();
+      isPlatformAdmin = platform.exists;
+    } catch (_) {}
+
+    if (!isPlatformAdmin) {
+      const callerMember = await db
+        .collection("tenants")
+        .doc(tenantId)
+        .collection("members")
+        .doc(callerUid)
+        .get();
+      const callerRole = (callerMember.data()?.role ?? "").toString().trim().toLowerCase();
+      if (!(callerRole === "owner" || callerRole === "admin")) {
+        throw new HttpsError("permission-denied", "Caller is not tenant admin");
+      }
+    }
+
+    const memberRef = db.collection("tenants").doc(tenantId).collection("members").doc(targetUid);
+    const userTenantsRef = db.collection("userTenants").doc(targetUid);
+    const entRef = db.collection("users").doc(targetUid).collection("entitlements").doc(tenantId);
+
+    const now = Date.now();
+
+    await db.runTransaction(async (tx) => {
+      const memberSnap = await tx.get(memberRef);
+      const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+      const existingRole = (memberData.role ?? "viewer").toString().trim().toLowerCase() || "viewer";
+      const existingStatus = (memberData.status ?? "active").toString().trim().toLowerCase() || "active";
+      const createdAt =
+        memberSnap.exists && memberData.createdAt ? memberData.createdAt : FieldValue.serverTimestamp();
+
+      // ---- featureRoles (JW) ----
+      const currentFeatureRoles = Array.isArray(memberData.featureRoles) ? memberData.featureRoles : [];
+      const featureSet = new Set(currentFeatureRoles.map((r) => String(r).trim().toLowerCase()).filter(Boolean));
+      if (jw !== undefined) {
+        if (jw) featureSet.add("jw");
+        else featureSet.delete("jw");
+      }
+      const featureRoles = Array.from(featureSet).sort();
+
+      // ---- entitlements (complimentary premium) ----
+      const entSnap = await tx.get(entRef);
+      const ent = entSnap.exists ? (entSnap.data() || {}) : {};
+
+      const prevManualActive = ent.manualActive === true;
+      const manualActive = (premium !== undefined) ? premium : prevManualActive;
+
+      // Preserve purchase info if present (backward-compatible with existing schema).
+      const purchaseActive =
+        typeof ent.purchaseActive === "boolean"
+          ? ent.purchaseActive
+          : (ent.platform && ent.platform !== "manual" ? (ent.active === true) : (ent.active === true && ent.validUntil));
+      const purchaseValidUntil =
+        ent.purchaseValidUntil ?? ent.validUntil ?? null;
+      const purchaseValidUntilMs = purchaseValidUntil && purchaseValidUntil.toDate
+        ? purchaseValidUntil.toDate().getTime()
+        : (purchaseValidUntil instanceof Date ? purchaseValidUntil.getTime() : (purchaseValidUntil ? new Date(purchaseValidUntil).getTime() : 0));
+      const purchaseStillValid =
+        purchaseActive === true && (purchaseValidUntilMs ? purchaseValidUntilMs > now : true);
+
+      const effectiveActive = manualActive || purchaseStillValid;
+      const effectiveValidUntil = manualActive ? null : (purchaseStillValid ? purchaseValidUntil : null);
+      const purchasePlatform = ent.purchasePlatform ?? (ent.platform && ent.platform !== "manual" ? ent.platform : null);
+      const purchaseSubscriptionType = ent.purchaseSubscriptionType ?? (ent.platform && ent.platform !== "manual" ? ent.subscriptionType : null);
+      const purchaseProductId = ent.purchaseProductId ?? (ent.platform && ent.platform !== "manual" ? ent.productId : null);
+
+      const platformEffective = manualActive ? "manual" : (purchasePlatform || ent.platform || null);
+      const subscriptionTypeEffective = manualActive ? "complimentary" : (purchaseSubscriptionType || ent.subscriptionType || null);
+
+      tx.set(
+        entRef,
+        {
+          uid: targetUid,
+          tenantId,
+          manualActive,
+          manualGrantedBy: manualActive ? callerUid : (ent.manualGrantedBy ?? null),
+          manualGrantedAt: manualActive ? (ent.manualGrantedAt ?? FieldValue.serverTimestamp()) : (ent.manualGrantedAt ?? null),
+          purchaseActive: purchaseStillValid,
+          purchaseValidUntil: purchaseStillValid ? purchaseValidUntil : null,
+          purchasePlatform,
+          purchaseSubscriptionType,
+          purchaseProductId,
+          active: effectiveActive,
+          validUntil: effectiveValidUntil,
+          platform: platformEffective,
+          subscriptionType: subscriptionTypeEffective,
+          updatedAt: FieldValue.serverTimestamp(),
+          createdAt: entSnap.exists && ent.createdAt ? ent.createdAt : FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // Keep tenant member doc in sync for tenant admin UI.
+      const billing = {
+        isPremium: effectiveActive,
+        isComplimentary: manualActive === true,
+        subscriptionType: subscriptionTypeEffective,
+        validUntil: effectiveValidUntil,
+        productId: manualActive ? null : purchaseProductId,
+        platform: platformEffective,
+      };
+
+      tx.set(
+        memberRef,
+        {
+          uid: targetUid,
+          role: existingRole,
+          status: existingStatus,
+          featureRoles,
+          billing,
+          updatedAt: FieldValue.serverTimestamp(),
+          createdAt,
+        },
+        { merge: true }
+      );
+
+      tx.set(
+        userTenantsRef,
+        {
+          tenants: {
+            [tenantId]: {
+              role: existingRole,
+              status: existingStatus,
+              featureRoles,
+              premium: effectiveActive,
+            },
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+
+    return { success: true, tenantId, targetUid };
   }
 );
 
@@ -1139,8 +1363,10 @@ exports.refreshTenantMemberProfileFromAuth = onCall(
     try {
       const entSnap = await db.collection("users").doc(targetUid).collection("entitlements").doc(tenantId).get();
       const ent = entSnap.exists ? entSnap.data() || {} : {};
+      const isComplimentary = ent.manualActive === true || ent.platform === "manual" || ent.subscriptionType === "complimentary";
       billing = {
         isPremium: ent.active === true,
+        isComplimentary,
         subscriptionType: ent.subscriptionType || null,
         validUntil: ent.validUntil || null,
         productId: ent.productId || null,

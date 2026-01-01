@@ -12,6 +12,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
 import 'tenancy/tenant_scope.dart';
+import 'tenancy/tenant_member_access_provider.dart';
 import 'tenancy/tenant_picker_page.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 import 'services/notification_permission_service.dart';
@@ -149,8 +150,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     var cats = catSet.toList()..sort();
     // Filter out restricted JW categories if user lacks 'jw' role
-    final roles = context.read<app_auth.AuthProvider>().userRoles;
-    final hasJW = roles.contains('jw');
+    final hasJW = context.read<TenantMemberAccessProvider>().isJw;
     if (!hasJW) {
       final restricted = {
         'JW Organisation',

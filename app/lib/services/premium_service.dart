@@ -44,6 +44,27 @@ class PremiumService {
         }
       }
 
+      // Tenant admins/owners should be premium for their tenant (no ads).
+      // This is tenant-scoped (not global claims).
+      try {
+        final member = await _firestore
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('members')
+            .doc(userId)
+            .get();
+        if (member.exists) {
+          final data = (member.data() ?? <String, dynamic>{});
+          final role = (data['role'] ?? '').toString().trim().toLowerCase();
+          final status = (data['status'] ?? 'active').toString().trim().toLowerCase();
+          if (status != 'inactive' && (role == 'admin' || role == 'owner')) {
+            return true;
+          }
+        }
+      } catch (_) {
+        // ignore
+      }
+
       // Option A: per-tenant entitlement doc.
       final ent = await TenantDb.userEntitlementDoc(
         _firestore,

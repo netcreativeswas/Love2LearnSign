@@ -10,6 +10,7 @@ import 'l10n/dynamic_l10n.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
 import 'tenancy/tenant_scope.dart';
+import 'tenancy/tenant_member_access_provider.dart';
 import 'widgets/main_app_bar.dart';
 import 'widgets/main_btm_nav_bar.dart';
 import 'widgets/main_drawer.dart';
@@ -23,7 +24,6 @@ import 'dart:async';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'theme.dart';
 import 'home_page.dart';
-import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 
 class _NoGlowBehavior extends ScrollBehavior {
   @override
@@ -389,9 +389,7 @@ class _DictionaryPageState extends State<DictionaryPage> {
                               if (!snapshot.hasData) {
                                 return const Center(child: CircularProgressIndicator());
                               }
-                              
-                              final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
-                              final userRoles = authProvider.userRoles;
+                              final hasJw = context.watch<TenantMemberAccessProvider>().isJw;
                               
                               // Define restricted categories
                               final restrictedCategories = {
@@ -409,7 +407,8 @@ class _DictionaryPageState extends State<DictionaryPage> {
                               final cats = allCats.where((category) {
                                 final restrictedRole = restrictedCategories[category];
                                 if (restrictedRole == null) return true; // No restriction
-                                return userRoles.contains(restrictedRole); // Only show if user has the required role
+                                if (restrictedRole == 'jw') return hasJw;
+                                return true;
                               }).toList()
                                 ..sort();
                               cats.insert(0, 'All words');
@@ -582,8 +581,8 @@ class _DictionaryPageState extends State<DictionaryPage> {
                                 _selectedCategory != 'All' &&
                                 _searchQuery.isEmpty)
                               SliverToBoxAdapter(
-                                child: Consumer<app_auth.AuthProvider>(
-                                  builder: (context, authProvider, _) {
+                                child: Consumer<TenantMemberAccessProvider>(
+                                  builder: (context, access, _) {
                                     // Check if category is restricted
                                     final restrictedCategories = {
                                       'JW Organisation': 'jw',
@@ -591,7 +590,8 @@ class _DictionaryPageState extends State<DictionaryPage> {
                                     };
                                     final restrictedRole = restrictedCategories[_selectedCategory];
                                     
-                                    if (restrictedRole != null && !authProvider.userRoles.contains(restrictedRole)) {
+                                    final hasJw = access.isJw;
+                                    if (restrictedRole == 'jw' && !hasJw) {
                                       return Container(
                                         padding: const EdgeInsets.all(24),
                                         child: Column(
@@ -833,11 +833,10 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
       }
       
       // Filter restricted content and sub-categories client-side
-      final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
-      final userRoles = authProvider.userRoles;
+      final hasJw = Provider.of<TenantMemberAccessProvider>(context, listen: false).isJw;
       
       final newDocs = snapshot.docs.where((doc) {
-        if (_shouldFilterVideo(doc, userRoles)) return false;
+        if (_shouldFilterVideo(doc, hasJw)) return false;
         
         if (widget.selectedCategory != 'All' && widget.selectedSubCategory.isNotEmpty) {
           final data = doc.data() as Map<String, dynamic>?;
@@ -891,7 +890,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
   }
 
   // Helper function to check if a video should be filtered based on restricted categories
-  bool _shouldFilterVideo(QueryDocumentSnapshot doc, List<String> userRoles) {
+  bool _shouldFilterVideo(QueryDocumentSnapshot doc, bool hasJw) {
     final data = doc.data() as Map<String, dynamic>;
     final categoryMain = (data['category_main'] ?? '').toString().trim();
     
@@ -905,7 +904,8 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
     if (restrictedRole == null) return false; // Not restricted, don't filter
     
     // Filter if user doesn't have the required role
-    return !userRoles.contains(restrictedRole);
+    if (restrictedRole == 'jw') return !hasJw;
+    return false;
   }
 
   Widget _buildSortBar(BuildContext context) {
@@ -1221,15 +1221,13 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
             final lowerQuery = widget.searchQuery.toLowerCase();
             final allDocs = snapshot.data!.docs;
           
-          // Get user roles for filtering restricted content
-          final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
-          final userRoles = authProvider.userRoles;
+          final hasJw = Provider.of<TenantMemberAccessProvider>(context, listen: false).isJw;
           
             final filtered = allDocs.where((doc) {
             final data = doc.data()! as Map<String, dynamic>;
             
             // Filter out restricted videos if user doesn't have required role
-            if (_shouldFilterVideo(doc, userRoles)) {
+            if (_shouldFilterVideo(doc, hasJw)) {
               return false;
             }
             

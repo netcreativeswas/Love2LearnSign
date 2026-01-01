@@ -12,9 +12,11 @@ import 'package:l2l_shared/admin/admin_panel_page.dart';
 import 'package:l2l_shared/analytics/search_analytics_page.dart';
 import 'package:l2l_shared/words_admin/words_list_page.dart';
 import '../tenancy/tenant_scope.dart';
+import '../tenancy/tenant_member_access_provider.dart';
 import '../theme.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 import '../utils/role_labels.dart';
+import '../services/premium_service.dart';
 
 class MainDrawerWidget extends StatelessWidget {
   final String countryCode;
@@ -41,9 +43,6 @@ class MainDrawerWidget extends StatelessWidget {
   Color _roleBadgeColor(String role) {
     if (role == 'admin') return Colors.redAccent.withValues(alpha: 0.8);
     if (role == 'editor') return Colors.blueAccent.withValues(alpha: 0.8);
-    if (role == 'paidUser' || role == 'paiduser' || role == 'premium') {
-      return Colors.amber.withValues(alpha: 0.8);
-    }
     return Colors.white24;
   }
 
@@ -56,12 +55,16 @@ class MainDrawerWidget extends StatelessWidget {
         final displayName = authProvider.displayName ?? authProvider.user?.email?.split('@')[0] ?? 'User';
         final isAdmin = authProvider.isAdmin;
         final isEditor = authProvider.isEditor;
-        final displayRoles = isAdmin
-            ? userRoles.where((r) {
-                final lower = r.toLowerCase();
-                return lower != 'freeuser' && lower != 'paiduser' && lower != 'premium';
-              }).toList()
-            : userRoles;
+        final tenantId = context.watch<TenantScope>().tenantId;
+        final hasJw = context.watch<TenantMemberAccessProvider>().isJw;
+        // Only show meaningful global roles; premium is tenant-scoped now.
+        final displayRoles = userRoles
+            .map((r) => r.toLowerCase().trim())
+            .where((r) => r.isNotEmpty)
+            .where((r) => r != 'freeuser' && r != 'paiduser' && r != 'premium')
+            .toSet()
+            .toList()
+          ..sort();
         
     return Drawer(
       child: Container(
@@ -145,24 +148,25 @@ class MainDrawerWidget extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (displayRoles.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                          Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: displayRoles.map((role) {
-                                final badgeColor = _roleBadgeColor(role);
-                                final label = _formatRoleLabel(role);
+                          const SizedBox(height: 12),
+                          FutureBuilder<bool>(
+                            future: PremiumService().isPremiumForTenant(tenantId),
+                            builder: (context, snap) {
+                              final isPremium = snap.data == true;
+                              final chips = <Widget>[];
 
-                                return Container(
+                              // Tenant premium (source of truth: per-tenant entitlement + tenant admin role).
+                              chips.add(
+                                Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                    color: badgeColor,
+                                  decoration: BoxDecoration(
+                                    color: isPremium
+                                        ? Colors.amber.withValues(alpha: 0.85)
+                                        : Colors.white24,
                                     borderRadius: BorderRadius.circular(12),
-                                    // border: Border.all(color: Colors.white30, width: 0.5), // Removed border
-                              ),
-                              child: Text(
-                                label,
+                                  ),
+                                  child: Text(
+                                    isPremium ? 'Premium' : 'Learner',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
@@ -170,10 +174,62 @@ class MainDrawerWidget extends StatelessWidget {
                                       letterSpacing: 0.5,
                                     ),
                                   ),
+                                ),
+                              );
+
+                              // Tenant JW access.
+                              if (hasJw) {
+                                chips.add(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.deepPurpleAccent.withValues(alpha: 0.55),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Text(
+                                      'JW',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
                                 );
-                              }).toList(),
-                            ),
-                          ],
+                              }
+
+                              // Global roles (admin/editor/etc) if any.
+                              for (final role in displayRoles) {
+                                final badgeColor = _roleBadgeColor(role);
+                                final label = _formatRoleLabel(role);
+                                chips.add(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: badgeColor,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      label,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: chips,
+                              );
+                            },
+                          ),
                         ] else ...[
                           // Guest user
                           Center(

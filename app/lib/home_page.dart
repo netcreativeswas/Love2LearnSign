@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
 import 'tenancy/tenant_scope.dart';
+import 'tenancy/tenant_member_access_provider.dart';
 import 'widgets/main_app_bar.dart';
 import 'widgets/app_language_setup.dart';
 import 'widgets/main_btm_nav_bar.dart';
@@ -755,9 +756,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
                         final docs = snapshot.data!.docs;
                         
-                        // Get user roles for filtering restricted content
-                        final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
-                        final userRoles = authProvider.userRoles;
+                        // Tenant-scoped access for filtering restricted content (e.g. JW).
+                        final hasJw = context.watch<TenantMemberAccessProvider>().isJw;
                         
                         // Helper function to check if a video should be filtered
                         bool shouldFilterVideo(QueryDocumentSnapshot doc) {
@@ -772,7 +772,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           final restrictedRole = restrictedCategories[categoryMain];
                           if (restrictedRole == null) return false;
                           
-                          return !userRoles.contains(restrictedRole);
+                          if (restrictedRole == 'jw') return !hasJw;
+                          return false;
                         }
                         
                         // Filter out restricted videos
