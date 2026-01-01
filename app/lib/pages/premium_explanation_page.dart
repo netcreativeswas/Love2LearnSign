@@ -152,7 +152,7 @@ class _PremiumExplanationPageState extends State<PremiumExplanationPage> {
                 ),
               ),
               child: Text(
-                'This subscription applies to the selected dictionary (tenant=$tenantName).',
+                S.of(context)!.subscriptionAppliesToSelectedDictionary(tenantName),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),

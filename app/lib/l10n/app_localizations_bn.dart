@@ -1428,6 +1428,11 @@ class AppLocalizationsBn extends AppLocalizations {
   String get subscriptionPlans => 'সাবস্ক্রিপশন পরিকল্পনা';
 
   @override
+  String subscriptionAppliesToSelectedDictionary(String tenant) {
+    return 'এই সাবস্ক্রিপশনটি নির্বাচিত অভিধানের জন্য প্রযোজ্য (tenant=$tenant)।';
+  }
+
+  @override
   String get monthly => 'মাসিক';
 
   @override

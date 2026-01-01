@@ -477,6 +477,15 @@
 "unlimitedFlashcards": "আনলিমিটেড ফ্ল্যাশকার্ড",
 "supportAppDevelopment": "অ্যাপ উন্নয়ন সমর্থন করুন",
 "subscriptionPlans": "সাবস্ক্রিপশন পরিকল্পনা",
+"subscriptionAppliesToSelectedDictionary": "এই সাবস্ক্রিপশনটি নির্বাচিত অভিধানের জন্য প্রযোজ্য (tenant={tenant})।",
+"@subscriptionAppliesToSelectedDictionary": {
+  "placeholders": {
+    "tenant": {
+      "type": "String",
+      "description": "নির্বাচিত অভিধান (tenant) এর নাম"
+    }
+  }
+},
 "monthly": "মাসিক",
 "yearly": "বার্ষিক",
 "bestValue": "সেরা মূল্য",

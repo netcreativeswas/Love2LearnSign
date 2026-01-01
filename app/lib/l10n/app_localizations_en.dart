@@ -1459,6 +1459,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get subscriptionPlans => 'Subscription Plans';
 
   @override
+  String subscriptionAppliesToSelectedDictionary(String tenant) {
+    return 'This subscription applies to the selected dictionary (tenant=$tenant).';
+  }
+
+  @override
   String get monthly => 'Monthly';
 
   @override

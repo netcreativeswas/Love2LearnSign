@@ -2756,6 +2756,12 @@ abstract class AppLocalizations {
   /// **'Subscription Plans'**
   String get subscriptionPlans;
 
+  /// No description provided for @subscriptionAppliesToSelectedDictionary.
+  ///
+  /// In en, this message translates to:
+  /// **'This subscription applies to the selected dictionary (tenant={tenant}).'**
+  String subscriptionAppliesToSelectedDictionary(String tenant);
+
   /// No description provided for @monthly.
   ///
   /// In en, this message translates to:

@@ -477,6 +477,15 @@
   "unlimitedFlashcards": "Unlimited Flashcards",
   "supportAppDevelopment": "Support App Development",
   "subscriptionPlans": "Subscription Plans",
+  "subscriptionAppliesToSelectedDictionary": "This subscription applies to the selected dictionary (tenant={tenant}).",
+  "@subscriptionAppliesToSelectedDictionary": {
+    "placeholders": {
+      "tenant": {
+        "type": "String",
+        "description": "Selected dictionary (tenant) display name"
+      }
+    }
+  },
   "monthly": "Monthly",
   "yearly": "Yearly",
   "bestValue": "Best Value",
