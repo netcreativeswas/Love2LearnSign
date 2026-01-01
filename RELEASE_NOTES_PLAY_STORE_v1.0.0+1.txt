@@ -1,0 +1,17 @@
+What's New in Version 1.0.0 (Build 1):
+
+🎉 Initial Release - Welcome to Love to Learn Sign!
+
+✨ Key Features:
+• Dictionary: Browse and search Bangla Sign Language signs with video demonstrations
+• Interactive Learning: Practice with flashcards, quizzes, and spaced repetition
+• Video Learning: Watch high-quality video demonstrations of each sign
+• Offline Support: Cache videos for offline viewing and smoother playback
+• Multilingual: Full support in English and Bengali
+• Dark Mode: Switch between light and dark themes
+• Daily Reminders: Set notifications to practice and learn new signs
+• Favorites: Save your favorite signs for quick access
+• Progress Tracking: Track your learning progress and review words
+
+Start your journey to learn Bangla Sign Language today!
+
