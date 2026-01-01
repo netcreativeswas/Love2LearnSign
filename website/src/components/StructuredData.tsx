@@ -1,3 +1,14 @@
+function safeJsonLdStringify(value: unknown): string {
+  // Prevent `</script>` injection by escaping `<` (and a few other chars commonly escaped in JSON-in-HTML).
+  // This is the standard hardening used by many JSON-LD examples.
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 interface StructuredDataProps {
   type: "WebSite" | "Organization" | "MobileApplication" | "WebPage" | "BreadcrumbList";
   data: Record<string, unknown>;
@@ -13,7 +24,7 @@ export function StructuredData({ type, data }: StructuredDataProps) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
     />
   );
 }
@@ -38,7 +49,7 @@ export function BreadcrumbList({ items }: { items: BreadcrumbItem[] }) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
     />
   );
 }

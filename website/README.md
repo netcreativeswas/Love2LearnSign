@@ -18,6 +18,32 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
+### Firebase App Check (recommended)
+This website uses Firebase directly from the browser, so enabling **App Check** helps reduce automated abuse.
+
+For the full rollout (website + embedded dashboard + mobile apps), see:
+- `APP_CHECK_ROLLOUT.md` (repo root)
+
+**1) Firebase Console**
+- Firebase Console → **App Check**
+- Register the **Web app**
+- Provider: **reCAPTCHA v3**
+- Keep it in **Monitoring** first (don’t enforce immediately)
+
+**2) reCAPTCHA keys**
+- The Firebase Console configuration uses the **reCAPTCHA secret key**
+- The website code uses the **reCAPTCHA site key** (public)
+
+**3) Website environment variable**
+Create a local `website/.env.local` file (or set env vars in Vercel) with:
+- `NEXT_PUBLIC_RECAPTCHA_SITE_KEY=...` (your reCAPTCHA v3 **site key**)
+
+Optional (local dev only):
+- `NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN=true`
+
+**4) Enforcement**
+Once you see valid traffic in the App Check dashboards, enable **Enforcement** for the Firebase services you use (commonly Firestore/Storage).
+
 ### Configuration
 Edit the main site constants (domain, Play Store link, support email) here:
 - `src/lib/site-config.ts`

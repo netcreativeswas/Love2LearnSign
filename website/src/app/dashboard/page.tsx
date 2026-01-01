@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase_client";
@@ -10,6 +10,7 @@ export default function DashboardWrapper() {
   const [ready, setReady] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [forceHide, setForceHide] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   function isSignedOutMessage(data: unknown): data is { type: "SIGNED_OUT" } {
     return (
@@ -33,6 +34,11 @@ export default function DashboardWrapper() {
 
   useEffect(() => {
     async function onMessage(ev: MessageEvent) {
+      // Only accept messages from the embedded dashboard iframe on our own origin.
+      if (ev.origin !== window.location.origin) return;
+      const frameWin = iframeRef.current?.contentWindow;
+      if (!frameWin || ev.source !== frameWin) return;
+
       const data: unknown = ev.data;
       if (isSignedOutMessage(data)) {
         setForceHide(true);
@@ -71,6 +77,7 @@ export default function DashboardWrapper() {
   return (
     <main className="h-dvh">
       <iframe
+        ref={iframeRef}
         title="Love to Learn Sign Dashboard"
         src="/dashboard-app/index.html"
         className="h-full w-full border-0"

@@ -33,6 +33,27 @@ function asString(v: unknown): string | undefined {
   return typeof v === "string" && v.trim() ? v : undefined;
 }
 
+const SAFE_PATH_SEGMENT_RE = /^[A-Za-z0-9_-]{1,200}$/;
+
+function asSafePathSegment(v: unknown): string | undefined {
+  const s = asString(v)?.trim();
+  if (!s) return undefined;
+  return SAFE_PATH_SEGMENT_RE.test(s) ? s : undefined;
+}
+
+function asHttpsUrl(v: unknown): string | undefined {
+  const s = asString(v);
+  if (!s) return undefined;
+  try {
+    const u = new URL(s);
+    const allowHttpInDev = process.env.NODE_ENV !== "production";
+    if (u.protocol !== "https:" && !(allowHttpInDev && u.protocol === "http:")) return undefined;
+    return u.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 function asVariants(v: unknown): PublicVariant[] | undefined {
   if (!Array.isArray(v)) return undefined;
   const out: PublicVariant[] = [];
@@ -40,11 +61,11 @@ function asVariants(v: unknown): PublicVariant[] | undefined {
     if (!item || typeof item !== "object") continue;
     const m = item as Record<string, unknown>;
     out.push({
-      videoUrl: asString(m.videoUrl),
-      videoUrlSD: asString(m.videoUrlSD),
-      videoUrlHD: asString(m.videoUrlHD),
-      videoThumbnail: asString(m.videoThumbnail),
-      videoThumbnailSmall: asString(m.videoThumbnailSmall),
+      videoUrl: asHttpsUrl(m.videoUrl),
+      videoUrlSD: asHttpsUrl(m.videoUrlSD),
+      videoUrlHD: asHttpsUrl(m.videoUrlHD),
+      videoThumbnail: asHttpsUrl(m.videoThumbnail),
+      videoThumbnailSmall: asHttpsUrl(m.videoThumbnailSmall),
     });
   }
   return out.length ? out : undefined;
@@ -65,22 +86,22 @@ function pickFirst<T>(...vals: Array<T | undefined>): T | undefined {
 export function pickBestVideoUrl(concept: PublicConcept): string | undefined {
   const v0 = concept.variants?.[0];
   return pickFirst(
-    asString(concept.videoUrlHD),
-    asString(concept.videoUrl),
-    asString(concept.videoUrlSD),
-    v0 ? asString(v0.videoUrlHD) : undefined,
-    v0 ? asString(v0.videoUrl) : undefined,
-    v0 ? asString(v0.videoUrlSD) : undefined
+    asHttpsUrl(concept.videoUrlHD),
+    asHttpsUrl(concept.videoUrl),
+    asHttpsUrl(concept.videoUrlSD),
+    v0 ? asHttpsUrl(v0.videoUrlHD) : undefined,
+    v0 ? asHttpsUrl(v0.videoUrl) : undefined,
+    v0 ? asHttpsUrl(v0.videoUrlSD) : undefined
   );
 }
 
 export function pickBestThumbnailUrl(concept: PublicConcept): string | undefined {
   const v0 = concept.variants?.[0];
   return pickFirst(
-    asString(concept.videoThumbnail),
-    asString(concept.videoThumbnailSmall),
-    v0 ? asString(v0.videoThumbnail) : undefined,
-    v0 ? asString(v0.videoThumbnailSmall) : undefined
+    asHttpsUrl(concept.videoThumbnail),
+    asHttpsUrl(concept.videoThumbnailSmall),
+    v0 ? asHttpsUrl(v0.videoThumbnail) : undefined,
+    v0 ? asHttpsUrl(v0.videoThumbnailSmall) : undefined
   );
 }
 
@@ -102,8 +123,15 @@ export async function fetchPublicConcept({
   tenantId?: string;
   signLangId?: string;
 }): Promise<PublicConcept | null> {
-  const baseRef = doc(db, "tenants", tenantId, "concepts", wordId);
-  const signRef = doc(db, "tenants", tenantId, "concepts", wordId, "signs", signLangId);
+  // Hardening: prevent weird/invalid path segments coming from URL params.
+  const safeWordId = asSafePathSegment(wordId);
+  if (!safeWordId) return null;
+
+  const safeTenantId = asSafePathSegment(tenantId) ?? DEFAULT_TENANT_ID;
+  const safeSignLangId = asSafePathSegment(signLangId) ?? DEFAULT_SIGN_LANG_ID;
+
+  const baseRef = doc(db, "tenants", safeTenantId, "concepts", safeWordId);
+  const signRef = doc(db, "tenants", safeTenantId, "concepts", safeWordId, "signs", safeSignLangId);
 
   const [baseSnap, signSnap] = await Promise.all([getDoc(baseRef), getDoc(signRef)]);
   if (!baseSnap.exists() && !signSnap.exists()) return null;
@@ -113,9 +141,9 @@ export async function fetchPublicConcept({
   const labels = asRecord(base.labels);
 
   const merged: PublicConcept = {
-    id: wordId,
-    tenantId,
-    signLangId,
+    id: safeWordId,
+    tenantId: safeTenantId,
+    signLangId: safeSignLangId,
     english: pickFirst(asString(base.english), labels ? asString(labels.en) : undefined),
     bengali: pickFirst(
       asString(base.bengali),
@@ -125,11 +153,11 @@ export async function fetchPublicConcept({
     categoryMain: pickFirst(asString(sign.category_main), asString(base.category_main), asString(base.categoryMain)),
     categorySub: pickFirst(asString(sign.category_sub), asString(base.category_sub), asString(base.categorySub)),
     // Merge: sign overrides base if present
-    videoUrl: pickFirst(asString(sign.videoUrl), asString(base.videoUrl)),
-    videoUrlSD: pickFirst(asString(sign.videoUrlSD), asString(base.videoUrlSD)),
-    videoUrlHD: pickFirst(asString(sign.videoUrlHD), asString(base.videoUrlHD)),
-    videoThumbnail: pickFirst(asString(sign.videoThumbnail), asString(base.videoThumbnail)),
-    videoThumbnailSmall: pickFirst(asString(sign.videoThumbnailSmall), asString(base.videoThumbnailSmall)),
+    videoUrl: pickFirst(asHttpsUrl(sign.videoUrl), asHttpsUrl(base.videoUrl)),
+    videoUrlSD: pickFirst(asHttpsUrl(sign.videoUrlSD), asHttpsUrl(base.videoUrlSD)),
+    videoUrlHD: pickFirst(asHttpsUrl(sign.videoUrlHD), asHttpsUrl(base.videoUrlHD)),
+    videoThumbnail: pickFirst(asHttpsUrl(sign.videoThumbnail), asHttpsUrl(base.videoThumbnail)),
+    videoThumbnailSmall: pickFirst(asHttpsUrl(sign.videoThumbnailSmall), asHttpsUrl(base.videoThumbnailSmall)),
     variants: pickFirst(asVariants(sign.variants), asVariants(base.variants)),
   };
 
