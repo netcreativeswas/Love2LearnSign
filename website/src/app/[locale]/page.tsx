@@ -110,7 +110,7 @@ function HomeContent({ locale }: { locale: Locale }) {
               <div className="flex items-center gap-4">
                 <Image
                   src="/brand/logo.png"
-                  alt={`${siteConfig.appName} logo`}
+                  alt={t("common.logoAlt", { appName: siteConfig.appName })}
                   width={56}
                   height={56}
                   priority

@@ -112,7 +112,7 @@ function SiteHeaderContent() {
         <button
           onClick={() => setMobileMenuOpen(false)}
           className="absolute -top-3 -right-3 rounded-full bg-surface border border-border p-2 text-foreground/90 transition-colors hover:bg-muted hover:text-foreground shadow-lg"
-          aria-label="Close menu"
+          aria-label={t("common.closeMenu")}
         >
           <svg
             className="h-5 w-5"
@@ -163,18 +163,18 @@ function SiteHeaderContent() {
         <Link
           href="/"
           className="group flex items-center gap-3 rounded-xl px-2 py-1 transition-colors hover:bg-muted"
-          aria-label={`${siteConfig.appName} home`}
+          aria-label={t("common.homeAria", { appName: siteConfig.appName })}
         >
           <Image
             src="/brand/logo.png"
-            alt={`${siteConfig.appName} logo`}
+            alt={t("common.logoAlt", { appName: siteConfig.appName })}
             width={50}
             height={50}
             priority
             className="rounded-full object-cover"
           />
           <div className="text-lg font-semibold leading-6 text-foreground">
-            Love To Learn Sign
+            {t("common.appName")}
           </div>
         </Link>
 
@@ -199,7 +199,7 @@ function SiteHeaderContent() {
         <button
           onClick={() => setMobileMenuOpen(true)}
           className="sm:hidden rounded-lg p-2 text-foreground/90 transition-colors hover:bg-muted"
-          aria-label="Open menu"
+          aria-label={t("common.openMenu")}
         >
           <svg
             className="h-6 w-6"

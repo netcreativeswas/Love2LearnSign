@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import Image from "next/image";
+import { useTranslations } from "@/components/TranslationProvider";
 
 type LightboxProps = {
   images: Array<{ src: string; alt: string }>;
@@ -16,6 +17,8 @@ export function Lightbox({
   onClose,
   onNavigate,
 }: LightboxProps) {
+  const { t } = useTranslations();
+
   const goToPrevious = useCallback(() => {
     onNavigate(currentIndex === 0 ? images.length - 1 : currentIndex - 1);
   }, [currentIndex, images.length, onNavigate]);
@@ -53,7 +56,7 @@ export function Lightbox({
       <button
         onClick={onClose}
         className="absolute right-4 top-4 rounded-full bg-surface/20 p-2 text-white transition-colors hover:bg-surface/30"
-        aria-label="Close lightbox"
+        aria-label={t("lightbox.close")}
       >
         <svg
           className="h-6 w-6"
@@ -90,7 +93,7 @@ export function Lightbox({
         <button
           onClick={goToPrevious}
           className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-surface/20 p-3 text-white transition-colors hover:bg-surface/30"
-          aria-label="Previous image"
+          aria-label={t("lightbox.previous")}
         >
           <svg
             className="h-6 w-6"
@@ -109,7 +112,7 @@ export function Lightbox({
         <button
           onClick={goToNext}
           className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-surface/20 p-3 text-white transition-colors hover:bg-surface/30"
-          aria-label="Next image"
+          aria-label={t("lightbox.next")}
         >
           <svg
             className="h-6 w-6"

@@ -80,14 +80,14 @@ export default function WordViewerClient({
           <Link href="/" className="flex items-center gap-3 rounded-xl px-2 py-1 hover:bg-muted">
             <Image
               src="/brand/logo.png"
-              alt={`${siteConfig.appName} logo`}
+              alt={t("common.logoAlt", { appName: siteConfig.appName })}
               width={40}
               height={40}
               className="rounded-full object-cover"
               priority
             />
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold leading-5">{siteConfig.appName}</div>
+              <div className="truncate text-sm font-semibold leading-5">{t("common.appName")}</div>
               <div className="truncate text-xs text-muted-foreground">{t("wordPage.watchASign")}</div>
             </div>
           </Link>

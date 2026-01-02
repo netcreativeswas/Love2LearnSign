@@ -28,13 +28,7 @@ const STRIPE_MONTHLY_LINKS: Record<number, string> = {
 };
 
 const PRESET_AMOUNTS = [2, 5, 10, 20];
-const PAYMENT_METHODS = [
-  "Buy me a coffee",
-  "Ko-Fi.com",
-  "Stripe",
-  "Bank Transfer",
-] as const;
-
+const PAYMENT_METHODS = ["buyMeACoffee", "kofi", "stripe", "bankTransfer"] as const;
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 function DonatePageContent() {
@@ -56,11 +50,11 @@ function DonatePageContent() {
 
     let url: string | null = null;
 
-    if (selectedMethod === "Buy me a coffee") {
+    if (selectedMethod === "buyMeACoffee") {
       url = "https://buymeacoffee.com/netcreative";
-    } else if (selectedMethod === "Ko-Fi.com") {
+    } else if (selectedMethod === "kofi") {
       url = "https://ko-fi.com/netcreativejlc";
-    } else if (selectedMethod === "Stripe") {
+    } else if (selectedMethod === "stripe") {
       if (isCustomSelected) {
         url = STRIPE_CUSTOM_LINK;
       } else if (selectedPreset !== null) {
@@ -70,7 +64,7 @@ function DonatePageContent() {
           url = STRIPE_LINKS[selectedPreset] || STRIPE_CUSTOM_LINK;
         }
       }
-    } else if (selectedMethod === "Bank Transfer") {
+    } else if (selectedMethod === "bankTransfer") {
       return;
     }
 
@@ -89,7 +83,7 @@ function DonatePageContent() {
   };
 
   const requiresAmount =
-    selectedMethod === "Stripe" && !isCustomSelected && selectedPreset === null;
+    selectedMethod === "stripe" && !isCustomSelected && selectedPreset === null;
 
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
@@ -148,9 +142,9 @@ function DonatePageContent() {
                   onClick={() => {
                     setSelectedMethod(method);
                     if (
-                      method === "Bank Transfer" ||
-                      method === "Buy me a coffee" ||
-                      method === "Ko-Fi.com"
+                      method === "bankTransfer" ||
+                      method === "buyMeACoffee" ||
+                      method === "kofi"
                     ) {
                       setSelectedPreset(null);
                       setIsCustomSelected(false);
@@ -163,15 +157,15 @@ function DonatePageContent() {
                       : "border-border bg-surface text-foreground hover:bg-muted"
                   }`}
                 >
-                  {method}
+                  {t(`donate.paymentMethod.methods.${method}`)}
                 </button>
               ))}
             </div>
           </SectionCard>
 
           {/* Amount Selection (only for Stripe) */}
-          {selectedMethod === "Stripe" && (
-            <SectionCard title="Select amount">
+          {selectedMethod === "stripe" && (
+            <SectionCard title={t("donate.selectAmount.title")}>
               <div className="flex flex-wrap gap-3">
                 {PRESET_AMOUNTS.map((amount) => (
                   <button
@@ -200,7 +194,7 @@ function DonatePageContent() {
                       : "border-border bg-surface text-foreground hover:bg-muted"
                   }`}
                 >
-                  Custom
+                  {t("donate.selectAmount.custom")}
                 </button>
               </div>
 
@@ -218,7 +212,7 @@ function DonatePageContent() {
                     htmlFor="monthly"
                     className="text-sm text-foreground cursor-pointer"
                   >
-                    Make this donation monthly
+                    {t("donate.selectAmount.monthly")}
                   </label>
                 </div>
               )}
@@ -226,7 +220,7 @@ function DonatePageContent() {
           )}
 
           {/* Bank Transfer Details */}
-          {selectedMethod === "Bank Transfer" && (
+          {selectedMethod === "bankTransfer" && (
             <SectionCard title={t("donate.bankTransfer.title")}>
               <div className="mb-4 flex gap-2 border-b border-border">
                 <button
@@ -310,7 +304,7 @@ function DonatePageContent() {
           )}
 
           {/* Donate Button (hidden for Bank Transfer) */}
-          {selectedMethod !== "Bank Transfer" && (
+          {selectedMethod !== "bankTransfer" && (
             <div className="flex justify-center">
               <button
                 onClick={handleDonate}

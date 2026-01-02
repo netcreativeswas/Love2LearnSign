@@ -21,7 +21,7 @@ function SiteFooterContent() {
             <div className="flex items-center gap-3">
               <Image
                 src="/brand/logo.png"
-                alt={`${siteConfig.appName} logo`}
+                alt={t("common.logoAlt", { appName: siteConfig.appName })}
                 width={48}
                 height={48}
                 className="rounded-full object-cover"
@@ -82,7 +82,7 @@ function SiteFooterContent() {
               className="text-foreground/90 hover:underline"
               href={getLocalizedPath("/collaboration", locale)}
             >
-              Collaboration
+              {t("common.collaboration")}
             </Link>
             <a
               className="text-foreground/90 hover:underline"

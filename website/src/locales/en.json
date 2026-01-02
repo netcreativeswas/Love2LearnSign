@@ -4,10 +4,15 @@
     "home": "Home",
     "contact": "Contact Us",
     "donate": "Donate",
+    "collaboration": "Collaboration",
     "privacy": "Privacy",
     "deleteAccount": "Delete Account",
     "signIn": "Sign In",
     "menu": "Menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "homeAria": "{appName} home",
+    "logoAlt": "{appName} logo",
     "close": "Close",
     "support": "Support",
     "madeBy": "Made by",
@@ -183,7 +188,13 @@
       "text": "My company Netcreatif is based in France and no donation will actually be going to a Bangladeshi bank account and is not subject to tax in Bangladesh."
     },
     "paymentMethod": {
-      "title": "Payment method"
+      "title": "Payment method",
+      "methods": {
+        "buyMeACoffee": "Buy me a coffee",
+        "kofi": "Ko‑Fi.com",
+        "stripe": "Stripe",
+        "bankTransfer": "Bank Transfer"
+      }
     },
     "selectAmount": {
       "title": "Select amount",
@@ -211,7 +222,201 @@
     "title": "Privacy Policy",
     "description": "Privacy Policy for Love to Learn Sign. Learn how we collect, use, and protect your information when you use our Bangla Sign Language learning app.",
     "lastUpdated": "Last updated",
-    "lastUpdatedDate": "27 December 2025"
+    "lastUpdatedDate": "27 December 2025",
+    "lede": "This page describes how {appName} collects, uses, and protects your information across our website, dashboard, and mobile app.",
+    "disclaimerTitle": "Important note (not legal advice)",
+    "disclaimerBody": "This Privacy Policy is written to reflect the current functionality of our products and infrastructure. It has not been reviewed by a lawyer and does not constitute legal advice.",
+    "sections": [
+      {
+        "id": "scope",
+        "title": "1. Scope",
+        "paragraphs": [
+          "This Privacy Policy applies to the Love to Learn Sign website, the admin dashboard, and the Love to Learn Sign mobile application (the “Services”).",
+          "The Services are developed and operated by {developerName}.",
+          "If you only browse the public website, we generally do not ask you to create an account. If you sign in to the dashboard, account information is required."
+        ]
+      },
+      {
+        "id": "data",
+        "title": "2. Information we collect",
+        "paragraphs": [
+          "We collect information you provide directly, and information collected automatically when you use the Services."
+        ],
+        "lists": [
+          {
+            "title": "2.1 Information you provide",
+            "items": [
+              "Email address (for account creation and sign-in)",
+              "Display name (optional)",
+              "Country selection (for onboarding and app experience)",
+              "Language preferences (English/Bengali)",
+              "Quiz settings and learning preferences",
+              "Favorites (saved words/signs) and learning history (e.g., quiz history)",
+              "Optional notes you choose to provide during signup (free text)",
+              "Support emails you send to us (and the information you choose to include)"
+            ]
+          },
+          {
+            "title": "2.2 Information collected automatically",
+            "items": [
+              "Device information (operating system version, device model, app version)",
+              "App usage data (features used, time spent, video views)",
+              "Performance and diagnostic data (app crashes, errors)",
+              "Cache data (downloaded video content for offline viewing)",
+              "Usage counters used to determine when to show advertisements (for non‑premium users)",
+              "Push notification tokens (e.g., Firebase Cloud Messaging token) to deliver notifications (if enabled)",
+              "Basic web server logs for the website (for example: IP address, request time, and requested page)"
+            ]
+          },
+          {
+            "title": "2.3 Anonymous dictionary search analytics (app)",
+            "items": [
+              "We may log dictionary searches with sanitized query text, timestamp, selected category/language, result count, and whether matches were found.",
+              "Search analytics do not store your email or user ID. They are used in aggregate to identify missing words and improve content coverage."
+            ]
+          },
+          {
+            "title": "2.4 Premium subscriptions and purchases",
+            "items": [
+              "Subscription type (monthly/yearly) and subscription status (active/inactive)",
+              "Store receipts and purchase records are processed by Google Play / Apple App Store. We do not receive your payment card details."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "use",
+        "title": "3. How we use your information",
+        "lists": [
+          {
+            "title": "We use information to",
+            "items": [
+              "Provide and maintain the Services",
+              "Authenticate users and manage accounts (website/dashboard/app)",
+              "Personalize the learning experience (settings, favorites, progress)",
+              "Send reminders/notifications when you enable them",
+              "Manage premium subscriptions and access",
+              "Display advertisements for non‑premium users",
+              "Improve performance, reliability, and user experience",
+              "Protect against abuse and secure our Services"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "thirdParties",
+        "title": "4. Third‑party services",
+        "paragraphs": [
+          "We rely on third‑party services to operate the Services. These providers may process data according to their own policies."
+        ],
+        "lists": [
+          {
+            "title": "4.1 Google Firebase (Google LLC)",
+            "items": [
+              "Firebase Authentication (accounts and sign‑in)",
+              "Firestore Database (content, preferences, counters)",
+              "Firebase Storage / Hosting (video and media delivery)",
+              "Cloud Functions (backend logic such as subscription/role updates)",
+              "Firebase Cloud Messaging (push notifications)"
+            ]
+          },
+          {
+            "title": "4.2 Google Mobile Ads (AdMob)",
+            "items": [
+              "We use AdMob to show ads to non‑premium users (for example interstitial and rewarded ads).",
+              "AdMob may collect advertising identifiers and interaction data to provide ads."
+            ]
+          },
+          {
+            "title": "4.3 App stores (payments)",
+            "items": [
+              "Google Play Billing (Android) and Apple In‑App Purchase (iOS) process subscription payments.",
+              "We do not store payment card information."
+            ]
+          },
+          {
+            "title": "4.4 Donations (website)",
+            "items": [
+              "If you donate using links on our website, the payment is processed by the selected provider (e.g., Stripe / Ko‑Fi / Buy Me a Coffee).",
+              "We do not receive your payment card details from these providers."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "storage",
+        "title": "5. Data storage and retention",
+        "lists": [
+          {
+            "title": "5.1 Local storage (device)",
+            "items": [
+              "Settings, favorites, and cached videos may be stored on your device.",
+              "Some counters/session data may be stored locally for guest users."
+            ]
+          },
+          {
+            "title": "5.2 Cloud storage (Firebase)",
+            "items": [
+              "Account and profile information is stored in Firebase services.",
+              "Subscription status and access flags may be stored in Firestore.",
+              "Usage counters and anonymous search analytics may be stored in Firestore."
+            ]
+          },
+          {
+            "title": "5.3 Retention",
+            "items": [
+              "Local data is removed when you uninstall the app (unless you backed it up separately).",
+              "Account data is retained until you request account deletion.",
+              "Some records may be retained for legal/accounting reasons where required (for example store transaction records held by the stores)."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "rights",
+        "title": "6. Your rights and choices",
+        "lists": [
+          {
+            "title": "You can",
+            "items": [
+              "Access and change some preferences in the app",
+              "Control notification permissions in your device settings",
+              "Cancel subscriptions via Google Play / App Store settings",
+              "Request deletion of your account (see the Delete Account page)",
+              "Contact us to ask questions about your data"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "security",
+        "title": "7. Security",
+        "paragraphs": [
+          "We use reasonable technical measures to protect your information, including encrypted connections (HTTPS) and access controls. However, no system can be guaranteed 100% secure."
+        ]
+      },
+      {
+        "id": "children",
+        "title": "8. Children’s privacy",
+        "paragraphs": [
+          "We do not knowingly collect personal information from children under 13. If you believe a child has provided personal information, contact us and we will take appropriate steps."
+        ]
+      },
+      {
+        "id": "updates",
+        "title": "9. Changes to this policy",
+        "paragraphs": [
+          "We may update this Privacy Policy from time to time. The “Last updated” date will reflect the latest version."
+        ]
+      },
+      {
+        "id": "contact",
+        "title": "10. Contact",
+        "paragraphs": [
+          "For privacy questions or data requests, contact us at {supportEmail}."
+        ]
+      }
+    ]
   },
   "deleteAccount": {
     "title": "Delete Account",
@@ -219,9 +424,44 @@
     "pageTitle": "Delete your account",
     "descriptionText": "This page explains how to request deletion of your {appName} account (by {developerName}) and what data is deleted or kept.",
     "requestTitle": "Request account deletion (steps)",
+    "mailSubject": "Delete my {appName} account",
+    "requestStep1": "Send an email to {email}.",
+    "requestStep2": "Use the subject: {subject}.",
+    "requestStep3": "In the email body, include the email address you used to create your {appName} account.",
+    "processingTime": "We typically process account deletion requests within {days} business days after verifying the request.",
     "whatDeleted": "What data is deleted",
+    "whatDeletedItems": [
+      "Your authentication account (Firebase Authentication) associated with your email address",
+      "Your user profile stored in our database (e.g., display name, country, hearing status, app preferences, account status/approval)",
+      "Usage counters linked to your account (e.g., video view counters, game session counters)",
+      "Subscription access flags/roles stored in our systems (premium entitlement status)"
+    ],
     "whatKept": "What data may be kept (and why)",
+    "whatKeptItems": [
+      "Store purchase records are processed and retained by Google Play (and/or Apple App Store) under their own policies. We do not control those records.",
+      "Accounting / legal records may be retained for the period required by applicable laws (for example, records related to subscription transactions).",
+      "Anonymous dictionary search analytics are stored without personal identifiers (no email/user ID). Because they are not linked to your identity, they cannot be selectively deleted per user and may be kept in aggregate."
+    ],
     "optionalTitle": "Optional: delete some data without deleting your account"
+    ,
+    "optionalIntro": "If you only want to remove certain data:",
+    "optionalItems": [
+      "You can clear locally stored data (such as favorites, history, and cached videos) from within the app, or by clearing the app’s storage / uninstalling the app.",
+      "You can also email {email} to request deletion of specific account-linked data without deleting your entire account (when technically possible)."
+    ]
+  },
+  "install": {
+    "pageTitle": "Install (Co-brand)",
+    "pageLede": "Generate a QR code that selects a tenant in the Love to Learn Sign app.",
+    "loading": "Loading…",
+    "qrAlt": "Install QR code",
+    "qrHint": "Scan this QR code with your phone",
+    "installLinkLabel": "Install link",
+    "copied": "Copied",
+    "copyLink": "Copy link",
+    "openLink": "Open link",
+    "openInAppAndroid": "Open in app (Android)",
+    "tip": "Tip: for co-brand onboarding, generate a link like {example1} (or {example2}) and share it via QR."
   },
   "wordPage": {
     "watchThisSign": "Watch this sign",
@@ -246,6 +486,11 @@
     "goHome": "Go Home",
     "contactSupport": "Contact Support",
     "popularPages": "Popular Pages"
+  },
+  "lightbox": {
+    "close": "Close lightbox",
+    "previous": "Previous image",
+    "next": "Next image"
   },
   "footer": {
     "description": "Learn Bengali Sign Language with a modern dictionary, interactive quizzes, and spaced repetition flashcards. Build your vocabulary with short videos and practice at your own pace."

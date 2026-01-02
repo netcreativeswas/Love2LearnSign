@@ -12,7 +12,20 @@ import { Locale, getLocalizedPath, locales, defaultLocale } from "@/lib/i18n";
 // Metadata is handled in the root layout
 
 function DeleteAccountPageContent({ locale }: { locale: Locale }) {
-  const { t } = useTranslations();
+  const { t, translations } = useTranslations();
+
+  const subject = t("deleteAccount.mailSubject", { appName: siteConfig.appName });
+  const step1 = t("deleteAccount.requestStep1", { email: siteConfig.supportEmail });
+  const step2 = t("deleteAccount.requestStep2", { subject });
+  const step3 = t("deleteAccount.requestStep3", { appName: siteConfig.appName });
+  const processingTime = t("deleteAccount.processingTime", { days: "7" });
+
+  const whatDeletedItems =
+    (translations.deleteAccount as Record<string, unknown>).whatDeletedItems as string[] | undefined;
+  const whatKeptItems =
+    (translations.deleteAccount as Record<string, unknown>).whatKeptItems as string[] | undefined;
+  const optionalItems =
+    (translations.deleteAccount as Record<string, unknown>).optionalItems as string[] | undefined;
 
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
@@ -43,93 +56,81 @@ function DeleteAccountPageContent({ locale }: { locale: Locale }) {
           <SectionCard title={t("deleteAccount.requestTitle")}>
             <ol className="list-inside list-decimal space-y-2 text-muted-foreground">
               <li>
-                Send an email to{" "}
-                <a
-                  className="font-semibold text-foreground hover:underline"
-                  href={`mailto:${siteConfig.supportEmail}?subject=${encodeURIComponent(
-                    `Delete my ${siteConfig.appName} account`,
-                  )}`}
-                >
-                  {siteConfig.supportEmail}
-                </a>
-                .
+                {(() => {
+                  const email = siteConfig.supportEmail;
+                  if (!step1.includes(email)) return step1;
+                  const [before, after] = step1.split(email);
+                  return (
+                    <>
+                      {before}
+                      <a
+                        className="font-semibold text-foreground hover:underline"
+                        href={`mailto:${email}?subject=${encodeURIComponent(subject)}`}
+                      >
+                        {email}
+                      </a>
+                      {after}
+                    </>
+                  );
+                })()}
               </li>
               <li>
-                Use the subject:{" "}
-                <span className="font-semibold text-foreground">
-                  Delete my {siteConfig.appName} account
-                </span>
-                .
+                {(() => {
+                  if (!step2.includes(subject)) return step2;
+                  const [before, after] = step2.split(subject);
+                  return (
+                    <>
+                      {before}
+                      <span className="font-semibold text-foreground">{subject}</span>
+                      {after}
+                    </>
+                  );
+                })()}
               </li>
-              <li>
-                In the email body, include the email address you used to create
-                your {siteConfig.appName} account.
-              </li>
+              <li>{step3}</li>
             </ol>
             <p className="mt-4 text-muted-foreground">
-              We typically process account deletion requests within{" "}
-              <span className="font-semibold text-foreground">
-                7 business days
-              </span>{" "}
-              after verifying the request.
+              {processingTime}
             </p>
           </SectionCard>
 
           <SectionCard title={t("deleteAccount.whatDeleted")}>
             <ul className="list-inside list-disc text-muted-foreground">
-              <li>
-                Your authentication account (Firebase Authentication) associated
-                with your email address
-              </li>
-              <li>
-                Your user profile stored in our database (e.g., display name,
-                country, hearing status, app preferences, account status/approval)
-              </li>
-              <li>
-                Usage counters linked to your account (e.g., video view counters,
-                game session counters)
-              </li>
-              <li>
-                Subscription access flags/roles stored in our systems (premium
-                entitlement status)
-              </li>
+              {(whatDeletedItems ?? []).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
           </SectionCard>
 
           <SectionCard title={t("deleteAccount.whatKept")}>
             <ul className="list-inside list-disc text-muted-foreground">
-              <li>
-                <span className="font-semibold text-foreground">
-                  Dictionary search analytics:
-                </span>{" "}
-                Anonymous search queries (sanitized text, timestamps, categories,
-                result counts) are retained for app improvement purposes. These
-                records are not linked to your account and cannot identify you.
-              </li>
-              <li>
-                <span className="font-semibold text-foreground">
-                  Aggregated usage statistics:
-                </span>{" "}
-                General app usage metrics (e.g., total video views, quiz
-                completions) may be retained in aggregated form for analytics
-                purposes, but these do not contain personally identifiable
-                information.
-              </li>
+              {(whatKeptItems ?? []).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
           </SectionCard>
 
           <SectionCard title={t("deleteAccount.optionalTitle")}>
-            <p className="text-muted-foreground">
-              If you want to remove specific data without deleting your entire
-              account, you can contact us at{" "}
-              <a
-                className="font-semibold text-foreground hover:underline"
-                href={`mailto:${siteConfig.supportEmail}`}
-              >
-                {siteConfig.supportEmail}
-              </a>{" "}
-              and specify what data you&apos;d like removed.
-            </p>
+            <p className="text-muted-foreground">{t("deleteAccount.optionalIntro")}</p>
+            <ul className="mt-2 list-inside list-disc text-muted-foreground">
+              {(optionalItems ?? []).map((item) => {
+                const email = siteConfig.supportEmail;
+                if (!item.includes(email)) return <li key={item}>{item}</li>;
+                const [before, after] = item.split(email);
+                return (
+                  <li key={item}>
+                    {before}
+                    <a
+                      className="font-semibold text-foreground hover:underline"
+                      href={`mailto:${email}`}
+                    >
+                      {email}
+                    </a>
+                    {after}
+                  </li>
+                );
+              })}
+            </ul>
           </SectionCard>
         </div>
       </PageShell>
