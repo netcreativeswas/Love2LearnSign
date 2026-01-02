@@ -465,18 +465,18 @@
   "wordPage": {
     "watchThisSign": "এই ইশারা দেখুন",
     "watchASign": "একটি ইশারা দেখুন",
-    "getTheApp": "অ্যাপ নিন",
-    "betterExperience": "অ্যাপে আরও ভালো অভিজ্ঞতা পান",
+    "getTheApp": "Get the app",
+    "betterExperience": "অ্যাপে ভালো অভিজ্ঞতা উপভোগ করুন",
     "installBlurb": "দ্রুত লোডিং, অফলাইন ব্যবহার, ফেভারিটস এবং কুইজের জন্য Love to Learn Sign অ্যাপটি ইনস্টল করুন।",
-    "getItOnGooglePlay": "Google Play থেকে পান",
-    "sharingTip": "শেয়ারিং টিপ: যাদের অ্যাপ ইনস্টল নেই তাদেরও এই পেজের লিংক পাঠাতে পারেন।",
+    "getItOnGooglePlay": "Get it on Google Play",
+    "sharingTip": "শেয়ারিং টিপ: যাদের অ্যাপ ইনস্টল নেই তাদের এই পেজের লিংক পাঠাতে পারেন।",
     "loading": "লোড হচ্ছে…",
     "couldNotLoadTitle": "শব্দটি লোড করা যায়নি",
     "wordNotFound": "শব্দটি পাওয়া যায়নি",
-    "wordNotFoundBody": "লিংকটি ভুল হতে পারে, অথবা এই টেন্যান্টের জন্য শব্দটি পাবলিক নয়।",
+    "wordNotFoundBody": "লিংকটি ভুল হতে পারে",
     "noVideo": "ভিডিও নেই",
-    "noVideoBody": "এই শব্দটি আছে, কিন্তু এখনো কোনো ভিডিও যোগ করা হয়নি।",
-    "videoUnsupported": "আপনার ব্রাউজার ভিডিও চালাতে সমর্থ নয়।"
+    "noVideoBody": "এই শব্দটি আছে, কিন্তু এর কোনো ভিডিও নেই।",
+    "videoUnsupported": "আপনার ব্রাউজার ভিডিও চালাতে সক্ষম নয়।"
   },
   "notFound": {
     "title": "404",
