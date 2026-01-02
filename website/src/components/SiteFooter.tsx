@@ -117,15 +117,40 @@ function SiteFooterContent() {
           </div>
 
           <div className="text-xs text-muted-foreground">
-            {t("common.madeBy")}{" "}
-            <a
-              href="https://netcreative-swas.net"
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-foreground hover:underline"
-            >
-              NetCreative
-            </a>
+            {(() => {
+              const company = "NetCreative";
+              const text = t("footer.madeByLine", { netcreative: company });
+              if (typeof text !== "string" || !text.includes(company)) {
+                return (
+                  <>
+                    {t("common.madeBy")}{" "}
+                    <a
+                      href="https://netcreative-swas.net"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-foreground hover:underline"
+                    >
+                      {company}
+                    </a>
+                  </>
+                );
+              }
+              const [before, after] = text.split(company);
+              return (
+                <>
+                  {before}
+                  <a
+                    href="https://netcreative-swas.net"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-foreground hover:underline"
+                  >
+                    {company}
+                  </a>
+                  {after}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

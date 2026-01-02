@@ -492,6 +492,7 @@
     "next": "Next image"
   },
   "footer": {
+    "madeByLine": "Made by {netcreative}",
     "description": "Learn Bengali Sign Language with a modern dictionary, interactive quizzes, and spaced repetition flashcards. Build your vocabulary with short videos and practice at your own pace."
   },
   "imageSlider": {
