@@ -80,7 +80,7 @@ function SiteHeaderContent() {
     // Dashboard Sign In is intentionally NOT localized and has no sign-up.
     {
       href: "/sign-in",
-      label: "Sign In",
+      label: t("common.signIn"),
       icon: (
         <svg
           width="18"

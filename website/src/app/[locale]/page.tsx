@@ -157,57 +157,6 @@ function HomeContent({ locale }: { locale: Locale }) {
         <ImageSlider />
 
         <section className="mt-12 rounded-3xl border border-border bg-surface p-8 shadow-sm">
-          <div className="grid items-start gap-8 lg:grid-cols-2">
-            <div className="space-y-4">
-              <h2 className="text-2xl font-semibold tracking-tight">
-                Collaboration & white-label
-              </h2>
-              <p className="text-sm leading-7 text-muted-foreground">
-                Want to publish your own sign language dictionary using this platform? We offer
-                co-branding and fully white-labeled options so your community can learn with a
-                modern, mobile-first experience.
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link
-                  href={getLocalizedPath("/collaboration", locale)}
-                  className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-                >
-                  Explore partnership options
-                </Link>
-                <Link
-                  href={getLocalizedPath("/contact", locale)}
-                  className="text-sm font-semibold text-foreground hover:underline"
-                >
-                  Contact us
-                </Link>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl bg-muted p-4">
-                <div className="text-sm font-semibold">Co-branding</div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Fast launch with shared branding.
-                </div>
-              </div>
-              <div className="rounded-2xl bg-muted p-4">
-                <div className="text-sm font-semibold">White-label</div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Your own app name and identity.
-                </div>
-              </div>
-              <div className="rounded-2xl bg-muted p-4 sm:col-span-2">
-                <div className="text-sm font-semibold">Built for multiple dictionaries</div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  The same learning flow can support other sign languages beyond Bangla Sign
-                  Language.
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-12 rounded-3xl border border-border bg-surface p-8 shadow-sm">
           <div className="grid gap-8 lg:grid-cols-2">
             <div className="space-y-4">
               <h2 className="text-2xl font-semibold tracking-tight">
@@ -271,6 +220,54 @@ function HomeContent({ locale }: { locale: Locale }) {
                 >
                   {t("home.ctaContact")}
                 </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-12 rounded-3xl border border-border bg-surface p-8 shadow-sm">
+          <div className="grid items-start gap-8 lg:grid-cols-2">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-semibold tracking-tight">
+                {t("home.collaborationBlock.title")}
+              </h2>
+              <p className="text-sm leading-7 text-muted-foreground">
+                {t("home.collaborationBlock.body")}
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link
+                  href={getLocalizedPath("/collaboration", locale)}
+                  className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                >
+                  {t("home.collaborationBlock.ctaPrimary")}
+                </Link>
+                <Link
+                  href={getLocalizedPath("/contact", locale)}
+                  className="text-sm font-semibold text-foreground hover:underline"
+                >
+                  {t("home.collaborationBlock.ctaSecondary")}
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-muted p-4">
+                <div className="text-sm font-semibold">{t("home.collaborationBlock.card1Title")}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {t("home.collaborationBlock.card1Body")}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-muted p-4">
+                <div className="text-sm font-semibold">{t("home.collaborationBlock.card2Title")}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {t("home.collaborationBlock.card2Body")}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-muted p-4 sm:col-span-2">
+                <div className="text-sm font-semibold">{t("home.collaborationBlock.card3Title")}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {t("home.collaborationBlock.card3Body")}
+                </div>
               </div>
             </div>
           </div>

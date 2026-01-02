@@ -34,9 +34,9 @@ export function getPathWithoutLocale(pathname: string): string {
 export function getLocalizedPath(path: string, locale: Locale): string {
   const withLeadingSlash = path.startsWith("/") ? path : `/${path}`;
   const cleanPath = getPathWithoutLocale(withLeadingSlash);
-
+  
   if (locale === "en") return cleanPath;
-
+  
   // Bengali is the only prefixed locale.
   return cleanPath === "/" ? "/bn" : `/bn${cleanPath}`;
 }
