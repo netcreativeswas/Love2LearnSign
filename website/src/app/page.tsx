@@ -119,7 +119,32 @@ function HomeContent() {
                 <div>
                   <div className="text-lg font-semibold">{t("common.appName")}</div>
                   <div className="text-sm text-muted-foreground">
-                    {t("common.madeBy")} {siteConfig.developerName}
+                    {(() => {
+                      const company = "NetCreative";
+                      const text = t("footer.madeByLine", { netcreative: company });
+                      if (typeof text !== "string" || !text.includes(company)) {
+                        return (
+                          <>
+                            {t("common.madeBy")} {siteConfig.developerName}
+                          </>
+                        );
+                      }
+                      const [before, after] = text.split(company);
+                      return (
+                        <>
+                          {before}
+                          <a
+                            href="https://netcreative-swas.net"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-foreground hover:underline"
+                          >
+                            {company}
+                          </a>
+                          {after}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
