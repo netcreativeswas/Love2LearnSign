@@ -98,8 +98,8 @@
     },
     "about": {
       "title": "About",
-      "text1": "This application was developed by",
-      "text1Part2": "a web development agency based in France. We specialize in creating modern, user-friendly websites and mobile applications that deliver exceptional user experiences.",
+      "text1": "This application was developed by {netcreative}",
+      "text1Part2": ", a web development agency based in France. We specialize in creating modern, user-friendly websites and mobile applications that deliver exceptional user experiences.",
       "text2": "Our team combines technical expertise with creative design to build digital solutions that meet the unique needs of our clients. From responsive web applications to native mobile apps, we are committed to delivering high-quality products that make a difference.",
       "text3": "For more information about our services, visit"
     }

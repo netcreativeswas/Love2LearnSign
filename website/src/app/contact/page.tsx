@@ -111,16 +111,42 @@ function ContactPageContent() {
 
           <SectionCard title={t("contact.about.title")}>
             <p className="text-muted-foreground">
-              {t("contact.about.text1", { netcreative: "NetCreative" })}{" "}
-              <a
-                href="https://netcreative-swas.net"
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-foreground hover:underline"
-              >
-                NetCreative
-              </a>
-              , {t("contact.about.text1Part2")}
+              {(() => {
+                const company = "NetCreative";
+                const text = t("contact.about.text1", { netcreative: company });
+                if (typeof text !== "string" || !text.includes(company)) {
+                  return (
+                    <>
+                      {text}{" "}
+                      <a
+                        href="https://netcreative-swas.net"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-foreground hover:underline"
+                      >
+                        {company}
+                      </a>
+                      {t("contact.about.text1Part2")}
+                    </>
+                  );
+                }
+                const [before, after] = text.split(company);
+                return (
+                  <>
+                    {before}
+                    <a
+                      href="https://netcreative-swas.net"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-foreground hover:underline"
+                    >
+                      {company}
+                    </a>
+                    {after}
+                    {t("contact.about.text1Part2")}
+                  </>
+                );
+              })()}
             </p>
             <p className="mt-4 text-muted-foreground">
               {t("contact.about.text2")}
