@@ -442,8 +442,7 @@
       "Accounting / legal records may be retained for the period required by applicable laws (for example, records related to subscription transactions).",
       "Anonymous dictionary search analytics are stored without personal identifiers (no email/user ID). Because they are not linked to your identity, they cannot be selectively deleted per user and may be kept in aggregate."
     ],
-    "optionalTitle": "Optional: delete some data without deleting your account"
-    ,
+    "optionalTitle": "Optional: delete some data without deleting your account",
     "optionalIntro": "If you only want to remove certain data:",
     "optionalItems": [
       "You can clear locally stored data (such as favorites, history, and cached videos) from within the app, or by clearing the app’s storage / uninstalling the app.",
