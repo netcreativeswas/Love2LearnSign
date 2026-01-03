@@ -75,12 +75,14 @@ export default function DashboardWrapper() {
   }
 
   return (
-    <main className="h-dvh">
+    // Use svh as a stable baseline on mobile (prevents browser UI from hiding content),
+    // while keeping dvh for modern browsers that update viewport units correctly.
+    <main className="h-[100svh] h-dvh w-screen overflow-hidden">
       <iframe
         ref={iframeRef}
         title="Love to Learn Sign Dashboard"
         src="/dashboard-app/index.html"
-        className="h-full w-full border-0"
+        className="block h-full w-full border-0"
       />
     </main>
   );
