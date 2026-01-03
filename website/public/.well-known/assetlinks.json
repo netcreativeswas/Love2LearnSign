@@ -1,0 +1,27 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.love2learnsign.app",
+      "sha256_cert_fingerprints": [
+        "30:03:24:91:6A:94:C0:DF:83:86:40:29:E3:63:DD:63:23:B0:AE:D2:2C:22:D0:15:8B:56:9B:40:30:19:CB:7C"
+      ]
+    }
+  }
+]
+
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.love2learnsign.app",
+      "sha256_cert_fingerprints": [
+        "30:03:24:91:6A:94:C0:DF:83:86:40:29:E3:63:DD:63:23:B0:AE:D2:2C:22:D0:15:8B:56:9B:40:30:19:CB:7C"
+      ]
+    }
+  }
+]
+
+

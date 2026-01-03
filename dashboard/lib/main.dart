@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // from CLI
 import 'login_page.dart';
@@ -17,12 +19,24 @@ import 'tenancy/tenant_switcher_page.dart';
 const bool _kLogConsole =
     bool.fromEnvironment('L2L_LOG_CONSOLE', defaultValue: false);
 
+// Web App Check (reCAPTCHA v3 site key).
+// Provided at build time via:
+//   flutter build web --dart-define=L2L_RECAPTCHA_SITE_KEY="6L..."
+const String _kRecaptchaSiteKey =
+    String.fromEnvironment('L2L_RECAPTCHA_SITE_KEY', defaultValue: '');
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  if (kIsWeb && _kRecaptchaSiteKey.trim().isNotEmpty) {
+    await FirebaseAppCheck.instance.activate(
+      webProvider: ReCaptchaV3Provider(_kRecaptchaSiteKey.trim()),
+    );
+  }
 
   final tenantScope = await DashboardTenantScope.create();
 

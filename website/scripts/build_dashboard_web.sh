@@ -14,17 +14,20 @@ echo "[dashboard] Building Flutter web (base-href=/dashboard-app/)"
 cd "$DASH_DIR"
 flutter clean
 
-# App Check (web) needs the reCAPTCHA v3 SITE KEY at build time.
-# Provide it via environment variable (public value, safe to embed in JS):
-#   export L2L_RECAPTCHA_SITE_KEY="..."
+# App Check (web) needs the reCAPTCHA v3 SITE KEY at build time (public value).
+# Provide it via environment variable:
+#   export NEXT_PUBLIC_RECAPTCHA_SITE_KEY="..."   # (preferred, same as the website)
+# or:
+#   export L2L_RECAPTCHA_SITE_KEY="..."           # (legacy alias)
 # Then run this script.
-if [ -z "${L2L_RECAPTCHA_SITE_KEY:-}" ]; then
-  echo "[dashboard][warn] L2L_RECAPTCHA_SITE_KEY is not set; App Check will NOT be activated in the dashboard build."
+KEY="${L2L_RECAPTCHA_SITE_KEY:-${NEXT_PUBLIC_RECAPTCHA_SITE_KEY:-}}"
+if [ -z "${KEY:-}" ]; then
+  echo "[dashboard][warn] NEXT_PUBLIC_RECAPTCHA_SITE_KEY (or L2L_RECAPTCHA_SITE_KEY) is not set; App Check will NOT be activated in the dashboard build."
 flutter build web --base-href /dashboard-app/
 else
   flutter build web \
     --base-href /dashboard-app/ \
-    --dart-define=L2L_RECAPTCHA_SITE_KEY="${L2L_RECAPTCHA_SITE_KEY}"
+    --dart-define=L2L_RECAPTCHA_SITE_KEY="${KEY}"
 fi
 
 echo "[dashboard] Copying build artifacts to: $OUT_DIR"
