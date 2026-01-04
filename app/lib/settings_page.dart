@@ -26,6 +26,7 @@ import 'l10n/dynamic_l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'pages/premium_settings_page.dart';
+import 'pages/sign_language_settings_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -369,23 +370,43 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           ListTile(
             title: Text(
-              'Dictionary / Sign language',
+              'Sign language',
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
             ),
-            subtitle: Text(
-              context.watch<TenantScope>().appConfig?.displayName.trim().isNotEmpty == true
-                  ? context.watch<TenantScope>().appConfig!.displayName.trim()
-                  : context.watch<TenantScope>().tenantConfig?.displayName.trim().isNotEmpty == true
-                      ? context.watch<TenantScope>().tenantConfig!.displayName.trim()
-                      : context.watch<TenantScope>().tenantId,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: Theme.of(context).colorScheme.primary),
+            subtitle: Builder(
+              builder: (context) {
+                final scope = context.watch<TenantScope>();
+                final t = scope.tenantConfig;
+                final uiCode = Localizations.localeOf(context).languageCode;
+                final label = (t != null)
+                    ? t.signLangLabelForLocale(uiCode)
+                    : (scope.signLangId.trim().isNotEmpty ? scope.signLangId.trim() : '');
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Switch the dictionary and videos to another sign language.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                    ),
+                  ],
+                );
+              },
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
               final picked = await Navigator.of(context).push<bool>(
-                MaterialPageRoute(builder: (_) => const TenantPickerPage(showBack: true)),
+                MaterialPageRoute(builder: (_) => const SignLanguageSettingsPage()),
               );
               if (!mounted) return;
               if (picked == true) {

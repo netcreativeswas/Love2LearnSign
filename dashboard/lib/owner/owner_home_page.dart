@@ -294,6 +294,8 @@ class _ManageTenantsViewState extends State<_ManageTenantsView> {
 
   final _displayName = TextEditingController();
   final _signLangId = TextEditingController();
+  final _signLangName = TextEditingController();
+  final _signLangNameLocal = TextEditingController();
   final _uiLocales = TextEditingController();
   String _visibility = 'public';
   final _logoUrl = TextEditingController();
@@ -305,6 +307,8 @@ class _ManageTenantsViewState extends State<_ManageTenantsView> {
     _search.dispose();
     _displayName.dispose();
     _signLangId.dispose();
+    _signLangName.dispose();
+    _signLangNameLocal.dispose();
     _uiLocales.dispose();
     _logoUrl.dispose();
     _primary.dispose();
@@ -318,8 +322,17 @@ class _ManageTenantsViewState extends State<_ManageTenantsView> {
 
     _displayName.text = (data['displayName'] ?? '').toString();
     _signLangId.text = (data['signLangId'] ?? '').toString();
+    _signLangName.text = (data['signLangName'] ?? '').toString();
     final locales = (data['uiLocales'] is List) ? (data['uiLocales'] as List).map((e) => e.toString()).toList() : <String>[];
     _uiLocales.text = locales.join(',');
+    final localCode = locales.length >= 2 ? locales[1].toString().trim().toLowerCase() : '';
+    final i18nRaw = data['signLangNameI18n'];
+    if (i18nRaw is Map && localCode.isNotEmpty) {
+      final i18n = Map<String, dynamic>.from(i18nRaw);
+      _signLangNameLocal.text = (i18n[localCode] ?? '').toString();
+    } else {
+      _signLangNameLocal.text = '';
+    }
     _visibility = (data['visibility'] ?? 'public').toString();
     _logoUrl.text = (brand['logoUrl'] ?? '').toString();
     _primary.text = (brand['primary'] ?? '').toString();
@@ -342,10 +355,19 @@ class _ManageTenantsViewState extends State<_ManageTenantsView> {
           .where((x) => x.isNotEmpty)
           .toSet()
           .toList();
+      final localUiCode = (locales.length >= 2) ? locales[1].trim().toLowerCase() : '';
+      final signNameEn = _signLangName.text.trim();
+      final signNameLocal = _signLangNameLocal.text.trim();
+      final signLangNameI18n = <String, dynamic>{
+        if (signNameEn.isNotEmpty) 'en': signNameEn,
+        if (localUiCode.isNotEmpty && signNameLocal.isNotEmpty) localUiCode: signNameLocal,
+      };
 
       final payload = <String, dynamic>{
         'displayName': _displayName.text.trim(),
         'signLangId': _signLangId.text.trim(),
+        'signLangName': signNameEn,
+        'signLangNameI18n': signLangNameI18n,
         'uiLocales': locales,
         'visibility': _visibility,
         'brand': {
@@ -494,6 +516,14 @@ class _ManageTenantsViewState extends State<_ManageTenantsView> {
                                 controller: _signLangId,
                                 decoration:
                                     const InputDecoration(labelText: 'signLangId')),
+                            TextField(
+                                controller: _signLangName,
+                                decoration:
+                                    const InputDecoration(labelText: 'signLangName (English)')),
+                            TextField(
+                                controller: _signLangNameLocal,
+                                decoration: const InputDecoration(
+                                    labelText: 'signLangName (Local UI language)')),
                             TextField(
                                 controller: _uiLocales,
                                 decoration: const InputDecoration(

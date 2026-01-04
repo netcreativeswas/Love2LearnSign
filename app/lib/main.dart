@@ -26,6 +26,7 @@ import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'tenancy/tenant_scope.dart';
 import 'tenancy/tenant_member_access_provider.dart';
+import 'tenancy/tenant_member_role_provider.dart';
 
 import 'url_strategy_stub.dart'
     if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart';
@@ -445,6 +446,16 @@ void main() async {
             ),
             update: (_, scope, prev) {
               if (prev == null) return TenantMemberAccessProvider(tenantId: scope.tenantId);
+              prev.updateTenantId(scope.tenantId);
+              return prev;
+            },
+          ),
+          ChangeNotifierProxyProvider<TenantScope, TenantMemberRoleProvider>(
+            create: (ctx) => TenantMemberRoleProvider(
+              tenantId: ctx.read<TenantScope>().tenantId,
+            ),
+            update: (_, scope, prev) {
+              if (prev == null) return TenantMemberRoleProvider(tenantId: scope.tenantId);
               prev.updateTenantId(scope.tenantId);
               return prev;
             },
@@ -911,6 +922,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   String? _lastDeepLinkId;
   late final AppLinks _appLinks;
   List<String> _lastAllowedLocaleCodes = const [];
+  String? _lastTenantKeyForLocale;
 
   @override
   void initState() {
@@ -1171,6 +1183,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           _lastAllowedLocaleCodes = desired;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             localeProv.setAllowedLocaleCodes(desired);
+          });
+        }
+
+        // When the tenant/app edition changes, reset UI language to English by default.
+        // This preserves user-selected UI language within a tenant, but ensures a clean default when switching sign languages.
+        final tenantKey = '${tenant.tenantId}|${tenant.appId ?? ''}';
+        if (_lastTenantKeyForLocale == null) {
+          _lastTenantKeyForLocale = tenantKey; // baseline; don't override on first build
+        } else if (_lastTenantKeyForLocale != tenantKey) {
+          _lastTenantKeyForLocale = tenantKey;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            localeProv.setLocale(const Locale('en'));
           });
         }
 

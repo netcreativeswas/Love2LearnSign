@@ -54,6 +54,18 @@ function asHttpsUrl(v: unknown): string | undefined {
   }
 }
 
+function video360From(m: Record<string, unknown>): string | undefined {
+  return pickFirst(asHttpsUrl(m.videos_360), asHttpsUrl(m.videoUrlSD));
+}
+
+function video480From(m: Record<string, unknown>): string | undefined {
+  return pickFirst(asHttpsUrl(m.videos_480), asHttpsUrl(m.videoUrl));
+}
+
+function video720From(m: Record<string, unknown>): string | undefined {
+  return pickFirst(asHttpsUrl(m.videos_720), asHttpsUrl(m.videoUrlHD));
+}
+
 function asVariants(v: unknown): PublicVariant[] | undefined {
   if (!Array.isArray(v)) return undefined;
   const out: PublicVariant[] = [];
@@ -61,9 +73,10 @@ function asVariants(v: unknown): PublicVariant[] | undefined {
     if (!item || typeof item !== "object") continue;
     const m = item as Record<string, unknown>;
     out.push({
-      videoUrl: asHttpsUrl(m.videoUrl),
-      videoUrlSD: asHttpsUrl(m.videoUrlSD),
-      videoUrlHD: asHttpsUrl(m.videoUrlHD),
+      // Canonical fields: videos_360/480/720. Legacy fields are still accepted.
+      videoUrl: video480From(m),
+      videoUrlSD: video360From(m),
+      videoUrlHD: video720From(m),
       videoThumbnail: asHttpsUrl(m.videoThumbnail),
       videoThumbnailSmall: asHttpsUrl(m.videoThumbnailSmall),
     });
@@ -153,9 +166,10 @@ export async function fetchPublicConcept({
     categoryMain: pickFirst(asString(sign.category_main), asString(base.category_main), asString(base.categoryMain)),
     categorySub: pickFirst(asString(sign.category_sub), asString(base.category_sub), asString(base.categorySub)),
     // Merge: sign overrides base if present
-    videoUrl: pickFirst(asHttpsUrl(sign.videoUrl), asHttpsUrl(base.videoUrl)),
-    videoUrlSD: pickFirst(asHttpsUrl(sign.videoUrlSD), asHttpsUrl(base.videoUrlSD)),
-    videoUrlHD: pickFirst(asHttpsUrl(sign.videoUrlHD), asHttpsUrl(base.videoUrlHD)),
+    // Canonical fields: videos_360/480/720. Legacy fields are still accepted.
+    videoUrl: pickFirst(video480From(sign), video480From(base)),
+    videoUrlSD: pickFirst(video360From(sign), video360From(base)),
+    videoUrlHD: pickFirst(video720From(sign), video720From(base)),
     videoThumbnail: pickFirst(asHttpsUrl(sign.videoThumbnail), asHttpsUrl(base.videoThumbnail)),
     videoThumbnailSmall: pickFirst(asHttpsUrl(sign.videoThumbnailSmall), asHttpsUrl(base.videoThumbnailSmall)),
     variants: pickFirst(asVariants(sign.variants), asVariants(base.variants)),

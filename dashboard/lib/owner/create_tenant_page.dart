@@ -39,6 +39,8 @@ class _CreateTenantFormState extends State<CreateTenantForm> {
   final _tenantId = TextEditingController();
   final _tenantName = TextEditingController();
   final _signLangId = TextEditingController();
+  final _signLangName = TextEditingController();
+  final _signLangNameLocal = TextEditingController();
   final _uiLocales = TextEditingController(text: 'en');
   final _logoUrl = TextEditingController();
   final _primary = TextEditingController(text: '#232F34');
@@ -83,6 +85,13 @@ class _CreateTenantFormState extends State<CreateTenantForm> {
     try {
       final db = FirebaseFirestore.instance;
       final locales = _parseLocales(_uiLocales.text);
+      final localUiCode = (locales.length >= 2) ? locales[1].trim().toLowerCase() : '';
+      final signNameEn = _signLangName.text.trim();
+      final signNameLocal = _signLangNameLocal.text.trim();
+      final signLangNameI18n = <String, dynamic>{
+        if (signNameEn.isNotEmpty) 'en': signNameEn,
+        if (localUiCode.isNotEmpty && signNameLocal.isNotEmpty) localUiCode: signNameLocal,
+      };
 
       // tenants/{tenantId}
       await db.collection('tenants').doc(tenantId).set(
@@ -91,6 +100,9 @@ class _CreateTenantFormState extends State<CreateTenantForm> {
           'visibility': _publicTenant ? 'public' : 'private',
           'displayName': _tenantName.text.trim(),
           'signLangId': signLangId,
+          // Keep legacy/default display name (English) and store localized labels in signLangNameI18n.
+          'signLangName': signNameEn,
+          'signLangNameI18n': signLangNameI18n,
           'uiLocales': locales,
           'brand': _brand(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -134,6 +146,8 @@ class _CreateTenantFormState extends State<CreateTenantForm> {
     _tenantId.dispose();
     _tenantName.dispose();
     _signLangId.dispose();
+    _signLangName.dispose();
+    _signLangNameLocal.dispose();
     _uiLocales.dispose();
     _logoUrl.dispose();
     _primary.dispose();
@@ -153,6 +167,8 @@ class _CreateTenantFormState extends State<CreateTenantForm> {
           const SizedBox(height: 10),
           TextField(controller: _tenantId, decoration: const InputDecoration(labelText: 'tenantId (e.g. l2l-bdsl)')),
           TextField(controller: _signLangId, decoration: const InputDecoration(labelText: 'signLangId (e.g. bdsl)')),
+          TextField(controller: _signLangName, decoration: const InputDecoration(labelText: 'signLangName (English)')),
+          TextField(controller: _signLangNameLocal, decoration: const InputDecoration(labelText: 'signLangName (Local UI language)')),
           TextField(controller: _tenantName, decoration: const InputDecoration(labelText: 'displayName')),
           TextField(controller: _uiLocales, decoration: const InputDecoration(labelText: 'uiLocales CSV (e.g. en,bn)')),
           SwitchListTile(

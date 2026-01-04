@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../l10n/dynamic_l10n.dart';
 import 'package:line_icons/line_icons.dart';
+import 'package:provider/provider.dart';
+
+import '../tenancy/tenant_scope.dart';
 
 class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? countryCode;
@@ -27,6 +30,13 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scope = context.watch<TenantScope>();
+    final uiCode = Localizations.localeOf(context).languageCode;
+    final t = scope.tenantConfig;
+    final signLabel = (t != null)
+        ? t.signLangLabelForLocale(uiCode)
+        : (scope.signLangId.trim().isNotEmpty ? scope.signLangId.trim() : '');
+
     return AppBar(
       leading: showBackButton
           ? IconButton(
@@ -51,7 +61,7 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
             style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
           ),
           Text(
-            S.of(context)!.headlineSignLanguage,
+            signLabel.isNotEmpty ? signLabel : S.of(context)!.headlineSignLanguage,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   fontSize: 12,
                   color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.85),
