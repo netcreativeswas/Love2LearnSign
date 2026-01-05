@@ -10,6 +10,7 @@ import 'signup_page.dart';
 import 'email_verification_page.dart';
 import 'country_selection_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'widgets/critical_action_overlay.dart';
 
 class LoginPage extends StatefulWidget {
   /// When true, a successful login will `pop(true)` instead of navigating to Home.
@@ -58,6 +59,7 @@ class _LoginPageState extends State<LoginPage> {
       final isEmailVerified = await authService.isEmailVerified();
       
       if (!isEmailVerified) {
+        setState(() => _isLoading = false);
         // Email not verified, redirect to verification page
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const EmailVerificationPage()),
@@ -90,10 +92,12 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (widget.popOnSuccess) {
+        setState(() => _isLoading = false);
         Navigator.of(context).pop(true);
         return;
       }
 
+      setState(() => _isLoading = false);
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => const HomePage(),
@@ -122,7 +126,10 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    return Scaffold(
+    final s = S.of(context)!;
+    return Stack(
+      children: [
+        Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -283,9 +290,11 @@ class _LoginPageState extends State<LoginPage> {
                         } else if (error == null || error.isEmpty) {
                           // ✅ User is auto-approved with freeUser role - redirect to home
                           if (widget.popOnSuccess) {
+                            setState(() => _isLoading = false);
                             Navigator.of(context).pop(true);
                             return;
                           }
+                          setState(() => _isLoading = false);
                           Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(
                               builder: (context) => const HomePage(),
@@ -328,6 +337,21 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+        ),
+        CriticalActionOverlay(
+          visible: _isLoading,
+          title: s.processingSigningInTitle,
+          message: s.processingSigningInMessage,
+          onCancel: () {
+            setState(() => _isLoading = false);
+            Navigator.of(context).maybePop();
+          },
+          onRetry: () {
+            setState(() => _isLoading = false);
+            _signIn();
+          },
+        ),
+      ],
     );
   }
 }

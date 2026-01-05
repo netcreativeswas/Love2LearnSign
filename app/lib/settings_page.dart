@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
 import 'tenancy/tenant_scope.dart';
@@ -16,7 +17,8 @@ import 'tenancy/tenant_member_access_provider.dart';
 import 'tenancy/tenant_picker_page.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 import 'services/notification_permission_service.dart';
-import 'main.dart' show scheduleDailyTasks;
+import 'services/flashcard_notification_service.dart';
+import 'app_root.dart' show scheduleDailyTasks;
 import 'theme_provider.dart';
 import 'widgets/cupertino_sheet_container.dart';
 import 'services/cache_service.dart';
@@ -128,6 +130,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('notifyFlashcardReview', value);
     setState(() => _notifyFlashcardReview = value);
+
+    // Reschedule the (single) daily flashcard review reminder.
+    await FlashcardNotificationService().scheduleAllReviewNotifications();
   }
 
   Future<void> _updateFlashReviewTime(int hour, int minute) async {
@@ -138,6 +143,9 @@ class _SettingsPageState extends State<SettingsPage> {
       _flashReviewHour = hour;
       _flashReviewMinute = minute;
     });
+
+    // Reschedule the (single) daily flashcard review reminder.
+    await FlashcardNotificationService().scheduleAllReviewNotifications();
   }
 
   Future<void> _fetchCategories() async {
@@ -241,9 +249,16 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _notifyNewWords = value;
     });
-    final plugin = FlutterLocalNotificationsPlugin();
-    if (!value) {
-      await plugin.cancel(100);
+    try {
+      if (value) {
+        // iOS needs explicit permission for push notifications as well.
+        await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true);
+        await FirebaseMessaging.instance.subscribeToTopic('new_words');
+      } else {
+        await FirebaseMessaging.instance.unsubscribeFromTopic('new_words');
+      }
+    } catch (_) {
+      // non-fatal
     }
   }
 
@@ -510,26 +525,30 @@ class _SettingsPageState extends State<SettingsPage> {
 
                   return Column(
                     children: [
-                      const Divider(),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
-                        child: Text(
-                          'Dashboard Access',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontSize: 18, color: Theme.of(context).colorScheme.primary),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            S.of(context)!.dashboardAccessSectionTitle,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontSize: 18,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                          ),
                         ),
                       ),
                       ListTile(
                         leading: Icon(Icons.admin_panel_settings, color: Theme.of(context).colorScheme.secondary),
                         title: Text(
-                          'Set password (Google accounts)',
+                          S.of(context)!.dashboardAccessSetPasswordTitle,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
                         subtitle: Text(
-                          'The dashboard only supports Email/Password login. Set a password to access it.',
+                          S.of(context)!.dashboardAccessSetPasswordSubtitle,
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: Theme.of(context).colorScheme.primary),
                         ),
@@ -1073,10 +1092,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _showDashboardPasswordDialog() async {
     final user = FirebaseAuth.instance.currentUser;
+    final s = S.of(context)!;
     if (user == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in first.')),
+        SnackBar(content: Text(s.pleaseSignInFirst)),
       );
       return;
     }
@@ -1084,7 +1104,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (email.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No email found for this account.')),
+        SnackBar(content: Text(s.noEmailFoundForAccount)),
       );
       return;
     }
@@ -1098,67 +1118,87 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (ctx, setLocal) => AlertDialog(
-            title: const Text('Enable Dashboard Access'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Account: $email'),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: pass1,
-                  obscureText: obscure1,
-                  decoration: InputDecoration(
-                    labelText: 'New password',
-                    suffixIcon: IconButton(
-                      icon: Icon(obscure1 ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setLocal(() => obscure1 = !obscure1),
-                    ),
+          builder: (ctx, setLocal) {
+            final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: AlertDialog(
+                scrollable: true,
+                title: Text(s.enableDashboardAccessTitle),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(s.dashboardAccessAccount(email)),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: pass1,
+                        obscureText: obscure1,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: s.newPasswordLabel,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscure1 ? Icons.visibility_off : Icons.visibility,
+                            ),
+                            onPressed: () => setLocal(() => obscure1 = !obscure1),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: pass2,
+                        obscureText: obscure2,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => FocusScope.of(ctx).unfocus(),
+                        decoration: InputDecoration(
+                          labelText: s.confirmPasswordLabel,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscure2 ? Icons.visibility_off : Icons.visibility,
+                            ),
+                            onPressed: () => setLocal(() => obscure2 = !obscure2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(s.dashboardAccessHelpText),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: pass2,
-                  obscureText: obscure2,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm password',
-                    suffixIcon: IconButton(
-                      icon: Icon(obscure2 ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setLocal(() => obscure2 = !obscure2),
-                    ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: Text(s.cancel),
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'After setting a password, you can sign in to the Dashboard with Email + Password.',
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-              ElevatedButton(
-                onPressed: () async {
-                  final p1 = pass1.text;
-                  final p2 = pass2.text;
-                  if (p1.length < 8) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Password must be at least 8 characters.')),
-                    );
-                    return;
-                  }
-                  if (p1 != p2) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Passwords do not match.')),
-                    );
-                    return;
-                  }
-                  Navigator.of(ctx).pop();
-                  await _linkPasswordToCurrentUser(email: email, password: p1);
-                },
-                child: const Text('Set password'),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final p1 = pass1.text;
+                      final p2 = pass2.text;
+                      if (p1.length < 8) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(s.passwordMinLength8)),
+                        );
+                        return;
+                      }
+                      if (p1 != p2) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(s.passwordsDoNotMatch)),
+                        );
+                        return;
+                      }
+                      Navigator.of(ctx).pop();
+                      await _linkPasswordToCurrentUser(email: email, password: p1);
+                    },
+                    child: Text(s.setPasswordButton),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

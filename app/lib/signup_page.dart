@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:provider/provider.dart';
@@ -7,12 +6,11 @@ import 'theme.dart';
 import 'email_verification_page.dart';
 import 'utils/countries.dart';
 import 'services/security_service.dart';
-import 'config/captcha_config.dart';
-import 'widgets/captcha_challenge.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 import 'home_page.dart';
 import 'country_selection_page.dart';
+import 'widgets/critical_action_overlay.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -48,26 +46,6 @@ class _SignUpPageState extends State<SignUpPage> {
     final hasSpecial = RegExp(r'''[!@#\$%^&*(),.?":{}|<>_\-\\/\[\];'`~+=]''')
         .hasMatch(password);
     return hasUppercase && hasLowercase && hasDigit && hasSpecial;
-  }
-
-  Future<String?> _requestCaptchaToken() async {
-    if (kIsWeb) {
-      return null;
-    }
-    final TargetPlatform platform = defaultTargetPlatform;
-    final String siteKey = (platform == TargetPlatform.iOS
-            ? CaptchaConfig.iosSiteKey
-            : CaptchaConfig.androidSiteKey)
-        .trim();
-    if (siteKey.isEmpty) {
-      debugPrint('⚠️ Captcha site key missing for $platform');
-      return null;
-    }
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => CaptchaChallenge(siteKey: siteKey),
-    );
   }
 
   Future<void> _signUp() async {
@@ -131,56 +109,14 @@ class _SignUpPageState extends State<SignUpPage> {
       // Continue if rate limit check fails (fail open)
     }
 
-    // SECURITY: Present CAPTCHA challenge (mobile) before verification
-    String? captchaToken;
-    if (!kIsWeb) {
-      try {
-        captchaToken = await _requestCaptchaToken();
-        if (!mounted) return;
-        if (captchaToken == null || captchaToken.isEmpty) {
-          setState(() {
-            _errorMessage = S.of(context)!.captchaRequiredMessage;
-            _isLoading = false;
-          });
-          return;
-        }
-        debugPrint('✅ CAPTCHA token received');
-      } catch (e) {
-        debugPrint('❌ Error launching CAPTCHA dialog: $e');
-        if (!mounted) return;
-        setState(() {
-          _errorMessage = 'Security verification failed. Please try again.';
-          _isLoading = false;
-        });
-        return;
-      }
-    }
-
-    // SECURITY: Verify CAPTCHA (server-side)
-    try {
-      final captchaResult =
-          await _securityService.verifyCaptcha(captchaToken: captchaToken);
-
-      if (captchaResult['verified'] != true) {
-        setState(() {
-          _errorMessage = captchaResult['reason'] as String? ??
-              'Security verification failed. Please try again.';
-          _isLoading = false;
-        });
-        return;
-      }
-    } catch (e) {
-      debugPrint('Error verifying CAPTCHA: $e');
-      // Continue if CAPTCHA check fails (fail open)
-    }
-
     final authProvider = context.read<app_auth.AuthProvider>();
+    final note = _noteController.text.trim();
     final error = await authProvider.signUp(
       _emailController.text.trim(),
       _passwordController.text,
       _displayNameController.text.trim(),
       country: _selectedCountry!,
-      note: _noteController.text.trim(),
+      note: note.isEmpty ? null : note,
       userType: _selectedUserType!,
     );
 
@@ -224,39 +160,42 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    return Scaffold(
-      appBar: AppBar(
-        iconTheme: IconThemeData(
-          color: isDark ? Colors.white : theme.colorScheme.primary,
-        ),
-        title: Text(
-          S.of(context)!.signUpTitle,
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: isDark ? Colors.white : theme.colorScheme.primary,
+    final s = S.of(context)!;
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            iconTheme: IconThemeData(
+              color: isDark ? Colors.white : theme.colorScheme.primary,
+            ),
+            title: Text(
+              s.signUpTitle,
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: isDark ? Colors.white : theme.colorScheme.primary,
+              ),
+            ),
           ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
               // 1. Display Name
               TextFormField(
                 controller: _displayNameController,
                 decoration: InputDecoration(
-                  labelText: S.of(context)!.displayNameLabel,
+                  labelText: s.displayNameLabel,
                   prefixIcon: Icon(IconlyLight.profile),
                 ),
                 textCapitalization: TextCapitalization.words,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return S.of(context)!.displayNameValidatorEmpty;
+                    return s.displayNameValidatorEmpty;
                   }
                   if (value.trim().length < 2) {
-                    return S.of(context)!.displayNameValidatorMinLength;
+                    return s.displayNameValidatorMinLength;
                   }
                   return null;
                 },
@@ -409,20 +348,14 @@ class _SignUpPageState extends State<SignUpPage> {
               TextFormField(
                 controller: _noteController,
                 decoration: InputDecoration(
-                  labelText: S.of(context)!.noteToAdministratorLabel,
-                  hintText: S.of(context)!.noteToAdministratorHint,
+                  labelText: s.noteToAdministratorLabel,
+                  hintText: s.noteToAdministratorHint,
                   prefixIcon: Icon(IconlyLight.message),
-                  helperText: S.of(context)!.noteToAdministratorHelperText,
+                  helperText: s.noteToAdministratorHelperText,
                 ),
                 minLines: 1,
                 maxLines: 3,
                 textInputAction: TextInputAction.done,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'This field is required';
-                  }
-                  return null;
-                },
               ),
               // SECURITY: Honeypot field (hidden from users, visible to bots)
               Opacity(
@@ -559,10 +492,17 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                 ],
               ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+        CriticalActionOverlay(
+          visible: _isLoading,
+          title: s.processingCreatingAccountTitle,
+          message: s.processingCreatingAccountMessage,
+        ),
+      ],
     );
   }
 }

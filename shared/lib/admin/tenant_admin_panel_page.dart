@@ -289,12 +289,6 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     return 'Email';
   }
 
-  IconData _hearingIcon(String hearing) {
-    final h = hearing.toLowerCase().trim();
-    if (h.contains('deaf')) return Icons.hearing_disabled;
-    return Icons.hearing;
-  }
-
   String _countryFlagEmoji(String countryOrCode) {
     final s = countryOrCode.trim();
     if (s.length == 2) {
@@ -853,24 +847,24 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                                 icon: const Icon(Icons.delete_forever),
                                 color: theme.colorScheme.error,
                                 visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                              ),
+                            ),
                             const SizedBox(width: 6),
                             Transform.scale(
                               scale: 0.85,
                               child: Switch(
                                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                value: status == 'active',
-                                onChanged: (v) async {
-                                  final nextStatus = v ? 'active' : 'inactive';
-                                  try {
+                              value: status == 'active',
+                              onChanged: (v) async {
+                                final nextStatus = v ? 'active' : 'inactive';
+                                try {
                                     await _setRole(uid: uid, role: role, status: nextStatus);
-                                  } catch (e) {
-                                    if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                } catch (e) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(content: Text('Failed to set status: $e')),
-                                    );
-                                  }
-                                },
+                                  );
+                                }
+                              },
                               ),
                             ),
                           ],

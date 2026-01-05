@@ -600,15 +600,35 @@ class AuthService {
     String userType,
   ) async {
     try {
-      await _createUserProfile(
-        uid,
-        email,
-        displayName,
-        country: country,
-        provider: 'google',
-        photoUrl: photoUrl,
-        userType: userType,
-      );
+      // IMPORTANT:
+      // - If users/{uid} already exists, client updates must NOT touch roles/approved/status
+      //   (Firestore rules block those keys even if values are unchanged).
+      // - So we only update allowed profile fields in that case.
+      final userRef = _firestore.collection('users').doc(uid);
+      final snap = await userRef.get();
+      if (!snap.exists) {
+        await _createUserProfile(
+          uid,
+          email,
+          displayName,
+          country: country,
+          provider: 'google',
+          photoUrl: photoUrl,
+          userType: userType,
+        );
+      } else {
+        await userRef.set(
+          <String, dynamic>{
+            'country': country.trim(),
+            'userType': userType.trim(),
+            // Optional compatibility fields (dashboard/joinTenant read either key).
+            'countryCode': country.trim(),
+            'hearingStatus': userType.trim(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      }
 
       // Refresh token to get latest custom claims
       final user = _auth.currentUser;

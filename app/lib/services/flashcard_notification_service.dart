@@ -11,6 +11,15 @@ class FlashcardNotificationService {
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
+  static const int _dailyReviewId = 300;
+
+  Future<({bool enabled, int hour, int minute})> _loadReviewPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool enabled = prefs.getBool('notifyFlashcardReview') ?? true;
+    final int hour = prefs.getInt('flashReviewHour') ?? 12;
+    final int minute = prefs.getInt('flashReviewMinute') ?? 0;
+    return (enabled: enabled, hour: hour, minute: minute);
+  }
 
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -30,19 +39,24 @@ class FlashcardNotificationService {
   }
 
   /// Planifie une notification pour la révision d'un mot
-  Future<void> scheduleReviewNotification(WordToReview word) async {
+  Future<void> scheduleReviewNotification(
+    WordToReview word, {
+    bool? enabled,
+    int? hour,
+    int? minute,
+  }) async {
     try {
       if (word.nextReviewDate == null) return;
       // Read user prefs (toggle + time). Defaults: enabled, 12:00
-      final prefs = await SharedPreferences.getInstance();
-      final bool enabled = prefs.getBool('notifyFlashcardReview') ?? true;
-      if (!enabled) return;
-      final int hour = prefs.getInt('flashReviewHour') ?? 12;
-      final int minute = prefs.getInt('flashReviewMinute') ?? 0;
+      final prefs = await _loadReviewPrefs();
+      final bool isEnabled = enabled ?? prefs.enabled;
+      if (!isEnabled) return;
+      final int h = hour ?? prefs.hour;
+      final int m = minute ?? prefs.minute;
 
       // Build scheduled datetime at user's chosen hour/min on the review date (local tz)
       final DateTime d = word.nextReviewDate!;
-      final tz.TZDateTime scheduledDate = tz.TZDateTime(tz.local, d.year, d.month, d.day, hour, minute);
+      final tz.TZDateTime scheduledDate = tz.TZDateTime(tz.local, d.year, d.month, d.day, h, m);
       final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
 
       // Only schedule notifications for future dates
@@ -101,16 +115,87 @@ class FlashcardNotificationService {
   /// Planifie des notifications pour tous les mots à réviser
   Future<void> scheduleAllReviewNotifications() async {
     try {
-      final words = await SpacedRepetitionService().getAllWordsToReview();
-      final wordsToReview = words.where((word) => word.status == 'À revoir').toList();
-      
-      for (final word in wordsToReview) {
-        await scheduleReviewNotification(word);
+      // Migration: cancel legacy per-word scheduled notifications (they used word.hashCode as ID).
+      // This avoids iOS 64-limit issues and prevents duplicates after switching to daily reminder.
+      final allWords = await SpacedRepetitionService().getAllWordsToReview();
+      for (final w in allWords) {
+        try {
+          await _notifications.cancel(w.hashCode);
+        } catch (_) {}
       }
+
+      // New strategy: schedule a single daily reminder at the user's chosen time.
+      final prefs = await _loadReviewPrefs();
+      if (!prefs.enabled) {
+        await cancelDailyReviewReminder();
+        return;
+      }
+      await scheduleDailyReviewReminder(hour: prefs.hour, minute: prefs.minute);
     } catch (e) {
       // Log error but don't crash the app
       print('Failed to schedule all review notifications: $e');
     }
+  }
+
+  /// Schedules a single daily reminder for flashcard review (iOS-safe).
+  Future<void> scheduleDailyReviewReminder({required int hour, required int minute}) async {
+    try {
+      // Ensure plugin is initialized
+      await initialize();
+
+      // Ensure channel exists on Android
+      final androidImpl =
+          _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidImpl?.createNotificationChannel(const AndroidNotificationChannel(
+        'flashcard_review',
+        'Flashcard Review',
+        description: 'Notifications for flashcard review reminders',
+        importance: Importance.high,
+      ));
+
+      // Cancel previous daily reminder to avoid duplicates
+      await _notifications.cancel(_dailyReviewId);
+
+      final now = tz.TZDateTime.now(tz.local);
+      tz.TZDateTime when = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+      if (!when.isAfter(now)) {
+        when = when.add(const Duration(days: 1));
+      }
+
+      const mode = AndroidScheduleMode.inexactAllowWhileIdle;
+
+      await _notifications.zonedSchedule(
+        _dailyReviewId,
+        '📚 Time to review!',
+        'You have flashcards to review',
+        when,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'flashcard_review',
+            'Flashcard Review',
+            channelDescription: 'Notifications for flashcard review reminders',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        androidScheduleMode: mode,
+        payload: 'review_home',
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (e) {
+      print('Failed to schedule daily review reminder: $e');
+    }
+  }
+
+  Future<void> cancelDailyReviewReminder() async {
+    try {
+      await _notifications.cancel(_dailyReviewId);
+    } catch (_) {}
   }
 
   /// Annule toutes les notifications de révision

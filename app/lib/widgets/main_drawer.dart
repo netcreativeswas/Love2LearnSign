@@ -46,6 +46,23 @@ class MainDrawerWidget extends StatelessWidget {
     return Colors.white24;
   }
 
+  String _tenantRoleLabel(BuildContext context, String role) {
+    final r = role.trim().toLowerCase();
+    final s = S.of(context)!;
+    switch (r) {
+      case 'owner':
+        return s.badgeOwner;
+      case 'admin':
+        return s.badgeTenantAdmin;
+      case 'editor':
+        return s.badgeEditor;
+      case 'analyst':
+        return s.badgeAnalyst;
+      default:
+        return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
@@ -56,7 +73,10 @@ class MainDrawerWidget extends StatelessWidget {
         final isAdmin = authProvider.isAdmin;
         final isEditor = authProvider.isEditor;
         final tenantId = context.watch<TenantScope>().tenantId;
-        final hasJw = context.watch<TenantMemberAccessProvider>().isJw;
+        final memberAccess = context.watch<TenantMemberAccessProvider>();
+        final hasJw = memberAccess.isJw;
+        final tenantRole = memberAccess.tenantRole;
+        final isComplimentary = memberAccess.isComplimentaryPremium;
         // Only show meaningful global roles; premium is tenant-scoped now.
         final displayRoles = userRoles
             .map((r) => r.toLowerCase().trim())
@@ -153,9 +173,13 @@ class MainDrawerWidget extends StatelessWidget {
                             future: PremiumService().isPremiumForTenant(tenantId),
                             builder: (context, snap) {
                               final isPremium = snap.data == true;
+                              final s = S.of(context)!;
                               final chips = <Widget>[];
 
                               // Tenant premium (source of truth: per-tenant entitlement + tenant admin role).
+                              final statusLabel = (isPremium && isComplimentary)
+                                  ? s.badgeComplimentaryPremium
+                                  : (isPremium ? s.badgePremium : s.badgeLearner);
                               chips.add(
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -166,7 +190,7 @@ class MainDrawerWidget extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    isPremium ? 'Premium' : 'Learner',
+                                    statusLabel,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
@@ -177,6 +201,29 @@ class MainDrawerWidget extends StatelessWidget {
                                 ),
                               );
 
+                              // Tenant role (editor/analyst/tenantAdmin/owner).
+                              final trLabel = _tenantRoleLabel(context, tenantRole);
+                              if (trLabel.isNotEmpty) {
+                                chips.add(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white24,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      trLabel,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
                               // Tenant JW access.
                               if (hasJw) {
                                 chips.add(
@@ -186,9 +233,9 @@ class MainDrawerWidget extends StatelessWidget {
                                       color: Colors.deepPurpleAccent.withValues(alpha: 0.55),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: const Text(
-                                      'JW',
-                                      style: TextStyle(
+                                    child: Text(
+                                      s.badgeJW,
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,

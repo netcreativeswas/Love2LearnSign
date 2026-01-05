@@ -1233,7 +1233,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userTypeOptionHearing => 'a hearing person';
 
   @override
-  String get confirmPasswordLabel => 'Confirm Password';
+  String get confirmPasswordLabel => 'Confirm password';
 
   @override
   String get confirmPasswordValidatorEmpty => 'Please confirm your password';
@@ -1571,4 +1571,118 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aboutSection2Body =>
       'Our ambition is to go further than a simple dictionary. Step by step we want to build a learning tool that helps you:\n\n• learn sign language in a clear, progressive way\n• track your progress over time\n• practice with exercises, games and small learning paths\n\nIn the future we also want to:\n\n• allow learners to connect with sign language teachers trained with our method\n• allow schools to use this app in the classroom\n• give teachers tools to see their students\' progress and which signs are difficult for them\n\nOur goal is to support individuals, families and schools who care about the deaf community in Bangladesh.';
+
+  @override
+  String get processingPleaseWaitTitle => 'Please wait';
+
+  @override
+  String get processingWaitMessage => 'Please wait, processing...';
+
+  @override
+  String get processingTakingLongerMessage =>
+      'This is taking longer than usual. Please check your connection and try again.';
+
+  @override
+  String get processingStillWorkingMessage =>
+      'Still processing. You can refresh the status, or close and check back later.';
+
+  @override
+  String get processingCreatingAccountTitle => 'Creating your account...';
+
+  @override
+  String get processingCreatingAccountMessage =>
+      'Please wait, your account is being created...';
+
+  @override
+  String get processingSigningInTitle => 'Signing in...';
+
+  @override
+  String get processingSigningInMessage => 'Please wait, signing you in...';
+
+  @override
+  String get processingFinishingSetupTitle => 'Finishing setup...';
+
+  @override
+  String get processingFinishingSetupMessage =>
+      'Please wait, finishing your setup...';
+
+  @override
+  String get processingPremiumActivatingTitle => 'Activating Premium...';
+
+  @override
+  String get processingPremiumActivatingMessage => 'Please wait, processing...';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get dashboardAccessSectionTitle => 'Dashboard Access';
+
+  @override
+  String get dashboardAccessSetPasswordTitle =>
+      'Set password (Google accounts)';
+
+  @override
+  String get dashboardAccessSetPasswordSubtitle =>
+      'The dashboard only supports Email/Password login. Set a password to access it.';
+
+  @override
+  String get enableDashboardAccessTitle => 'Enable Dashboard Access';
+
+  @override
+  String dashboardAccessAccount(String email) {
+    return 'Account: $email';
+  }
+
+  @override
+  String get newPasswordLabel => 'New password';
+
+  @override
+  String get dashboardAccessHelpText =>
+      'After setting a password, you can sign in to the Dashboard with Email + Password.';
+
+  @override
+  String get setPasswordButton => 'Set password';
+
+  @override
+  String get pleaseSignInFirst => 'Please sign in first.';
+
+  @override
+  String get noEmailFoundForAccount => 'No email found for this account.';
+
+  @override
+  String get passwordMinLength8 => 'Password must be at least 8 characters.';
+
+  @override
+  String get passwordsDoNotMatch => 'Passwords do not match.';
+
+  @override
+  String get badgeLearner => 'Learner';
+
+  @override
+  String get badgePremium => 'Premium';
+
+  @override
+  String get badgeComplimentaryPremium => 'Complimentary\\nPremium';
+
+  @override
+  String get badgeJW => 'JW';
+
+  @override
+  String get badgeEditor => 'Editor';
+
+  @override
+  String get badgeAnalyst => 'Analyst';
+
+  @override
+  String get badgeTenantAdmin => 'Tenant Admin';
+
+  @override
+  String get badgeOwner => 'Owner';
 }

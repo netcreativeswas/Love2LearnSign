@@ -46,21 +46,28 @@
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UIStatusBarHidden</key>
-		<true/>
+		<false/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
-	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-8517443606450525~8065616878</string>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>whatsapp</string>
-		<string>fb-messenger</string>
-		<string>instagram</string>
-		<string>imo</string>
-		<string>https</string>
-		<string>http</string>
-		<string>tel</string>
-		<string>mailto</string>
-	</array>
+		<key>GADApplicationIdentifier</key>
+		<string>ca-app-pub-8517443606450525~8065616878</string>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>whatsapp</string>
+			<string>fb-messenger</string>
+			<string>instagram</string>
+			<string>imo</string>
+			<string>https</string>
+			<string>http</string>
+			<string>tel</string>
+			<string>mailto</string>
+		</array>
+		<!-- Required for Flutter debug/profile builds on real devices.
+	     Having these keys present prevents Flutter's build scripts from emitting
+	     stderr when probing with `plutil -extract`, which Xcode treats as a build failure. -->
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>Allow Flutter tools on your computer to connect and debug your application. This prompt will not appear on release builds.</string>
+		<key>NSBonjourServices</key>
+		<array/>
 	</dict>
 </plist>

@@ -5,6 +5,10 @@
 # Minimum iOS version required by current Firebase iOS SDK used by FlutterFire.
 platform :ios, '13.0'
 
+# Use frameworks to avoid CocoaPods static-library + modulemap issues (notably gRPC).
+# This also resolves the "Swift pods cannot yet be integrated as static libraries" error.
+use_frameworks!
+
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 

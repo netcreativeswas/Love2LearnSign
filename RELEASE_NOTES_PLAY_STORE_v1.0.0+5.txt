@@ -1,0 +1,6 @@
+v1.0.0 (5)
+- Faster startup and smoother launch experience.
+- New Words notifications now send a daily digest (works when the app is closed).
+- Flashcard review notifications improved for iOS reliability.
+
+

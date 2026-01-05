@@ -1,0 +1,12 @@
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/icons/l2l-logo.png
+  color_dark: "#000000"
+  image_dark: assets/icons/l2l-logo.png
+
+  android_12:
+    image: assets/icons/l2l-logo.png
+    color: "#FFFFFF"
+    
+  web: false
+

@@ -1060,62 +1060,56 @@ class _GameMasterPageState extends State<GameMasterPage>
                                                 Consumer<app_auth.AuthProvider>(
                                                   builder: (context,
                                                       authProvider, _) {
-                                                    final isPrivileged =
-                                                        authProvider.hasRole(
-                                                                'admin') ||
-                                                            authProvider
-                                                                .hasRole(
-                                                                    'paidUser');
-                                                    if (isPrivileged) {
-                                                      return const SizedBox(
-                                                          height: 8);
+                                                    if (authProvider.hasRole('admin')) {
+                                                      return const SizedBox(height: 8);
                                                     }
-                                                    return FutureBuilder<
-                                                        ({
-                                                          bool canStart,
-                                                          int tokens,
-                                                          int maxTokens
-                                                        })>(
-                                                      future:
-                                                          SessionCounterService()
-                                                              .checkFlashcardSession(),
-                                                      builder:
-                                                          (context, snapshot) {
-                                                        if (!snapshot.hasData) {
-                                                          return const SizedBox(
-                                                              height: 8);
-                                                        }
-                                                        final data =
-                                                            snapshot.data!;
-                                                        final tokens =
-                                                            data.tokens;
 
-                                                        return Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .stretch,
-                                                          children: [
-                                                            _buildSessionBadge(
-                                                                context,
-                                                                tokens,
-                                                                data.maxTokens),
-                                                            if (tokens <=
-                                                                data.maxTokens -
-                                                                    SessionCounterService
-                                                                        .rewardBundleSize) ...[
-                                                              const SizedBox(
-                                                                  height: 4),
-                                                              _buildWatchAdRestoreButton(
-                                                                context:
-                                                                    context,
-                                                                onPressed: () =>
-                                                                    _handleFlashcardWatchAdRestore(
-                                                                        context),
-                                                              ),
-                                                            ],
-                                                            const SizedBox(
-                                                                height: 8),
-                                                          ],
+                                                    final tenantId = context.watch<TenantScope>().tenantId;
+                                                    return FutureBuilder<bool>(
+                                                      future: PremiumService().isPremiumForTenant(tenantId),
+                                                      builder: (context, premiumSnap) {
+                                                        final isPremium = premiumSnap.data == true;
+                                                        if (isPremium) return const SizedBox(height: 8);
+
+                                                        return FutureBuilder<
+                                                            ({
+                                                              bool canStart,
+                                                              int tokens,
+                                                              int maxTokens
+                                                            })>(
+                                                          future: SessionCounterService()
+                                                              .checkFlashcardSession(),
+                                                          builder:
+                                                              (context, snapshot) {
+                                                            if (!snapshot.hasData) {
+                                                              return const SizedBox(height: 8);
+                                                            }
+                                                            final data = snapshot.data!;
+                                                            final tokens = data.tokens;
+
+                                                            return Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment.stretch,
+                                                              children: [
+                                                                _buildSessionBadge(
+                                                                  context,
+                                                                  tokens,
+                                                                  data.maxTokens,
+                                                                ),
+                                                                if (tokens <=
+                                                                    data.maxTokens -
+                                                                        SessionCounterService.rewardBundleSize) ...[
+                                                                  const SizedBox(height: 4),
+                                                                  _buildWatchAdRestoreButton(
+                                                                    context: context,
+                                                                    onPressed: () =>
+                                                                        _handleFlashcardWatchAdRestore(context),
+                                                                  ),
+                                                                ],
+                                                                const SizedBox(height: 8),
+                                                              ],
+                                                            );
+                                                          },
                                                         );
                                                       },
                                                     );

@@ -538,6 +538,53 @@
   "aboutSection1Title": "About This App",
   "aboutSection1Body": "This app was created with a simple goal: to collect the signs most commonly used by deaf people in Bangladesh. It does not try to create or declare an official standard.\n\nIn Bangladesh there is not yet one national standard sign language. Different books, schools and communities use slightly different versions. That is why some words have more than one sign in this app.\n\nMany deaf people who are open to other cultures also start to use signs from other sign languages, such as Indian Sign Language (ISL) or American Sign Language (ASL). This app is only trying to reflect the real, living language that people actually use in daily life.\n\nWe hope this app will be useful and enjoyable for you.",
   "aboutSection2Title": "Vision for the Future",
-  "aboutSection2Body": "Our ambition is to go further than a simple dictionary. Step by step we want to build a learning tool that helps you:\n\n• learn sign language in a clear, progressive way\n• track your progress over time\n• practice with exercises, games and small learning paths\n\nIn the future we also want to:\n\n• allow learners to connect with sign language teachers trained with our method\n• allow schools to use this app in the classroom\n• give teachers tools to see their students' progress and which signs are difficult for them\n\nOur goal is to support individuals, families and schools who care about the deaf community in Bangladesh."
+  "aboutSection2Body": "Our ambition is to go further than a simple dictionary. Step by step we want to build a learning tool that helps you:\n\n• learn sign language in a clear, progressive way\n• track your progress over time\n• practice with exercises, games and small learning paths\n\nIn the future we also want to:\n\n• allow learners to connect with sign language teachers trained with our method\n• allow schools to use this app in the classroom\n• give teachers tools to see their students' progress and which signs are difficult for them\n\nOur goal is to support individuals, families and schools who care about the deaf community in Bangladesh.",
+
+  "processingPleaseWaitTitle": "Please wait",
+  "processingWaitMessage": "Please wait, processing...",
+  "processingTakingLongerMessage": "This is taking longer than usual. Please check your connection and try again.",
+  "processingStillWorkingMessage": "Still processing. You can refresh the status, or close and check back later.",
+  "processingCreatingAccountTitle": "Creating your account...",
+  "processingCreatingAccountMessage": "Please wait, your account is being created...",
+  "processingSigningInTitle": "Signing in...",
+  "processingSigningInMessage": "Please wait, signing you in...",
+  "processingFinishingSetupTitle": "Finishing setup...",
+  "processingFinishingSetupMessage": "Please wait, finishing your setup...",
+  "processingPremiumActivatingTitle": "Activating Premium...",
+  "processingPremiumActivatingMessage": "Please wait, processing...",
+
+  "back": "Back",
+  "retry": "Retry",
+  "refresh": "Refresh",
+
+  "dashboardAccessSectionTitle": "Dashboard Access",
+  "dashboardAccessSetPasswordTitle": "Set password (Google accounts)",
+  "dashboardAccessSetPasswordSubtitle": "The dashboard only supports Email/Password login. Set a password to access it.",
+  "enableDashboardAccessTitle": "Enable Dashboard Access",
+  "dashboardAccessAccount": "Account: {email}",
+  "@dashboardAccessAccount": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "newPasswordLabel": "New password",
+  "confirmPasswordLabel": "Confirm password",
+  "dashboardAccessHelpText": "After setting a password, you can sign in to the Dashboard with Email + Password.",
+  "setPasswordButton": "Set password",
+  "pleaseSignInFirst": "Please sign in first.",
+  "noEmailFoundForAccount": "No email found for this account.",
+  "passwordMinLength8": "Password must be at least 8 characters.",
+  "passwordsDoNotMatch": "Passwords do not match.",
+
+  "badgeLearner": "Learner",
+  "badgePremium": "Premium",
+  "badgeComplimentaryPremium": "Complimentary\\nPremium",
+  "badgeJW": "JW",
+  "badgeEditor": "Editor",
+  "badgeAnalyst": "Analyst",
+  "badgeTenantAdmin": "Tenant Admin",
+  "badgeOwner": "Owner"
 }
 

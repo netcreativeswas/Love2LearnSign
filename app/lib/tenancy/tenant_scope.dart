@@ -70,6 +70,44 @@ class TenantScope extends ChangeNotifier {
     return scope;
   }
 
+  /// Fast startup variant: returns quickly after loading prefs, then refreshes from Firestore in the background.
+  ///
+  /// This is intended to reduce cold-start time (native splash -> first Flutter UI).
+  /// The scope will `notifyListeners()` once background refresh completes.
+  static Future<TenantScope> createFast({
+    FirebaseFirestore? firestore,
+    Duration refreshTimeout = const Duration(seconds: 3),
+    bool ensureMembershipInBackground = true,
+  }) async {
+    final scope = TenantScope._();
+    await scope._loadFromPrefs();
+    scope._startAuthListener();
+
+    // Fire-and-forget refresh; do not block first frame.
+    unawaited(() async {
+      try {
+        await scope
+            .refreshFromFirestore(firestore: firestore)
+            .timeout(refreshTimeout);
+      } catch (_) {
+        // non-fatal; keep prefs/defaults
+      }
+      scope.notifyListeners();
+    }());
+
+    if (ensureMembershipInBackground) {
+      unawaited(() async {
+        try {
+          await scope.ensureTenantMembership().timeout(const Duration(seconds: 5));
+        } catch (_) {
+          // non-fatal
+        }
+      }());
+    }
+
+    return scope;
+  }
+
   void _startAuthListener() {
     _authSub?.cancel();
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {

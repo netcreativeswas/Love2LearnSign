@@ -415,16 +415,16 @@ class _DashboardSidebar extends StatelessWidget {
                             runSpacing: 6,
                             children: [
                               if (!tenant.isPlatformAdmin && tenantRole != 'viewer')
-                                Chip(
-                                  label: Text(
+                              Chip(
+                                label: Text(
                                     tenantRole,
                                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                                  ),
-                                  visualDensity: VisualDensity.compact,
                                 ),
+                                visualDensity: VisualDensity.compact,
+                              ),
                               if (tenant.isPlatformAdmin)
                                 const Chip(
-                                  label: Text(
+                                label: Text(
                                     'Owner',
                                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
                                   ),
@@ -435,9 +435,9 @@ class _DashboardSidebar extends StatelessWidget {
                                   label: Text(
                                     'Premium',
                                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                                  ),
-                                  visualDensity: VisualDensity.compact,
                                 ),
+                                visualDensity: VisualDensity.compact,
+                              ),
                               if (isComplimentary)
                                 const Chip(
                                   label: Text(

@@ -2,6 +2,7 @@ const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https")
 const logger = require("firebase-functions/logger");
 
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { GoogleAuth } = require("google-auth-library");
 const crypto = require("crypto");
 const { initializeApp } = require("firebase-admin/app");
@@ -18,6 +19,11 @@ const storage = getStorage();
 
 const DEFAULT_STORAGE_BUCKET = "love2learnsign-1914ce.firebasestorage.app";
 const ANDROID_PACKAGE_NAME = "com.love2learnsign.app";
+
+// Notifications strategy:
+// - Production: send a DAILY digest of new words (to avoid spam and to work app-closed)
+// - Optional: per-word push disabled by default
+const ENABLE_PER_WORD_NEW_WORD_PUSH = false;
 
 /**
  * Normalize roles so premium state is consistent across Firestore + Custom Claims.
@@ -205,6 +211,67 @@ async function deleteDocumentRecursive(docRef) {
   await docRef.delete();
 }
 
+// Daily digest: send summary of new words added in the last 24h.
+// Requires Cloud Scheduler enabled on the Firebase project.
+exports.sendDailyNewWordsDigest = onSchedule(
+  {
+    region: "us-central1",
+    // Daily at 12:00 UTC. Adjust as desired (e.g., Europe/Paris).
+    schedule: "0 12 * * *",
+    timeZone: "Etc/UTC",
+  },
+  async () => {
+    const tenantId = "l2l-bdsl";
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    try {
+      const snap = await db
+        .collection("tenants")
+        .doc(tenantId)
+        .collection("concepts")
+        .where("addedAt", ">=", since)
+        .orderBy("addedAt", "desc")
+        .limit(20)
+        .get();
+
+      if (snap.empty) {
+        logger.info("sendDailyNewWordsDigest: no new words in last 24h");
+        return;
+      }
+
+      const docs = snap.docs.slice(0, 5);
+      const lines = docs
+        .map((d) => {
+          const w = d.data() || {};
+          const en = (w.english || "New word").toString();
+          const bn = (w.bengali || "").toString();
+          return bn ? `📘 ${en} — ${bn}` : `📘 ${en}`;
+        })
+        .join("\n");
+
+      const count = snap.size;
+      const suffix = count > docs.length ? `\n… +${count - docs.length} more` : "";
+
+      const message = {
+        notification: {
+          title: "New words added!",
+          body: `${lines}${suffix}`,
+        },
+        data: {
+          kind: "new_words_digest",
+          tenantId,
+        },
+        topic: "new_words",
+      };
+
+      await getMessaging().send(message);
+      logger.info("sendDailyNewWordsDigest: push sent", { count });
+    } catch (error) {
+      logger.error("sendDailyNewWordsDigest: failed", error);
+    }
+  }
+);
+
 exports.notifyNewWord = onDocumentCreated("tenants/{tenantId}/concepts/{conceptId}", async (event) => {
   const snapshot = event.data;
   if (!snapshot) {
@@ -223,6 +290,9 @@ exports.notifyNewWord = onDocumentCreated("tenants/{tenantId}/concepts/{conceptI
   if (!newWord.addedAt) {
     await ref.update({ addedAt: FieldValue.serverTimestamp() });
   }
+
+  // Per-word push disabled by default (daily digest is used in production).
+  if (!ENABLE_PER_WORD_NEW_WORD_PUSH) return;
 
   const english = newWord.english || "New word";
   const bengali = newWord.bengali || "";

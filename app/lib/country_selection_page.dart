@@ -6,6 +6,8 @@ import 'utils/countries.dart';
 import 'theme.dart';
 import 'home_page.dart';
 import 'l10n/dynamic_l10n.dart';
+import 'tenancy/tenant_scope.dart';
+import 'widgets/critical_action_overlay.dart';
 
 class CountrySelectionPage extends StatefulWidget {
   final String uid;
@@ -66,6 +68,9 @@ class _CountrySelectionPageState extends State<CountrySelectionPage> {
 
       // Load user data to refresh roles and status
       await authProvider.loadUserData();
+      // Refresh tenant membership denormalized profile used by the dashboard:
+      // tenants/{tenantId}/members/{uid}.profile pulls country/hearing from users/{uid}.
+      await context.read<TenantScope>().ensureTenantMembership();
 
       // ✅ User is auto-approved with freeUser role - redirect to home
       Navigator.of(context).pushAndRemoveUntil(
@@ -83,13 +88,17 @@ class _CountrySelectionPageState extends State<CountrySelectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    final s = S.of(context)!;
+
+    return Stack(
+      children: [
+        Scaffold(
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
               const SizedBox(height: 24),
               // Logo with error handling
               Image.asset(
@@ -239,6 +248,20 @@ class _CountrySelectionPageState extends State<CountrySelectionPage> {
           ),
         ),
       ),
+        ),
+        CriticalActionOverlay(
+          visible: _isLoading,
+          title: s.processingFinishingSetupTitle,
+          message: s.processingFinishingSetupMessage,
+          onCancel: () {
+            setState(() => _isLoading = false);
+            Navigator.of(context).maybePop();
+          },
+          onRetry: () {
+            _completeSignUp();
+          },
+        ),
+      ],
     );
   }
 }

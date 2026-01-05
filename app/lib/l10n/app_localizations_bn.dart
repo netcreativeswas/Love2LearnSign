@@ -1540,4 +1540,122 @@ class AppLocalizationsBn extends AppLocalizations {
   @override
   String get aboutSection2Body =>
       'আমাদের লক্ষ্য সাধারণ অভিধানেই না বরং এমন একটি পূর্ণাঙ্গ শেখার টুল তৈরি করা, যেটির মাধ্যমে আপনি ধাপে ধাপে এবং স্পষ্টভাবে সাইন ল্যাঙ্গুয়েজ শিখতে পারবেন, নিজের অগ্রগতি দেখা এবং বিভিন্ন অনুশীলন, গেম ও ধারাবাহিকভাবে শিখা।\n\nএই টুলটি আপনাকে সাহায্য করবে:\n\n• ধাপে ধাপে এবং স্পষ্টভাবে সাইন ল্যাঙ্গুয়েজ শিখতে\n• নিজের অগ্রগতি দেখতে/ট্র্যাক করতে\n• বিভিন্ন অনুশীলন ও গেমের মাধ্যমে প্র্যাকটিস করতে\n\nভবিষ্যতে আমরা আরও করতে চাই:\n\n• যারা শিখছে তাদেরকে প্রশিক্ষিত/অভিজ্ঞ সাইন ল্যাঙ্গুয়েজ শিক্ষকদের সাথে সংযুক্ত করা\n• বধির ব্যক্তিদের স্বাভাবিক উপায়ে ( যেমন বধির কমিউনিটিদের দ্বারা ব্যবহৃত নেটিভ সাইন স্ট্রাকচার, ভিজ্যুয়াল ব্যাকরণ এবং প্রচলিত স্বাভাবিক অভিব্যক্তি ) সাইন ল্যাঙ্গুয়েজের উপর ভিত্তি করে শেখানোর এক পদ্ধতি তৈরি করা\n• স্কুল ও টিচারদের এমন টুল দেওয়া, যাতে তারা তাদের শিক্ষার্থীদের অগ্রগতি দেখতে পারে এবং কোন কোন সাইন তাদের জন্য বেশ কঠিন তা বুঝতে পারে\n\nআমাদের লক্ষ্য হল এমন ব্যক্তি, পরিবার এবং স্কুলকে সমর্থন করা, যারা বাংলাদেশে বধির সম্প্রদায়কে নিয়ে কাজ/সাহায্য করে';
+
+  @override
+  String get processingPleaseWaitTitle => 'অনুগ্রহ করে অপেক্ষা করুন';
+
+  @override
+  String get processingWaitMessage =>
+      'অনুগ্রহ করে অপেক্ষা করুন, প্রক্রিয়াকরণ চলছে…';
+
+  @override
+  String get processingTakingLongerMessage =>
+      'স্বাভাবিকের চেয়ে বেশি সময় লাগছে। সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।';
+
+  @override
+  String get processingStillWorkingMessage =>
+      'এখনও প্রক্রিয়াকরণ চলছে। আপনি স্ট্যাটাস রিফ্রেশ করতে পারেন, অথবা বন্ধ করে পরে আবার দেখে নিতে পারেন।';
+
+  @override
+  String get processingCreatingAccountTitle => 'আপনার অ্যাকাউন্ট তৈরি হচ্ছে…';
+
+  @override
+  String get processingCreatingAccountMessage =>
+      'অনুগ্রহ করে অপেক্ষা করুন, আপনার অ্যাকাউন্ট তৈরি করা হচ্ছে…';
+
+  @override
+  String get processingSigningInTitle => 'লগইন হচ্ছে…';
+
+  @override
+  String get processingSigningInMessage =>
+      'অনুগ্রহ করে অপেক্ষা করুন, লগইন করা হচ্ছে…';
+
+  @override
+  String get processingFinishingSetupTitle => 'সেটআপ সম্পন্ন হচ্ছে…';
+
+  @override
+  String get processingFinishingSetupMessage =>
+      'অনুগ্রহ করে অপেক্ষা করুন, সেটআপ সম্পন্ন করা হচ্ছে…';
+
+  @override
+  String get processingPremiumActivatingTitle => 'প্রিমিয়াম সক্রিয় হচ্ছে…';
+
+  @override
+  String get processingPremiumActivatingMessage =>
+      'অনুগ্রহ করে অপেক্ষা করুন, প্রক্রিয়াকরণ চলছে…';
+
+  @override
+  String get back => 'ফিরে যান';
+
+  @override
+  String get retry => 'আবার চেষ্টা করুন';
+
+  @override
+  String get refresh => 'রিফ্রেশ';
+
+  @override
+  String get dashboardAccessSectionTitle => 'ড্যাশবোর্ড অ্যাক্সেস';
+
+  @override
+  String get dashboardAccessSetPasswordTitle =>
+      'পাসওয়ার্ড সেট করুন (গুগল অ্যাকাউন্ট)';
+
+  @override
+  String get dashboardAccessSetPasswordSubtitle =>
+      'ড্যাশবোর্ডে শুধু ইমেইল/পাসওয়ার্ড দিয়ে লগইন করা যায়। অ্যাক্সেস পেতে একটি পাসওয়ার্ড সেট করুন।';
+
+  @override
+  String get enableDashboardAccessTitle => 'ড্যাশবোর্ড অ্যাক্সেস সক্রিয় করুন';
+
+  @override
+  String dashboardAccessAccount(String email) {
+    return 'অ্যাকাউন্ট: $email';
+  }
+
+  @override
+  String get newPasswordLabel => 'নতুন পাসওয়ার্ড';
+
+  @override
+  String get dashboardAccessHelpText =>
+      'পাসওয়ার্ড সেট করার পর, আপনি ড্যাশবোর্ডে ইমেইল + পাসওয়ার্ড দিয়ে সাইন ইন করতে পারবেন।';
+
+  @override
+  String get setPasswordButton => 'পাসওয়ার্ড সেট করুন';
+
+  @override
+  String get pleaseSignInFirst => 'প্রথমে সাইন ইন করুন।';
+
+  @override
+  String get noEmailFoundForAccount =>
+      'এই অ্যাকাউন্টের জন্য কোনো ইমেইল পাওয়া যায়নি।';
+
+  @override
+  String get passwordMinLength8 => 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।';
+
+  @override
+  String get passwordsDoNotMatch => 'পাসওয়ার্ড দুটি মেলেনি।';
+
+  @override
+  String get badgeLearner => 'শিক্ষার্থী';
+
+  @override
+  String get badgePremium => 'প্রিমিয়াম';
+
+  @override
+  String get badgeComplimentaryPremium => 'বিনামূল্যে\\nপ্রিমিয়াম';
+
+  @override
+  String get badgeJW => 'JW';
+
+  @override
+  String get badgeEditor => 'এডিটর';
+
+  @override
+  String get badgeAnalyst => 'অ্যানালিস্ট';
+
+  @override
+  String get badgeTenantAdmin => 'টেন্যান্ট অ্যাডমিন';
+
+  @override
+  String get badgeOwner => 'মালিক';
 }

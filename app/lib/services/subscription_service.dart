@@ -242,21 +242,28 @@ class SubscriptionService {
   /// Handle purchase updates
   Future<void> _handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
-      if (purchase.status == PurchaseStatus.pending) {
-        debugPrint('⏳ Purchase pending: ${purchase.productID}');
-        continue;
-      }
-
-      if (purchase.status == PurchaseStatus.error) {
-        debugPrint('❌ Purchase error: ${purchase.error}');
-        await _handlePurchaseError(purchase);
-        continue;
-      }
-
-      if (purchase.status == PurchaseStatus.purchased || 
-          purchase.status == PurchaseStatus.restored) {
-        debugPrint('✅ Purchase successful: ${purchase.productID}');
-        await _handleSuccessfulPurchase(purchase);
+      switch (purchase.status) {
+        case PurchaseStatus.pending:
+          debugPrint('⏳ Purchase pending: ${purchase.productID}');
+          break;
+        case PurchaseStatus.error:
+          debugPrint('❌ Purchase error: ${purchase.error}');
+          await _handlePurchaseError(purchase);
+          break;
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          debugPrint('✅ Purchase successful: ${purchase.productID}');
+          await _handleSuccessfulPurchase(purchase);
+          break;
+        default:
+          // Future-proof: if the plugin introduces new statuses (e.g. canceled),
+          // don't leave UI waiting forever. Emit an event and move on.
+          debugPrint('ℹ️ Purchase status: ${purchase.status} for ${purchase.productID}');
+          _subscriptionChanged.add(const SubscriptionChangeEvent(
+            success: false,
+            message: 'Purchase was cancelled or did not complete.',
+          ));
+          break;
       }
 
       // Complete the purchase
@@ -354,6 +361,21 @@ class SubscriptionService {
   Future<void> _handlePurchaseError(PurchaseDetails purchase) async {
     debugPrint('❌ Purchase error for ${purchase.productID}: ${purchase.error}');
     final msg = (purchase.error?.message ?? '').toString();
+
+    // Always emit an event so UI can dismiss any blocking overlays.
+    // (Network error / user cancel / store error etc.)
+    if (msg.isNotEmpty) {
+      _subscriptionChanged.add(SubscriptionChangeEvent(
+        success: false,
+        message: msg,
+      ));
+    } else {
+      _subscriptionChanged.add(const SubscriptionChangeEvent(
+        success: false,
+        message: 'Purchase failed. Please try again.',
+      ));
+    }
+
     // Common Android test-case: user already owns the subscription.
     // Instead of forcing the user to manually hit "Restore purchase", auto-trigger a restore/sync.
     if (msg.contains('itemAlreadyOwned') || msg.contains('BillingResponse.itemAlreadyOwned')) {

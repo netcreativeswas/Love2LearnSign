@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:love_to_learn_sign/tenancy/apps_catalog.dart';
 import 'package:love_to_learn_sign/tenancy/tenant_picker_page.dart';
 import 'package:love_to_learn_sign/tenancy/tenant_scope.dart';
+import 'package:love_to_learn_sign/startup_timing.dart';
 
 /// Feature flag: keep the onboarding code but disable showing it at install-time.
 /// Set to `true` to re-enable the onboarding video screen.
@@ -35,8 +36,9 @@ class _SplashGateState extends State<SplashGate> {
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
     // #endregion
-    // Auto-route after a 3s delay (replaces the manual Next button)
-    Future.delayed(const Duration(seconds: 3), _route);
+    debugPrint('STARTUP_TIMING: SplashGate.initState +${sinceAppStartMs()}ms');
+    // Route as soon as possible (startup perf). Keep SplashGate purely as a visual while routing.
+    Future(_route);
   }
 
   Future<void> _route() async {
@@ -62,8 +64,8 @@ class _SplashGateState extends State<SplashGate> {
     });
     // #endregion
 
-    // Petit délai pour afficher le splash Flutter (200–600ms)
-    await Future.delayed(const Duration(milliseconds: 400));
+    // Tiny yield so the first frame can paint before navigation work.
+    await Future.delayed(const Duration(milliseconds: 50));
 
     if (!mounted) return;
 

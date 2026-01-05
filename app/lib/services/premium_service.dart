@@ -38,10 +38,6 @@ class PremiumService {
         if (roles.contains('admin')) {
           return true;
         }
-        // Legacy global premium role is only honored for the default tenant.
-        if (tenantId == TenantDb.defaultTenantId && roles.contains('paidUser')) {
-          return true;
-        }
       }
 
       // Tenant admins/owners should be premium for their tenant (no ads).

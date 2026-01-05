@@ -12,9 +12,15 @@ import '../l10n/dynamic_l10n.dart';
 import '../tenancy/tenant_scope.dart';
 // PremiumExplanationPage kept for optional marketing/info screens, but purchasing happens here.
 import '../login_page.dart';
+import '../widgets/critical_action_overlay.dart';
 
 class PremiumSettingsPage extends StatefulWidget {
-  const PremiumSettingsPage({super.key});
+  final bool startProcessingOnOpen;
+
+  const PremiumSettingsPage({
+    super.key,
+    this.startProcessingOnOpen = false,
+  });
 
   @override
   State<PremiumSettingsPage> createState() => _PremiumSettingsPageState();
@@ -24,6 +30,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
   final SubscriptionService _subscriptionService = SubscriptionService();
   final PremiumService _premiumService = PremiumService();
   bool _isLoading = false;
+  bool _isProcessingCritical = false;
   bool _isPremium = false;
   Map<String, dynamic>? _subscriptionInfo;
   StreamSubscription<SubscriptionChangeEvent>? _subChanged;
@@ -33,6 +40,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
   @override
   void initState() {
     super.initState();
+    _isProcessingCritical = widget.startProcessingOnOpen;
     _subChanged = _subscriptionService.subscriptionChanged.listen((evt) async {
       if (!mounted) return;
       // Refresh roles + status after a purchase/restore completes.
@@ -51,6 +59,10 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
           foreground: Colors.white,
           duration: const Duration(seconds: 3),
         );
+      }
+
+      if (_isProcessingCritical && mounted) {
+        setState(() => _isProcessingCritical = false);
       }
 
       // If the user initiated a purchase from THIS screen, auto-close on successful activation.
@@ -106,54 +118,72 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final isAdmin = authProvider.hasRole('admin');
+    final s = S.of(context)!;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          S.of(context)!.upgradeToPremium,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-        ),
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primary),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (isAdmin || _isPremium) ...[
-                    // Already Premium
-                    _buildPremiumStatusCard(context),
-                    const SizedBox(height: 24),
-                    if (_subscriptionInfo != null &&
-                        _subscriptionInfo!['type'] == 'monthly') ...[
-                      // Show upgrade to yearly option
-                      _buildUpgradeToYearlyCard(context),
-                      const SizedBox(height: 24),
-                    ],
-                  ] else ...[
-                    // Not Premium - Show plans
-                    _buildBenefitsSection(context),
-                    const SizedBox(height: 24),
-                    _buildPlansSection(context),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Restore Purchase Button
-                  OutlinedButton.icon(
-                    onPressed: _isLoading ? null : _handleRestorePurchase,
-                    icon: const Icon(Icons.restore),
-                    label: Text(S.of(context)!.restorePurchase),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: Text(
+              s.upgradeToPremium,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                ],
-              ),
             ),
+            iconTheme:
+                IconThemeData(color: Theme.of(context).colorScheme.primary),
+          ),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (isAdmin || _isPremium) ...[
+                        // Already Premium
+                        _buildPremiumStatusCard(context),
+                        const SizedBox(height: 24),
+                        if (_subscriptionInfo != null &&
+                            _subscriptionInfo!['type'] == 'monthly') ...[
+                          // Show upgrade to yearly option
+                          _buildUpgradeToYearlyCard(context),
+                          const SizedBox(height: 24),
+                        ],
+                      ] else ...[
+                        // Not Premium - Show plans
+                        _buildBenefitsSection(context),
+                        const SizedBox(height: 24),
+                        _buildPlansSection(context),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Restore Purchase Button
+                      OutlinedButton.icon(
+                        onPressed: _isLoading ? null : _handleRestorePurchase,
+                        icon: const Icon(Icons.restore),
+                        label: Text(s.restorePurchase),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+        CriticalActionOverlay(
+          visible: _isProcessingCritical,
+          title: s.processingPremiumActivatingTitle,
+          message: s.processingPremiumActivatingMessage,
+          showActionsWhileProcessing: true,
+          onCancel: () {
+            setState(() => _isProcessingCritical = false);
+          },
+          onRetry: () async {
+            await _loadSubscriptionStatus();
+          },
+        ),
+      ],
     );
   }
 
@@ -450,7 +480,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
     final ok = await _ensureSignedIn();
     if (!ok) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isProcessingCritical = true);
     try {
       _autoCloseOnNextSuccess = true;
       final success = await _subscriptionService.purchaseSubscription(product);
@@ -466,19 +496,24 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
         ),
       );
 
+      if (!success && mounted) {
+        _autoCloseOnNextSuccess = false;
+        setState(() => _isProcessingCritical = false);
+        return;
+      }
+
       // Purchase updates + role refresh happen via subscriptionChanged listener.
       // We still refresh the current UI state quickly.
       await _loadSubscriptionStatus();
     } catch (e) {
       if (!mounted) return;
       _autoCloseOnNextSuccess = false;
+      setState(() => _isProcessingCritical = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${S.of(context)!.errorPrefix}: $e'),
         ),
       );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -486,7 +521,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
     final ok = await _ensureSignedIn();
     if (!ok) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isProcessingCritical = true);
 
     try {
       _autoCloseOnNextSuccess = true;
@@ -503,6 +538,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
         await _loadSubscriptionStatus();
       } else if (mounted) {
         _autoCloseOnNextSuccess = false;
+        setState(() => _isProcessingCritical = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -514,6 +550,7 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
     } catch (e) {
       if (mounted) {
         _autoCloseOnNextSuccess = false;
+        setState(() => _isProcessingCritical = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -521,10 +558,6 @@ class _PremiumSettingsPageState extends State<PremiumSettingsPage> {
             ),
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
       }
     }
   }

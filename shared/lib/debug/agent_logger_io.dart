@@ -15,6 +15,13 @@ class AgentLoggerImpl {
 
   static Future<void> log(Map<String, dynamic> payload) async {
     final body = jsonEncode(payload);
+    // #region agent log
+    // Always print the log line so it shows up in Xcode / flutter run output.
+    // This is critical on real iOS devices where 127.0.0.1 points to the phone itself.
+    // (Do not log secrets/PII in payload.)
+    // #endregion
+    // ignore: avoid_print
+    print(body);
     for (final url in _endpoints) {
       try {
         final client = HttpClient();

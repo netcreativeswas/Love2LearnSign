@@ -2345,7 +2345,7 @@ abstract class AppLocalizations {
   /// No description provided for @confirmPasswordLabel.
   ///
   /// In en, this message translates to:
-  /// **'Confirm Password'**
+  /// **'Confirm password'**
   String get confirmPasswordLabel;
 
   /// No description provided for @confirmPasswordValidatorEmpty.
@@ -2959,6 +2959,216 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Our ambition is to go further than a simple dictionary. Step by step we want to build a learning tool that helps you:\n\n• learn sign language in a clear, progressive way\n• track your progress over time\n• practice with exercises, games and small learning paths\n\nIn the future we also want to:\n\n• allow learners to connect with sign language teachers trained with our method\n• allow schools to use this app in the classroom\n• give teachers tools to see their students\' progress and which signs are difficult for them\n\nOur goal is to support individuals, families and schools who care about the deaf community in Bangladesh.'**
   String get aboutSection2Body;
+
+  /// No description provided for @processingPleaseWaitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait'**
+  String get processingPleaseWaitTitle;
+
+  /// No description provided for @processingWaitMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait, processing...'**
+  String get processingWaitMessage;
+
+  /// No description provided for @processingTakingLongerMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This is taking longer than usual. Please check your connection and try again.'**
+  String get processingTakingLongerMessage;
+
+  /// No description provided for @processingStillWorkingMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Still processing. You can refresh the status, or close and check back later.'**
+  String get processingStillWorkingMessage;
+
+  /// No description provided for @processingCreatingAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating your account...'**
+  String get processingCreatingAccountTitle;
+
+  /// No description provided for @processingCreatingAccountMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait, your account is being created...'**
+  String get processingCreatingAccountMessage;
+
+  /// No description provided for @processingSigningInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in...'**
+  String get processingSigningInTitle;
+
+  /// No description provided for @processingSigningInMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait, signing you in...'**
+  String get processingSigningInMessage;
+
+  /// No description provided for @processingFinishingSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Finishing setup...'**
+  String get processingFinishingSetupTitle;
+
+  /// No description provided for @processingFinishingSetupMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait, finishing your setup...'**
+  String get processingFinishingSetupMessage;
+
+  /// No description provided for @processingPremiumActivatingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Activating Premium...'**
+  String get processingPremiumActivatingTitle;
+
+  /// No description provided for @processingPremiumActivatingMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait, processing...'**
+  String get processingPremiumActivatingMessage;
+
+  /// No description provided for @back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get back;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @dashboardAccessSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard Access'**
+  String get dashboardAccessSectionTitle;
+
+  /// No description provided for @dashboardAccessSetPasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set password (Google accounts)'**
+  String get dashboardAccessSetPasswordTitle;
+
+  /// No description provided for @dashboardAccessSetPasswordSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The dashboard only supports Email/Password login. Set a password to access it.'**
+  String get dashboardAccessSetPasswordSubtitle;
+
+  /// No description provided for @enableDashboardAccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Dashboard Access'**
+  String get enableDashboardAccessTitle;
+
+  /// No description provided for @dashboardAccessAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Account: {email}'**
+  String dashboardAccessAccount(String email);
+
+  /// No description provided for @newPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get newPasswordLabel;
+
+  /// No description provided for @dashboardAccessHelpText.
+  ///
+  /// In en, this message translates to:
+  /// **'After setting a password, you can sign in to the Dashboard with Email + Password.'**
+  String get dashboardAccessHelpText;
+
+  /// No description provided for @setPasswordButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Set password'**
+  String get setPasswordButton;
+
+  /// No description provided for @pleaseSignInFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Please sign in first.'**
+  String get pleaseSignInFirst;
+
+  /// No description provided for @noEmailFoundForAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'No email found for this account.'**
+  String get noEmailFoundForAccount;
+
+  /// No description provided for @passwordMinLength8.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 8 characters.'**
+  String get passwordMinLength8;
+
+  /// No description provided for @passwordsDoNotMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match.'**
+  String get passwordsDoNotMatch;
+
+  /// No description provided for @badgeLearner.
+  ///
+  /// In en, this message translates to:
+  /// **'Learner'**
+  String get badgeLearner;
+
+  /// No description provided for @badgePremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium'**
+  String get badgePremium;
+
+  /// No description provided for @badgeComplimentaryPremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Complimentary\\nPremium'**
+  String get badgeComplimentaryPremium;
+
+  /// No description provided for @badgeJW.
+  ///
+  /// In en, this message translates to:
+  /// **'JW'**
+  String get badgeJW;
+
+  /// No description provided for @badgeEditor.
+  ///
+  /// In en, this message translates to:
+  /// **'Editor'**
+  String get badgeEditor;
+
+  /// No description provided for @badgeAnalyst.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyst'**
+  String get badgeAnalyst;
+
+  /// No description provided for @badgeTenantAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant Admin'**
+  String get badgeTenantAdmin;
+
+  /// No description provided for @badgeOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get badgeOwner;
 }
 
 class _AppLocalizationsDelegate

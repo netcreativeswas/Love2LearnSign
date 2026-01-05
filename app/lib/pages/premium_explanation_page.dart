@@ -7,6 +7,7 @@ import '../l10n/dynamic_l10n.dart';
 import 'premium_settings_page.dart';
 import '../login_page.dart';
 import '../tenancy/tenant_scope.dart';
+import '../widgets/critical_action_overlay.dart';
 
 class PremiumExplanationPage extends StatefulWidget {
   const PremiumExplanationPage({super.key});
@@ -46,14 +47,19 @@ class _PremiumExplanationPageState extends State<PremiumExplanationPage> {
     }
     final tenantName = tenantDisplayName();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(S.of(context)!.premium),
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primary),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
+    final s = S.of(context)!;
+
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: Text(s.premium),
+            iconTheme:
+                IconThemeData(color: Theme.of(context).colorScheme.primary),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Premium Header
@@ -200,6 +206,21 @@ class _PremiumExplanationPageState extends State<PremiumExplanationPage> {
           ],
         ),
       ),
+    ),
+        CriticalActionOverlay(
+          visible: _isLoading,
+          title: s.processingPremiumActivatingTitle,
+          message: s.processingPremiumActivatingMessage,
+          showActionsWhileProcessing: true,
+          onCancel: () {
+            setState(() => _isLoading = false);
+            Navigator.of(context).maybePop();
+          },
+          onRetry: () {
+            setState(() => _isLoading = false);
+          },
+        ),
+      ],
     );
   }
 
@@ -380,13 +401,13 @@ class _PremiumExplanationPageState extends State<PremiumExplanationPage> {
             ),
           ),
         );
-        
-        // Wait a moment then navigate to settings to see status
-        await Future.delayed(const Duration(seconds: 2));
+
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => const PremiumSettingsPage(),
+              builder: (_) => const PremiumSettingsPage(
+                startProcessingOnOpen: true,
+              ),
             ),
           );
         }
