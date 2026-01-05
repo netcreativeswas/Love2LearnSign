@@ -206,7 +206,8 @@ class DashboardTenantScope extends ChangeNotifier {
       onSecondary: onFor(secondary),
     );
 
-    final baseText = Typography.material2021().black.apply(
+    final baseText = (brightness == Brightness.dark ? Typography.material2021().white : Typography.material2021().black)
+        .apply(
           bodyColor: scheme.onSurface,
           displayColor: scheme.onSurface,
         );
@@ -234,6 +235,27 @@ class DashboardTenantScope extends ChangeNotifier {
         ),
         bodyMedium: TextStyle(color: scheme.onSurface),
         bodySmall: TextStyle(color: scheme.onSurface.withValues(alpha: 0.8)),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: (brightness == Brightness.dark) ? scheme.surfaceContainerHighest : scheme.surface,
+        labelStyle: TextStyle(color: scheme.onSurfaceVariant),
+        hintStyle: TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: 0.75)),
+        helperStyle: TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: 0.75)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: scheme.primary, width: 2),
+        ),
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: scheme.primary,
+        selectionColor: scheme.primary.withValues(alpha: 0.30),
+        selectionHandleColor: scheme.primary,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

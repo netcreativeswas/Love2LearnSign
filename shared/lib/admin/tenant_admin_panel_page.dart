@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
 import 'package:l2l_shared/utils/countries.dart' as shared_countries;
 
@@ -61,6 +64,191 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
   String _dateRange = 'all'; // all/today/7/30/90
   String _premiumFilter = 'all'; // all/premium/free
 
+  Future<void> _openFiltersSheet() async {
+    final theme = Theme.of(context);
+    final roleItems = const [
+      DropdownMenuItem(value: 'all', child: Text('Role: all')),
+      DropdownMenuItem(value: 'viewer', child: Text('viewer')),
+      DropdownMenuItem(value: 'analyst', child: Text('analyst')),
+      DropdownMenuItem(value: 'editor', child: Text('editor')),
+      DropdownMenuItem(value: 'tenantadmin', child: Text('tenantAdmin')),
+      DropdownMenuItem(value: 'owner', child: Text('owner')),
+    ];
+    final statusItems = const [
+      DropdownMenuItem(value: 'all', child: Text('Status: all')),
+      DropdownMenuItem(value: 'active', child: Text('active')),
+      DropdownMenuItem(value: 'inactive', child: Text('inactive')),
+    ];
+    final premiumItems = const [
+      DropdownMenuItem(value: 'all', child: Text('Premium: all')),
+      DropdownMenuItem(value: 'premium', child: Text('premium')),
+      DropdownMenuItem(value: 'free', child: Text('free')),
+    ];
+    final dateItems = const [
+      DropdownMenuItem(value: 'all', child: Text('Date: all')),
+      DropdownMenuItem(value: 'today', child: Text('today')),
+      DropdownMenuItem(value: '7', child: Text('last 7 days')),
+      DropdownMenuItem(value: '30', child: Text('last 30 days')),
+      DropdownMenuItem(value: '90', child: Text('last 90 days')),
+    ];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: theme.colorScheme.surface,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheetState) {
+            void update(VoidCallback fn) {
+              setState(fn);
+              setSheetState(() {});
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 12,
+                bottom: 16 + MediaQuery.viewInsetsOf(sheetCtx).bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Filters',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Close',
+                        onPressed: () => Navigator.of(sheetCtx).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _roleFilter,
+                    items: roleItems,
+                    decoration: const InputDecoration(
+                      labelText: 'Role',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => update(() => _roleFilter = v ?? 'all'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _statusFilter,
+                    items: statusItems,
+                    decoration: const InputDecoration(
+                      labelText: 'Status',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => update(() => _statusFilter = v ?? 'all'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _premiumFilter,
+                    items: premiumItems,
+                    decoration: const InputDecoration(
+                      labelText: 'Premium',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => update(() => _premiumFilter = v ?? 'all'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _dateRange,
+                    items: dateItems,
+                    decoration: const InputDecoration(
+                      labelText: 'Date range',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => update(() => _dateRange = v ?? 'all'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    value: _countryFilter,
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Country: all'),
+                      ),
+                      ...shared_countries.countries
+                          .map((c) => DropdownMenuItem<String?>(value: c, child: Text(c)))
+                          .toList(),
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Country',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => update(() => _countryFilter = v),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    value: _hearingFilter,
+                    items: const [
+                      DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Hearing: all'),
+                      ),
+                      DropdownMenuItem<String?>(
+                        value: 'Hearing',
+                        child: Text('Hearing'),
+                      ),
+                      DropdownMenuItem<String?>(
+                        value: 'Deaf',
+                        child: Text('Deaf'),
+                      ),
+                      DropdownMenuItem<String?>(
+                        value: 'Hard of Hearing',
+                        child: Text('Hard of Hearing'),
+                      ),
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Hearing',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => update(() => _hearingFilter = v),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          update(() {
+                            _roleFilter = 'all';
+                            _statusFilter = 'all';
+                            _premiumFilter = 'all';
+                            _dateRange = 'all';
+                            _countryFilter = null;
+                            _hearingFilter = null;
+                          });
+                        },
+                        child: const Text('Reset'),
+                      ),
+                      const Spacer(),
+                      FilledButton.icon(
+                        onPressed: () => Navigator.of(sheetCtx).pop(),
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Apply'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -69,13 +257,13 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
 
   Map<String, dynamic> _profileFrom(Map<String, dynamic> data) {
     final p = data['profile'];
-    if (p is Map) return Map<String, dynamic>.from(p as Map);
+    if (p is Map) return Map<String, dynamic>.from(p);
     return const {};
   }
 
   Map<String, dynamic> _billingFrom(Map<String, dynamic> data) {
     final b = data['billing'];
-    if (b is Map) return Map<String, dynamic>.from(b as Map);
+    if (b is Map) return Map<String, dynamic>.from(b);
     return const {};
   }
 
@@ -105,6 +293,23 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     final h = hearing.toLowerCase().trim();
     if (h.contains('deaf')) return Icons.hearing_disabled;
     return Icons.hearing;
+  }
+
+  String _countryFlagEmoji(String countryOrCode) {
+    final s = countryOrCode.trim();
+    if (s.length == 2) {
+      final upper = s.toUpperCase();
+      final a = upper.codeUnitAt(0);
+      final b = upper.codeUnitAt(1);
+      // A-Z only
+      if (a >= 65 && a <= 90 && b >= 65 && b <= 90) {
+        const base = 0x1F1E6; // regional indicator A
+        final first = base + (a - 65);
+        final second = base + (b - 65);
+        return String.fromCharCode(first) + String.fromCharCode(second);
+      }
+    }
+    return '';
   }
 
   String _hearingLabel(String hearing) {
@@ -326,6 +531,103 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     );
   }
 
+  Future<void> _confirmAndDeleteTenantUser({
+    required String uid,
+    required String displayName,
+    required String email,
+  }) async {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (currentUid.isNotEmpty && uid == currentUid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You cannot delete your own account.')),
+      );
+      return;
+    }
+
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Delete user?'),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This will permanently delete the user account and their personal data for this tenant.\n'
+                  'It will NOT delete shared content they may have uploaded as an editor.',
+                ),
+                const SizedBox(height: 12),
+                Text('Tenant: ${widget.tenantId}'),
+                Text('UID: $uid'),
+                Text('Name: ${displayName.trim().isEmpty ? '(no displayName)' : displayName.trim()}'),
+                Text('Email: ${email.trim().isEmpty ? '(no email)' : email.trim()}'),
+                const SizedBox(height: 12),
+                const Text('Type DELETE to confirm:'),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    hintText: 'DELETE',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            StatefulBuilder(
+              builder: (ctx, setState) {
+                controller.addListener(() => setState(() {}));
+                final ok = controller.text.trim() == 'DELETE';
+                return TextButton(
+                  onPressed: ok ? () => Navigator.of(ctx).pop(true) : null,
+                  child: const Text('Delete'),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('deleteTenantUserAndData');
+      await callable.call({
+        'tenantId': widget.tenantId,
+        'targetUid': uid,
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('User deleted: ${displayName.trim().isEmpty ? uid : displayName.trim()}'),
+        ),
+      );
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      final msg = e.message ?? e.code;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $msg')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = L2LLayoutScope.isDashboardDesktop(context);
@@ -337,103 +639,124 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Search (name, email, country, uid)...',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (v) => setState(() => _search = v),
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                DropdownButton<String>(
-                  value: _roleFilter,
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('Role: all')),
-                    DropdownMenuItem(value: 'viewer', child: Text('viewer')),
-                    DropdownMenuItem(value: 'analyst', child: Text('analyst')),
-                    DropdownMenuItem(value: 'editor', child: Text('editor')),
-                    DropdownMenuItem(
-                        value: 'tenantadmin', child: Text('tenantAdmin')),
-                    DropdownMenuItem(value: 'owner', child: Text('owner')),
-                  ],
-                  onChanged: (v) => setState(() => _roleFilter = v ?? 'all'),
-                ),
-                const SizedBox(width: 12),
-                DropdownButton<String>(
-                  value: _statusFilter,
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('Status: all')),
-                    DropdownMenuItem(value: 'active', child: Text('active')),
-                    DropdownMenuItem(
-                        value: 'inactive', child: Text('inactive')),
-                  ],
-                  onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
-                ),
-                const SizedBox(width: 12),
-                DropdownButton<String>(
-                  value: _premiumFilter,
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('Premium: all')),
-                    DropdownMenuItem(value: 'premium', child: Text('premium')),
-                    DropdownMenuItem(value: 'free', child: Text('free')),
-                  ],
-                  onChanged: (v) => setState(() => _premiumFilter = v ?? 'all'),
-                ),
-                const SizedBox(width: 12),
-                DropdownButton<String>(
-                  value: _dateRange,
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('Date: all')),
-                    DropdownMenuItem(value: 'today', child: Text('today')),
-                    DropdownMenuItem(value: '7', child: Text('last 7 days')),
-                    DropdownMenuItem(value: '30', child: Text('last 30 days')),
-                    DropdownMenuItem(value: '90', child: Text('last 90 days')),
-                  ],
-                  onChanged: (v) => setState(() => _dateRange = v ?? 'all'),
-                ),
-                const SizedBox(width: 12),
-                DropdownButton<String?>(
-                  value: _countryFilter,
-                  hint: const Text('Country: all'),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('Country: all'),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Search (name, email, country, uid)...',
+                      border: OutlineInputBorder(),
                     ),
-                    ...shared_countries.countries
-                        .map((c) =>
-                            DropdownMenuItem<String?>(value: c, child: Text(c)))
-                        .toList(),
-                  ],
-                  onChanged: (v) => setState(() => _countryFilter = v),
+                    onChanged: (v) => setState(() => _search = v),
+                  ),
                 ),
-                const SizedBox(width: 12),
-                DropdownButton<String?>(
-                  value: _hearingFilter,
-                  hint: const Text('Hearing: all'),
-                  items: const [
-                    DropdownMenuItem<String?>(
-                        value: null, child: Text('Hearing: all')),
-                    DropdownMenuItem<String?>(
-                        value: 'Hearing', child: Text('Hearing')),
-                    DropdownMenuItem<String?>(
-                        value: 'Deaf', child: Text('Deaf')),
-                    DropdownMenuItem<String?>(
-                        value: 'Hard of Hearing',
-                        child: Text('Hard of Hearing')),
-                  ],
-                  onChanged: (v) => setState(() => _hearingFilter = v),
-                ),
+                if (!isDesktop) ...[
+                  const SizedBox(width: 10),
+                  OutlinedButton.icon(
+                    onPressed: _openFiltersSheet,
+                    icon: const Icon(Icons.filter_list, size: 18),
+                    label: const Text('Filters'),
+                  ),
+                ],
               ],
             ),
           ),
+          if (isDesktop)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  DropdownButton<String>(
+                    value: _roleFilter,
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('Role: all')),
+                      DropdownMenuItem(value: 'viewer', child: Text('viewer')),
+                      DropdownMenuItem(value: 'analyst', child: Text('analyst')),
+                      DropdownMenuItem(value: 'editor', child: Text('editor')),
+                      DropdownMenuItem(
+                          value: 'tenantadmin', child: Text('tenantAdmin')),
+                      DropdownMenuItem(value: 'owner', child: Text('owner')),
+                    ],
+                    onChanged: (v) => setState(() => _roleFilter = v ?? 'all'),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String>(
+                    value: _statusFilter,
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('Status: all')),
+                      DropdownMenuItem(value: 'active', child: Text('active')),
+                      DropdownMenuItem(
+                          value: 'inactive', child: Text('inactive')),
+                    ],
+                    onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String>(
+                    value: _premiumFilter,
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'all', child: Text('Premium: all')),
+                      DropdownMenuItem(
+                          value: 'premium', child: Text('premium')),
+                      DropdownMenuItem(value: 'free', child: Text('free')),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _premiumFilter = v ?? 'all'),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String>(
+                    value: _dateRange,
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('Date: all')),
+                      DropdownMenuItem(value: 'today', child: Text('today')),
+                      DropdownMenuItem(
+                          value: '7', child: Text('last 7 days')),
+                      DropdownMenuItem(
+                          value: '30', child: Text('last 30 days')),
+                      DropdownMenuItem(
+                          value: '90', child: Text('last 90 days')),
+                    ],
+                    onChanged: (v) => setState(() => _dateRange = v ?? 'all'),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String?>(
+                    value: _countryFilter,
+                    hint: const Text('Country: all'),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Country: all'),
+                      ),
+                      ...shared_countries.countries
+                          .map((c) => DropdownMenuItem<String?>(
+                              value: c, child: Text(c)))
+                          .toList(),
+                    ],
+                    onChanged: (v) => setState(() => _countryFilter = v),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String?>(
+                    value: _hearingFilter,
+                    hint: const Text('Hearing: all'),
+                    items: const [
+                      DropdownMenuItem<String?>(
+                          value: null, child: Text('Hearing: all')),
+                      DropdownMenuItem<String?>(
+                          value: 'Hearing', child: Text('Hearing')),
+                      DropdownMenuItem<String?>(
+                          value: 'Deaf', child: Text('Deaf')),
+                      DropdownMenuItem<String?>(
+                          value: 'Hard of Hearing',
+                          child: Text('Hard of Hearing')),
+                    ],
+                    onChanged: (v) => setState(() => _hearingFilter = v),
+                  ),
+                ],
+              ),
+            ),
           const Divider(height: 1),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
@@ -493,43 +816,17 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                     final isJw = featureRoles.contains('jw');
                     final providerLabel = _signInProviderLabel(profile);
                     final isNarrow = MediaQuery.sizeOf(context).width < 520;
+                    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                    final canDelete = uid.isNotEmpty && currentUid.isNotEmpty && uid != currentUid;
+
+                    final statusLabel =
+                        (status == 'active') ? 'Active' : 'Delayed user';
 
                     final controls = Column(
                       crossAxisAlignment: isNarrow
                           ? CrossAxisAlignment.stretch
                           : CrossAxisAlignment.end,
                       children: [
-                        DropdownButton<String>(
-                          isExpanded: isNarrow,
-                          value: role,
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'viewer', child: Text('viewer')),
-                            DropdownMenuItem(
-                                value: 'analyst', child: Text('analyst')),
-                            DropdownMenuItem(
-                                value: 'editor', child: Text('editor')),
-                            DropdownMenuItem(
-                                value: 'tenantadmin',
-                                child: Text('tenantAdmin')),
-                            DropdownMenuItem(
-                                value: 'owner', child: Text('owner')),
-                          ],
-                          onChanged: (v) async {
-                            final next = (v ?? role).toLowerCase().trim();
-                            if (next == role) return;
-                            try {
-                              await _setRole(
-                                  uid: uid, role: next, status: status);
-                            } catch (e) {
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text('Failed to set role: $e')),
-                              );
-                            }
-                          },
-                        ),
                         Row(
                           mainAxisSize:
                               isNarrow ? MainAxisSize.max : MainAxisSize.min,
@@ -538,27 +835,43 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                               : MainAxisAlignment.end,
                           children: [
                             Text(
-                              'Active',
+                              statusLabel,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            Switch(
-                              value: status == 'active',
-                              onChanged: (v) async {
-                                final nextStatus = v ? 'active' : 'inactive';
-                                try {
-                                  await _setRole(
-                                      uid: uid, role: role, status: nextStatus);
-                                } catch (e) {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content:
-                                            Text('Failed to set status: $e')),
-                                  );
-                                }
-                              },
+                            const SizedBox(width: 8),
+                            if (canDelete)
+                              IconButton(
+                                tooltip: 'Delete user',
+                                onPressed: () => _confirmAndDeleteTenantUser(
+                                  uid: uid,
+                                  displayName: name,
+                                  email: email,
+                                ),
+                                icon: const Icon(Icons.delete_forever),
+                                color: theme.colorScheme.error,
+                                visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                              ),
+                            const SizedBox(width: 6),
+                            Transform.scale(
+                              scale: 0.85,
+                              child: Switch(
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                value: status == 'active',
+                                onChanged: (v) async {
+                                  final nextStatus = v ? 'active' : 'inactive';
+                                  try {
+                                    await _setRole(uid: uid, role: role, status: nextStatus);
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Failed to set status: $e')),
+                                    );
+                                  }
+                                },
+                              ),
                             ),
                           ],
                         ),
@@ -577,120 +890,172 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                               color: theme.colorScheme.outlineVariant,
                               width: 0.8),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Stack(
                           children: [
-                            Row(
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        name.trim().isNotEmpty
-                                            ? name.trim()
-                                            : '(no displayName)',
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                                fontWeight: FontWeight.w800),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 6,
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
                                         crossAxisAlignment:
-                                            WrapCrossAlignment.center,
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          if (hearing.trim().isNotEmpty)
-                                            Tooltip(
-                                              message: _hearingLabel(hearing),
-                                              child: Icon(
-                                                _hearingIcon(hearing),
-                                                size: 18,
-                                                color: theme.colorScheme
-                                                    .onSurfaceVariant,
+                                          Text(
+                                            name.trim().isNotEmpty
+                                                ? name.trim()
+                                                : '(no displayName)',
+                                            style: theme.textTheme.titleMedium
+                                                ?.copyWith(
+                                                    fontWeight:
+                                                        FontWeight.w800),
+                                          ),
+                                          if (hearing.trim().isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              _hearingLabel(hearing),
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                color: theme.colorScheme.onSurfaceVariant,
+                                                fontWeight: FontWeight.w700,
                                               ),
                                             ),
-                                          _chip(
-                                            theme,
-                                            label:
-                                                premium ? 'Premium' : 'Learner',
-                                            bg: premium
-                                                ? theme.colorScheme
-                                                    .secondaryContainer
-                                                : theme.colorScheme
-                                                    .surfaceContainerHighest,
-                                            fg: premium
-                                                ? theme.colorScheme
-                                                    .onSecondaryContainer
-                                                : theme.colorScheme
-                                                    .onSurfaceVariant,
+                                          ],
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            email.trim().isNotEmpty
+                                                ? email.trim()
+                                                : uid,
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                    color: theme.colorScheme
+                                                        .onSurfaceVariant),
                                           ),
-                                          if (isJw)
-                                            _chip(
-                                              theme,
-                                              label: 'JW',
-                                              icon: Icons.verified_user,
-                                              bg: theme.colorScheme
-                                                  .tertiaryContainer,
-                                              fg: theme.colorScheme
-                                                  .onTertiaryContainer,
-                                            ),
-                                          _chip(
-                                            theme,
-                                            label: providerLabel,
-                                            icon: providerLabel == 'Google'
-                                                ? Icons.g_mobiledata
-                                                : Icons.email,
-                                            bg: providerLabel == 'Google'
-                                                ? theme.colorScheme
-                                                    .primaryContainer
-                                                : theme.colorScheme
-                                                    .surfaceContainerHighest,
-                                            fg: providerLabel == 'Google'
-                                                ? theme.colorScheme
-                                                    .onPrimaryContainer
-                                                : theme.colorScheme
-                                                    .onSurfaceVariant,
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              if (country.trim().isNotEmpty)
+                                                Text(
+                                                  '${_countryFlagEmoji(country)} ${country.trim()}'
+                                                      .trim(),
+                                                  style: theme
+                                                      .textTheme.bodySmall
+                                                      ?.copyWith(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .onSurfaceVariant),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 6,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            children: [
+                                              _chip(
+                                                theme,
+                                                label: premium
+                                                    ? 'Premium'
+                                                    : 'Learner',
+                                                bg: premium
+                                                    ? theme.colorScheme
+                                                        .secondaryContainer
+                                                    : theme.colorScheme
+                                                        .surfaceContainerHighest,
+                                                fg: premium
+                                                    ? theme.colorScheme
+                                                        .onSecondaryContainer
+                                                    : theme.colorScheme
+                                                        .onSurfaceVariant,
+                                              ),
+                                              if (isJw)
+                                                _chip(
+                                                  theme,
+                                                  label: 'JW',
+                                                  icon: Icons.verified_user,
+                                                  bg: theme.colorScheme
+                                                      .tertiaryContainer,
+                                                  fg: theme.colorScheme
+                                                      .onTertiaryContainer,
+                                                ),
+                                              _chip(
+                                                theme,
+                                                label: providerLabel,
+                                                icon: providerLabel == 'Google'
+                                                    ? Icons.g_mobiledata
+                                                    : Icons.email,
+                                                bg: providerLabel == 'Google'
+                                                    ? theme.colorScheme
+                                                        .primaryContainer
+                                                    : theme.colorScheme
+                                                        .surfaceContainerHighest,
+                                                fg: providerLabel == 'Google'
+                                                    ? theme.colorScheme
+                                                        .onPrimaryContainer
+                                                    : theme.colorScheme
+                                                        .onSurfaceVariant,
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                'Role',
+                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                  color: theme.colorScheme.onSurfaceVariant,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: DropdownButton<String>(
+                                                  isExpanded: true,
+                                                  value: role,
+                                                  items: const [
+                                                    DropdownMenuItem(value: 'viewer', child: Text('viewer')),
+                                                    DropdownMenuItem(value: 'analyst', child: Text('analyst')),
+                                                    DropdownMenuItem(value: 'editor', child: Text('editor')),
+                                                    DropdownMenuItem(value: 'tenantadmin', child: Text('tenantAdmin')),
+                                                    DropdownMenuItem(value: 'owner', child: Text('owner')),
+                                                  ],
+                                                  onChanged: (v) async {
+                                                    final next = (v ?? role).toLowerCase().trim();
+                                                    if (next == role) return;
+                                                    try {
+                                                      await _setRole(uid: uid, role: next, status: status);
+                                                    } catch (e) {
+                                                      if (!context.mounted) return;
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(content: Text('Failed to set role: $e')),
+                                                      );
+                                                    }
+                                                  },
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        email.trim().isNotEmpty
-                                            ? email.trim()
-                                            : uid,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                                color: theme.colorScheme
-                                                    .onSurfaceVariant),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 6,
-                                        children: [
-                                          _pill(theme, 'role=$role'),
-                                          _pill(theme, 'status=$status'),
-                                          if (country.trim().isNotEmpty)
-                                            _pill(theme, 'country=$country'),
-                                        ],
-                                      ),
+                                    ),
+                                    if (!isNarrow) ...[
+                                      const SizedBox(width: 12),
+                                      controls,
                                     ],
-                                  ),
+                                  ],
                                 ),
-                                if (!isNarrow) ...[
-                                  const SizedBox(width: 12),
+                                if (isNarrow) ...[
+                                  const SizedBox(height: 12),
                                   controls,
                                 ],
                               ],
                             ),
-                            if (isNarrow) ...[
-                              const SizedBox(height: 12),
-                              controls,
-                            ],
+                            if (hearing.trim().isNotEmpty)
+                              const SizedBox.shrink(),
                           ],
                         ),
                       ),
@@ -705,20 +1070,7 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     );
   }
 
-  Widget _pill(ThemeData theme, String label, {Color? color}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color ?? theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style:
-            theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
-      ),
-    );
-  }
+  // (Card pills removed for mobile-first UI. Keep helper removed to avoid unused code.)
 }
 
 class _EditMemberDialog extends StatefulWidget {
@@ -777,6 +1129,7 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
   bool _premiumEffective = false;
   bool _saving = false;
   bool _refreshing = false;
+  bool _diagnosing = false;
   String _providerLabel = '';
   String _email = '';
   String _productId = '';
@@ -894,6 +1247,74 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
     }
   }
 
+  String _pretty(dynamic v) {
+    try {
+      return JsonEncoder.withIndent('  ').convert(v);
+    } catch (_) {
+      return v?.toString() ?? '';
+    }
+  }
+
+  Future<void> _diagnosePremium() async {
+    if (_diagnosing || _saving) return;
+    setState(() => _diagnosing = true);
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('getEntitlementStatus');
+      final res = await callable.call({
+        'tenantId': widget.tenantId,
+        'targetUid': widget.uid,
+      });
+      final data = res.data;
+
+      if (!mounted) return;
+      final json = _pretty(data);
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Diagnostic premium'),
+          content: SizedBox(
+            width: 720,
+            child: SingleChildScrollView(
+              child: SelectableText(json),
+            ),
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: json));
+                if (!ctx.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Copied to clipboard.')),
+                );
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('Copy JSON'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      // Common cases:
+      // - App Check missing/invalid on web dashboard build
+      // - permission-denied (caller not tenant admin)
+      final msg = e.toString();
+      final hint = msg.contains('app-check') || msg.contains('app check')
+          ? 'App Check Web is required. Build dashboard with L2L_RECAPTCHA_SITE_KEY and ensure App Check is enabled.'
+          : 'Ensure you are tenant admin/owner (or platform admin).';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Diagnostic failed: $msg\n$hint')),
+      );
+    } finally {
+      if (mounted) setState(() => _diagnosing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -948,8 +1369,6 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
             spacing: 8,
             runSpacing: 6,
             children: [
-              _chip(theme, label: 'role=${widget.role.toLowerCase()}'),
-              _chip(theme, label: 'status=${widget.status.toLowerCase()}'),
               _chip(theme,
                   label: _providerLabel,
                   icon: _providerLabel == 'Google'
@@ -1044,6 +1463,21 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
 
     final actions = [
       TextButton.icon(
+        onPressed:
+            _refreshing || _saving || _diagnosing ? null : _diagnosePremium,
+        icon: _diagnosing
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.bug_report, size: 18),
+        label: const Text('Diagnostic premium'),
+        style: TextButton.styleFrom(
+          foregroundColor: theme.colorScheme.primary,
+        ),
+      ),
+      TextButton.icon(
         onPressed: _refreshing || _saving ? null : _refresh,
         icon: _refreshing
             ? const SizedBox(
@@ -1052,10 +1486,16 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
                 child: CircularProgressIndicator(strokeWidth: 2))
             : const Icon(Icons.refresh, size: 18),
         label: const Text('Refresh'),
+        style: TextButton.styleFrom(
+          foregroundColor: theme.colorScheme.primary,
+        ),
       ),
       TextButton(
         onPressed: _saving ? null : () => Navigator.of(context).pop(),
         child: const Text('Cancel'),
+        style: TextButton.styleFrom(
+          foregroundColor: theme.colorScheme.onSurface,
+        ),
       ),
       ElevatedButton(
         onPressed: _saving ? null : _save,

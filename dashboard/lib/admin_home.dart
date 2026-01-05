@@ -45,7 +45,10 @@ class _AdminHomeState extends State<AdminHome> {
     final isDesktop = MediaQuery.sizeOf(context).width >= DashboardContent.desktopBreakpoint;
     final tenantScope = context.watch<DashboardTenantScope>();
     final role = (tenantScope.selectedTenantRole ?? '').toLowerCase().trim();
-    final isAdmin = tenantScope.isPlatformAdmin || role == 'owner' || role == 'admin';
+    // Tenant admins should have access to the Admin Panel.
+    // Keep legacy 'admin' for backward compatibility.
+    final isAdmin =
+        tenantScope.isPlatformAdmin || role == 'owner' || role == 'tenantadmin' || role == 'admin';
     final isEditor = isAdmin || role == 'editor';
 
     final items = _navItemsForRole(
@@ -241,7 +244,7 @@ class _DashboardSidebar extends StatelessWidget {
     final displayRoles = roles
         .map((r) => r.toLowerCase().trim())
         .where((r) => r.isNotEmpty)
-        .where((r) => r != 'freeuser' && r != 'paiduser' && r != 'premium')
+        .where((r) => r != 'freeuser' && r != 'paiduser' && r != 'premium' && r != 'jw')
         .toSet()
         .toList()
       ..sort();
@@ -411,20 +414,30 @@ class _DashboardSidebar extends StatelessWidget {
                             spacing: 6,
                             runSpacing: 6,
                             children: [
-                              Chip(
-                                label: Text(
-                                  'tenantRole=$tenantRole',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                              if (!tenant.isPlatformAdmin && tenantRole != 'viewer')
+                                Chip(
+                                  label: Text(
+                                    tenantRole,
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
                                 ),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              Chip(
-                                label: Text(
-                                  'tenantPremium=${isPremium ? 'yes' : 'no'}',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                              if (tenant.isPlatformAdmin)
+                                const Chip(
+                                  label: Text(
+                                    'Owner',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
                                 ),
-                                visualDensity: VisualDensity.compact,
-                              ),
+                              if (isPremium)
+                                const Chip(
+                                  label: Text(
+                                    'Premium',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                ),
                               if (isComplimentary)
                                 const Chip(
                                   label: Text(
