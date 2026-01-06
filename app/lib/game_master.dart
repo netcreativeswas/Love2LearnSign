@@ -50,6 +50,121 @@ class _GameMasterPageState extends State<GameMasterPage>
   bool _gmReviewSortByVolume = false;
   DateTime? _lastDay;
 
+  // Cached + in-flight futures for instant UI (avoid waiting for nested FutureBuilders).
+  String? _tenantIdForSessions;
+  Future<bool>? _premiumFuture;
+  Future<({bool canStart, int tokens, int maxTokens})>? _quizSessionFuture;
+  Future<({bool canStart, int tokens, int maxTokens})>? _flashcardSessionFuture;
+  bool? _cachedIsPremium;
+  int? _cachedQuizTokens;
+  int? _cachedFlashcardTokens;
+
+  void _ensureSessionFutures() {
+    final tenantId = context.read<TenantScope>().tenantId;
+    if (_tenantIdForSessions == tenantId &&
+        _premiumFuture != null &&
+        _quizSessionFuture != null &&
+        _flashcardSessionFuture != null) {
+      return;
+    }
+    _tenantIdForSessions = tenantId;
+    _premiumFuture = PremiumService().isPremiumForTenant(tenantId);
+    _quizSessionFuture = SessionCounterService().checkQuizSession();
+    _flashcardSessionFuture = SessionCounterService().checkFlashcardSession();
+    _loadCachedEntitlements(tenantId);
+  }
+
+  Future<void> _loadCachedEntitlements(String tenantId) async {
+    try {
+      final premium = await PremiumService().getCachedPremiumForTenant(tenantId);
+      final quizTokens = await SessionCounterService().getCachedQuizTokens();
+      final flashTokens = await SessionCounterService().getCachedFlashcardTokens();
+      if (!mounted) return;
+      setState(() {
+        _cachedIsPremium = premium;
+        _cachedQuizTokens = quizTokens;
+        _cachedFlashcardTokens = flashTokens;
+      });
+    } catch (_) {
+      // non-fatal
+    }
+  }
+
+  void _refreshSessionFutures() {
+    final tenantId = context.read<TenantScope>().tenantId;
+    setState(() {
+      _tenantIdForSessions = tenantId;
+      _premiumFuture = PremiumService().isPremiumForTenant(tenantId);
+      _quizSessionFuture = SessionCounterService().checkQuizSession();
+      _flashcardSessionFuture = SessionCounterService().checkFlashcardSession();
+    });
+    _loadCachedEntitlements(tenantId);
+  }
+
+  Widget _buildSessionsLoading(BuildContext context) {
+    // Visible immediately; avoids "nothing appears" while futures resolve.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              S.of(context)?.loadingQuizPleaseWait ?? 'Loading…',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildTokensSection({
+    required BuildContext context,
+    required int? cachedTokens,
+    required Future<({bool canStart, int tokens, int maxTokens})>? future,
+    required VoidCallback onWatchAd,
+  }) {
+    // If we have cached tokens, render immediately; otherwise show a small loading UI.
+    if (cachedTokens == null && future == null) {
+      return _buildSessionsLoading(context);
+    }
+    return FutureBuilder<({bool canStart, int tokens, int maxTokens})>(
+      future: future,
+      builder: (context, snapshot) {
+        final data = snapshot.data ??
+            (cachedTokens != null
+                ? (
+                    canStart: cachedTokens > 0,
+                    tokens: cachedTokens,
+                    maxTokens: SessionCounterService.tokenCap,
+                  )
+                : null);
+        if (data == null) return _buildSessionsLoading(context);
+
+        final tokens = data.tokens;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSessionBadge(context, tokens, data.maxTokens),
+            if (tokens <= data.maxTokens - SessionCounterService.rewardBundleSize) ...[
+              const SizedBox(height: 4),
+              _buildWatchAdRestoreButton(context: context, onPressed: onWatchAd),
+            ],
+            const SizedBox(height: 8),
+          ],
+        );
+      },
+    );
+  }
+
   String _localizeEnBn(BuildContext context, String en, String bn) {
     final code = Localizations.localeOf(context).languageCode;
     return code == 'bn' ? bn : en;
@@ -272,7 +387,7 @@ class _GameMasterPageState extends State<GameMasterPage>
           ),
         );
         // Refresh UI (FutureBuilders) to reflect new remaining sessions
-        setState(() {});
+        _refreshSessionFutures();
       },
       onError: (error) {
         if (!mounted) return;
@@ -423,7 +538,7 @@ class _GameMasterPageState extends State<GameMasterPage>
           ),
         );
         // Refresh UI (FutureBuilders) to reflect new remaining sessions
-        setState(() {});
+        _refreshSessionFutures();
       },
       onError: (error) {
         if (!mounted) return;
@@ -508,47 +623,19 @@ class _GameMasterPageState extends State<GameMasterPage>
 
                   final tenantId = context.watch<TenantScope>().tenantId;
                   return FutureBuilder<bool>(
-                    future: PremiumService().isPremiumForTenant(tenantId),
+                    future: _premiumFuture ?? PremiumService().isPremiumForTenant(tenantId),
                     builder: (context, premiumSnap) {
-                      final isPremium = premiumSnap.data == true;
+                      final premiumKnown =
+                          premiumSnap.connectionState == ConnectionState.done || _cachedIsPremium != null;
+                      final isPremium = premiumSnap.data ?? _cachedIsPremium ?? false;
+                      if (!premiumKnown) return _buildSessionsLoading(context);
                       if (isPremium) return const SizedBox(height: 8);
 
-                      return FutureBuilder<
-                          ({
-                            bool canStart,
-                            int tokens,
-                            int maxTokens,
-                          })>(
-                        future: SessionCounterService().checkQuizSession(),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return const SizedBox(height: 8);
-                          }
-                          final data = snapshot.data!;
-                          final tokens = data.tokens;
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildSessionBadge(
-                                context,
-                                tokens,
-                                data.maxTokens,
-                              ),
-                              if (tokens <=
-                                  data.maxTokens -
-                                      SessionCounterService.rewardBundleSize) ...[
-                                const SizedBox(height: 4),
-                                _buildWatchAdRestoreButton(
-                                  context: context,
-                                  onPressed: () =>
-                                      _handleQuizWatchAdRestore(context),
-                                ),
-                              ],
-                              const SizedBox(height: 8),
-                            ],
-                          );
-                        },
+                      return _buildTokensSection(
+                        context: context,
+                        cachedTokens: _cachedQuizTokens,
+                        future: _quizSessionFuture ?? SessionCounterService().checkQuizSession(),
+                        onWatchAd: () => _handleQuizWatchAdRestore(context),
                       );
                     },
                   );
@@ -853,6 +940,12 @@ class _GameMasterPageState extends State<GameMasterPage>
     _preloadTokenSound();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _ensureSessionFutures();
+  }
+
   Future<void> _preloadTokenSound() async {
     try {
       // Configurer pour latence minimale et volume à 1.0
@@ -1066,50 +1159,22 @@ class _GameMasterPageState extends State<GameMasterPage>
 
                                                     final tenantId = context.watch<TenantScope>().tenantId;
                                                     return FutureBuilder<bool>(
-                                                      future: PremiumService().isPremiumForTenant(tenantId),
+                                                      future: _premiumFuture ?? PremiumService().isPremiumForTenant(tenantId),
                                                       builder: (context, premiumSnap) {
-                                                        final isPremium = premiumSnap.data == true;
+                                                        final premiumKnown =
+                                                            premiumSnap.connectionState == ConnectionState.done ||
+                                                                _cachedIsPremium != null;
+                                                        final isPremium = premiumSnap.data ?? _cachedIsPremium ?? false;
+                                                        if (!premiumKnown) return _buildSessionsLoading(context);
                                                         if (isPremium) return const SizedBox(height: 8);
 
-                                                        return FutureBuilder<
-                                                            ({
-                                                              bool canStart,
-                                                              int tokens,
-                                                              int maxTokens
-                                                            })>(
-                                                          future: SessionCounterService()
-                                                              .checkFlashcardSession(),
-                                                          builder:
-                                                              (context, snapshot) {
-                                                            if (!snapshot.hasData) {
-                                                              return const SizedBox(height: 8);
-                                                            }
-                                                            final data = snapshot.data!;
-                                                            final tokens = data.tokens;
-
-                                                            return Column(
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment.stretch,
-                                                              children: [
-                                                                _buildSessionBadge(
-                                                                  context,
-                                                                  tokens,
-                                                                  data.maxTokens,
-                                                                ),
-                                                                if (tokens <=
-                                                                    data.maxTokens -
-                                                                        SessionCounterService.rewardBundleSize) ...[
-                                                                  const SizedBox(height: 4),
-                                                                  _buildWatchAdRestoreButton(
-                                                                    context: context,
-                                                                    onPressed: () =>
-                                                                        _handleFlashcardWatchAdRestore(context),
-                                                                  ),
-                                                                ],
-                                                                const SizedBox(height: 8),
-                                                              ],
-                                                            );
-                                                          },
+                                                        return _buildTokensSection(
+                                                          context: context,
+                                                          cachedTokens: _cachedFlashcardTokens,
+                                                          future: _flashcardSessionFuture ??
+                                                              SessionCounterService().checkFlashcardSession(),
+                                                          onWatchAd: () =>
+                                                              _handleFlashcardWatchAdRestore(context),
                                                         );
                                                       },
                                                     );

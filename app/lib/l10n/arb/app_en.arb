@@ -427,6 +427,7 @@
   "newUserSignUp": "New user? Please sign up",
   "signUpLink": "Sign Up",
   "signInWithGoogle": "Sign In with Google",
+  "signInWithApple": "Sign In with Apple",
   "signUpWithGoogle": "Sign up with Google",
   "approvingYourAccount": "Approving your account...",
   "emailVerifiedApprovedMessage": "Email verified! Your account has been approved. Please sign in.",

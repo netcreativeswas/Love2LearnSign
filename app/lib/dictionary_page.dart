@@ -21,6 +21,7 @@ import 'services/share_utils.dart';
 import 'package:l2l_shared/analytics/search_tracking_service.dart';
 import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'theme.dart';
 import 'home_page.dart';
@@ -141,10 +142,55 @@ class _DictionaryPageState extends State<DictionaryPage> {
   bool _ascending = true;
   final int _currentIndex = 1;
   bool _sortDefaultApplied = false;
+  String? _sortPrefsTenantId;
+  String? _sortPrefsUiLang;
   Timer? _debounceTimer;
   String? _lastLoggedQuery;
   // Reset pagination when category/search changes
   final GlobalKey<_DictionaryScrollableSectionState> _scrollableSectionKey = GlobalKey<_DictionaryScrollableSectionState>();
+
+  String _sortLangKeyForTenant(String tenantId, String uiLang) =>
+      'dictionary_sort_lang_${tenantId}_$uiLang';
+  String _sortAscKeyForTenant(String tenantId, String uiLang) =>
+      'dictionary_sort_asc_${tenantId}_$uiLang';
+
+  Future<void> _persistSortPrefs() async {
+    try {
+      final tenantId = context.read<TenantScope>().tenantId;
+      final uiLang = Localizations.localeOf(context).languageCode.trim().toLowerCase();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _sortLangKeyForTenant(tenantId, uiLang), _sortLang.trim().toLowerCase());
+      await prefs.setBool(_sortAscKeyForTenant(tenantId, uiLang), _ascending);
+    } catch (_) {
+      // non-fatal
+    }
+  }
+
+  Future<void> _hydrateSortPrefsForTenant(String tenantId, String uiLang) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedLang =
+          (prefs.getString(_sortLangKeyForTenant(tenantId, uiLang)) ?? '')
+              .trim()
+              .toLowerCase();
+      final savedAsc = prefs.getBool(_sortAscKeyForTenant(tenantId, uiLang));
+
+      if (!mounted) return;
+      setState(() {
+        if (savedLang.isNotEmpty) {
+          // Guard against invalid persisted values.
+          final local = context.read<TenantScope>().contentLocale.trim().toLowerCase();
+          final allowed = <String>{'en'};
+          if (local.isNotEmpty) allowed.add(local);
+          _sortLang = allowed.contains(savedLang) ? savedLang : _sortLang;
+        }
+        if (savedAsc != null) _ascending = savedAsc;
+      });
+    } catch (_) {
+      // non-fatal
+    }
+  }
 
   @override
   void initState() {
@@ -155,10 +201,27 @@ class _DictionaryPageState extends State<DictionaryPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final tenant = Provider.of<TenantScope>(context, listen: false);
+    final tenantId = tenant.tenantId;
+    final uiLang = Localizations.localeOf(context).languageCode.trim().toLowerCase();
+
+    // If tenant changes while this page is alive, re-apply defaults and reload prefs.
+    if (_sortPrefsTenantId != tenantId || _sortPrefsUiLang != uiLang) {
+      _sortPrefsTenantId = tenantId;
+      _sortPrefsUiLang = uiLang;
+      _sortDefaultApplied = false;
+    }
+
     if (!_sortDefaultApplied) {
-      final tenant = Provider.of<TenantScope>(context, listen: false);
-      _sortLang = tenant.contentLocale.trim().isNotEmpty ? tenant.contentLocale.trim().toLowerCase() : 'en';
+      final local =
+          tenant.contentLocale.trim().isNotEmpty ? tenant.contentLocale.trim().toLowerCase() : 'en';
+      // Default sort follows UI language:
+      // - UI English => sort by English
+      // - UI non-English => sort by tenant local content locale
+      _sortLang = (uiLang == 'en') ? 'en' : local;
       _sortDefaultApplied = true;
+      // Override default with last saved choice (if any).
+      Future.microtask(() => _hydrateSortPrefsForTenant(tenantId, uiLang));
     }
   }
 
@@ -565,15 +628,21 @@ class _DictionaryPageState extends State<DictionaryPage> {
                                     sortLang: _sortLang,
                                     localLang: localLang,
                                     ascending: _ascending,
-                                    onSortByToggle: () => setState(() {
-                                      final local = localLang.trim().toLowerCase();
-                                      if (local.isEmpty || local == 'en') {
-                                        _sortLang = 'en';
-                                      } else {
-                                        _sortLang = _sortLang == 'en' ? local : 'en';
-                                      }
-                                    }),
-                                    onAscendingToggle: () => setState(() => _ascending = !_ascending),
+                                    onSortByToggle: () {
+                                      setState(() {
+                                        final local = localLang.trim().toLowerCase();
+                                        if (local.isEmpty || local == 'en') {
+                                          _sortLang = 'en';
+                                        } else {
+                                          _sortLang = _sortLang == 'en' ? local : 'en';
+                                        }
+                                      });
+                                      _persistSortPrefs();
+                                    },
+                                    onAscendingToggle: () {
+                                      setState(() => _ascending = !_ascending);
+                                      _persistSortPrefs();
+                                    },
                                   ),
                                 ),
                               ),
@@ -694,15 +763,21 @@ class _DictionaryPageState extends State<DictionaryPage> {
                                   sortLang: _sortLang,
                                   localLang: localLang,
                                   ascending: _ascending,
-                                  onSortByToggle: () => setState(() {
-                                    final local = localLang.trim().toLowerCase();
-                                    if (local.isEmpty || local == 'en') {
-                                      _sortLang = 'en';
-                                    } else {
-                                      _sortLang = _sortLang == 'en' ? local : 'en';
-                                    }
-                                  }),
-                                  onAscendingToggle: () => setState(() => _ascending = !_ascending),
+                                  onSortByToggle: () {
+                                    setState(() {
+                                      final local = localLang.trim().toLowerCase();
+                                      if (local.isEmpty || local == 'en') {
+                                        _sortLang = 'en';
+                                      } else {
+                                        _sortLang = _sortLang == 'en' ? local : 'en';
+                                      }
+                                    });
+                                    _persistSortPrefs();
+                                  },
+                                  onAscendingToggle: () {
+                                    setState(() => _ascending = !_ascending);
+                                    _persistSortPrefs();
+                                  },
                                 onSearchCompleted: _logSearch,
                               ),
                             ),

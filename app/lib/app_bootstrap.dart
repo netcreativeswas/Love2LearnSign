@@ -32,6 +32,16 @@ import 'tenancy/tenant_member_access_provider.dart';
 import 'app_root.dart'; // For MyApp, SubscriptionSyncer, flutterLocalNotificationsPlugin
 import 'startup_timing.dart';
 
+/// App Check control flags (compile-time via --dart-define).
+///
+/// Useful when:
+/// - you must run iOS in release/profile on a device, but App Attest isn't set up yet in Firebase
+/// - you want to temporarily disable App Check to unblock testing
+const bool _disableAppCheck =
+    bool.fromEnvironment('DISABLE_APP_CHECK', defaultValue: false);
+const bool _forceDebugAppCheck =
+    bool.fromEnvironment('FORCE_DEBUG_APP_CHECK', defaultValue: false);
+
 class AppBootstrap extends StatefulWidget {
   const AppBootstrap({super.key});
 
@@ -161,16 +171,43 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
   Future<void> _initAppCheck() async {
     try {
+      if (_disableAppCheck) {
+        debugPrint('App Check: disabled via DISABLE_APP_CHECK');
+        return;
+      }
       if (!kIsWeb && Platform.isAndroid) {
-        await FirebaseAppCheck.instance.activate(
-          androidProvider: kReleaseMode ? AndroidProvider.playIntegrity : AndroidProvider.debug,
-        );
+        final provider =
+            (kReleaseMode && !_forceDebugAppCheck) ? AndroidProvider.playIntegrity : AndroidProvider.debug;
+        debugPrint('App Check: activating (androidProvider=$provider)');
+        await FirebaseAppCheck.instance
+            .activate(androidProvider: provider)
+            .timeout(const Duration(seconds: 15));
         await FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
       } else if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
-        await FirebaseAppCheck.instance.activate(
-          appleProvider: kReleaseMode ? AppleProvider.appAttest : AppleProvider.debug,
-        );
+        final provider =
+            (kReleaseMode && !_forceDebugAppCheck) ? AppleProvider.appAttest : AppleProvider.debug;
+        debugPrint('App Check: activating (appleProvider=$provider)');
+        await FirebaseAppCheck.instance
+            .activate(appleProvider: provider)
+            .timeout(const Duration(seconds: 15));
         await FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
+      }
+
+      // Force a token fetch once so you can see immediately in logs whether App Check works.
+      // - In debug provider mode, Firebase iOS SDK typically prints a "debug token" you can
+      //   register in Firebase Console -> App Check -> Debug tokens.
+      // - In App Attest mode, this should succeed on a real device once App Check is registered.
+      try {
+        final tok = await FirebaseAppCheck.instance
+            .getToken(true)
+            .timeout(const Duration(seconds: 15));
+        if (tok != null && tok.isNotEmpty) {
+          debugPrint('App Check token fetched (len=${tok.length})');
+        } else {
+          debugPrint('App Check token fetch returned empty');
+        }
+      } catch (e) {
+        debugPrint('App Check token fetch failed (non-fatal): $e');
       }
     } catch (e) {
       debugPrint('App Check activation failed: $e');

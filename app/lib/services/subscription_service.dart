@@ -341,11 +341,46 @@ class SubscriptionService {
           data: data,
         ));
       } else {
-        // iOS verification is not implemented yet (needs App Store receipt verification).
-        debugPrint('⚠️ iOS subscription verification not implemented yet');
-        _subscriptionChanged.add(const SubscriptionChangeEvent(
-          success: false,
-          message: 'iOS subscription verification not implemented yet.',
+        // iOS: verify via App Store Server API (Cloud Function) and then refresh token.
+        final tenant = (_lastPurchaseTenantId ?? _tenantId).trim();
+
+        // On iOS, the plugin may provide either:
+        // - purchase.purchaseID (transaction id) OR
+        // - verificationData.serverVerificationData (receipt or signed transaction JWS)
+        final txId = (purchase.purchaseID ?? '').trim();
+        final verification = (purchase.verificationData.serverVerificationData).trim();
+
+        final callable = FirebaseFunctions.instance.httpsCallable('verifyAppStoreSubscription');
+        final result = await callable.call(<String, dynamic>{
+          'tenantId': tenant,
+          'productId': purchase.productID,
+          // Prefer transactionId when available; otherwise server will try receipt/JWS.
+          'transactionId': txId,
+          // Send the same blob in both fields; server will pick what it can decode.
+          'receipt': verification,
+          'signedTransactionInfo': verification,
+          // Use auto so TestFlight (release build but sandbox purchases) still works.
+          'environment': 'auto',
+          'platform': platform,
+        });
+
+        final data = (result.data is Map)
+            ? Map<String, dynamic>.from(result.data as Map)
+            : <String, dynamic>{};
+        if (kDebugMode) {
+          debugPrint('✅ verifyAppStoreSubscription result: $data');
+        }
+
+        final active = data['active'] == true;
+
+        // Force-refresh token to get updated Custom Claims (paidUser/freeUser).
+        await FirebaseAuth.instance.currentUser?.getIdToken(true);
+
+        _subscriptionChanged.add(SubscriptionChangeEvent(
+          success: true,
+          active: active,
+          message: active ? 'Premium activated.' : 'Subscription verified, but not active.',
+          data: data,
         ));
       }
     } catch (e) {

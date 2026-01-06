@@ -8,7 +8,7 @@ import '../about_this_app_page.dart';
 import '../login_page.dart';
 import '../signup_page.dart';
 import 'package:l2l_shared/add_word/add_word_page.dart';
-import 'package:l2l_shared/admin/admin_panel_page.dart';
+import 'package:l2l_shared/admin/tenant_admin_panel_page.dart';
 import 'package:l2l_shared/analytics/search_analytics_page.dart';
 import 'package:l2l_shared/words_admin/words_list_page.dart';
 import '../tenancy/tenant_scope.dart';
@@ -449,61 +449,37 @@ class MainDrawerWidget extends StatelessWidget {
                 );
               },
             ),
-                // Admin Panel (admins only) with pending users badge
+                // Admin Panel (tenant-scoped; admins only)
                 if (isLoggedIn && isAdmin)
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .where('status', isEqualTo: 'pending')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      final pendingCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
-                      return ListTile(
-                        leading: const Icon(Icons.admin_panel_settings),
-                        title: Row(
-                          children: [
-                            const Text('Admin Panel'),
-                            if (pendingCount > 0) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.error,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '$pendingCount',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                  ListTile(
+                    leading: const Icon(Icons.admin_panel_settings),
+                    title: const Text('Admin Panel'),
+                    onTap: () {
+                      if (!authProvider.isAdmin) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Admin access required'),
+                            backgroundColor: Theme.of(context).colorScheme.error,
+                          ),
+                        );
+                        return;
+                      }
+                      final tenantId = context.read<TenantScope>().tenantId.trim();
+                      if (tenantId.isEmpty) {
+                        Navigator.of(context).pop(); // close drawer
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Tenant not ready. Please try again.'),
+                            backgroundColor: Theme.of(context).colorScheme.error,
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.of(context).pop(); // close drawer
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => TenantAdminPanelPage(tenantId: tenantId),
                         ),
-                        trailing: pendingCount > 0
-                            ? Icon(
-                                Icons.notifications_active,
-                                color: Theme.of(context).colorScheme.error,
-                                size: 20,
-                              )
-                            : null,
-                        onTap: () {
-                          if (!authProvider.isAdmin) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Admin access required'),
-                                backgroundColor: Theme.of(context).colorScheme.error,
-                              ),
-                            );
-                            return;
-                          }
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const AdminPanelPage()),
-                          );
-                        },
                       );
                     },
                   ),

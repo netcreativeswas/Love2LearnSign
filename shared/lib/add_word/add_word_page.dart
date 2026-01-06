@@ -178,13 +178,10 @@ class _AddWordPageState extends State<AddWordPage> {
   Future<void> _ensureSignedIn() async {
     final auth = FirebaseAuth.instance;
     if (auth.currentUser == null) {
-      try {
-        await auth.signInAnonymously();
-      } catch (e) {
-        // ignore; UI will still try upload and show precise error
-      }
+      // Dashboard should always have an authenticated session. Anonymous fallback causes
+      // confusing 401/403 if anonymous auth is disabled or the session is stale.
+      throw StateError('Session expired — please log in again.');
     }
-    // debug auth uid (optional)
   }
   // Use default Storage instance/bucket configured by Firebase.initializeApp
   @override

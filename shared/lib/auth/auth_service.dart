@@ -590,6 +590,47 @@ class AuthService {
     }
   }
 
+  // Sign in with Apple (iOS only)
+  Future<UserCredential?> signInWithApple() async {
+    try {
+      if (kIsWeb) {
+        throw Exception('Sign in with Apple is not supported on web in this app.');
+      }
+
+      final provider = OAuthProvider('apple.com')
+        ..addScope('email')
+        ..addScope('name');
+
+      final userCredential = await _auth.signInWithProvider(provider).timeout(
+        const Duration(minutes: 2),
+        onTimeout: () {
+          throw Exception('Sign-in timed out. Please try again.');
+        },
+      );
+
+      // Refresh token to get latest custom claims
+      await userCredential.user?.getIdToken(true).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => null,
+      );
+
+      // Load user profile (non-blocking)
+      try {
+        await _loadUserProfile(userCredential.user!.uid);
+      } catch (e) {
+        _authLog('Warning: Failed to load user profile: $e');
+      }
+
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } on TimeoutException catch (_) {
+      throw Exception('Sign-in timed out. Please check your internet connection and try again.');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // Complete Google sign-up after additional info
   Future<void> completeGoogleSignUp(
     String uid,

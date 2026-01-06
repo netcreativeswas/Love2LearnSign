@@ -38,6 +38,7 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
         : (scope.signLangId.trim().isNotEmpty ? scope.signLangId.trim() : '');
 
     return AppBar(
+      centerTitle: false,
       leading: showBackButton
           ? IconButton(
               icon: const Icon(Icons.arrow_back_ios_new),

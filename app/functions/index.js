@@ -1,10 +1,19 @@
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
+const { defineSecret } = require("firebase-functions/params");
 
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { GoogleAuth } = require("google-auth-library");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+const {
+  AppStoreServerAPIClient,
+  Environment,
+  SignedDataVerifier,
+  ReceiptUtility,
+} = require("@apple/app-store-server-library");
 const { initializeApp } = require("firebase-admin/app");
 const { getMessaging } = require("firebase-admin/messaging");
 const { getFirestore, FieldValue, FieldPath } = require("firebase-admin/firestore");
@@ -19,6 +28,23 @@ const storage = getStorage();
 
 const DEFAULT_STORAGE_BUCKET = "love2learnsign-1914ce.firebasestorage.app";
 const ANDROID_PACKAGE_NAME = "com.love2learnsign.app";
+
+// --- App Store Server API (iOS subscriptions) secrets ---
+// Configure these via Firebase Functions secrets (recommended) or environment variables.
+const APPSTORE_ISSUER_ID = defineSecret("APPSTORE_ISSUER_ID");
+const APPSTORE_KEY_ID = defineSecret("APPSTORE_KEY_ID");
+const APPSTORE_PRIVATE_KEY_P8 = defineSecret("APPSTORE_PRIVATE_KEY_P8");
+const APPSTORE_BUNDLE_ID = defineSecret("APPSTORE_BUNDLE_ID");
+// Required by SignedDataVerifier for Production environment per Apple library.
+const APPSTORE_APP_APPLE_ID = defineSecret("APPSTORE_APP_APPLE_ID");
+
+// Apple Root CAs (DER) needed to verify App Store signed payloads.
+// We embed them because certificate files are gitignored for security hygiene.
+// Source: Apple Root CA - G2 / G3 certificates from Apple PKI.
+const _APPLE_ROOT_CA_G2_DER_B64 =
+  "MIIFkjCCA3qgAwIBAgIIAeDltYNno+AwDQYJKoZIhvcNAQEMBQAwZzEbMBkGA1UEAwwSQXBwbGUgUm9vdCBDQSAtIEcyMSYwJAYDVQQLDB1BcHBsZSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTETMBEGA1UECgwKQXBwbGUgSW5jLjELMAkGA1UEBhMCVVMwHhcNMTQwNDMwMTgxMDA5WhcNMzkwNDMwMTgxMDA5WjBnMRswGQYDVQQDDBJBcHBsZSBSb290IENBIC0gRzIxJjAkBgNVBAsMHUFwcGxlIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MRMwEQYDVQQKDApBcHBsZSBJbmMuMQswCQYDVQQGEwJVUzCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBANgREkhI2imKScUcx+xuM23+TfvgHN6sXuI2pyT5f1BrTM65MFQn5bPW7SXmMLYFN14UIhHF6Kob0vuy0gmVOKTvKkmMXT5xZgM4+xb1hYjkWpIMBDLyyED7Ul+f9sDx47pFoFDVEovy3d6RhiPw9bZyLgHaC/YuOQhfGaFjQQscp5TBhsRTL3b2CtcM0YM/GlMZ81fVJ3/8E7j4ko380yhDPLVoACVdJ2LT3VXdRCCQgzWTxb+4Gftr49wIQuavbfqeQMpOhYV4SbHXw8EwOTKrfl+q04tvny0aIWhwZ7Oj8ZhBbZF8+NfbqOdfIRqMM78xdLe40fTgIvS/cjTf94FNcX1RoeKz8NMoFnNvzcytN31O661A4T+B/fc9Cj6i8b0xlilZ3MIZgIxbdMYs0xBTJh0UT8TUgWY8h2czJxQI6bR3hDRSj4n4aJgXv8O7qhOTH11UL6jHfPsNFL4VPSQ08prcdUFmIrQB1guvkJ4M6mL4m1k8COKWNORj3rw31OsMiANDC1CvoDTdUE0V+1ok2Az6DGOeHwOx4e7hqkP0ZmUoNwIx7wHHHtHMn23KVDpA287PT0aLSmWaasZobNfMmRtHsHLDd4/E92GcdB/O/WuhwpyUgquUoue9G7q5cDmVF8Up8zlYNPXEpMZ7YLlmQ1A/bmH8DvmGqmAMQ0uVAgMBAAGjQjBAMB0GA1UdDgQWBBTEmRNsGAPCe8CjoA1/coB6HHcmjTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjANBgkqhkiG9w0BAQwFAAOCAgEAUabz4vS4PZO/Lc4Pu1vhVRROTtHlznldgX/+tvCHM/jvlOV+3Gp5pxy+8JS3ptEwnMgNCnWefZKVfhidfsJxaXwU6s+DDuQUQp50DhDNqxq6EWGBeNjxtUVAeKuowM77fWM3aPbn+6/Gw0vsHzYmE1SGlHKy6gLti23kDKaQwFd1z4xCfVzmMX3zybKSaUYOiPjjLUKyOKimGY3xn83uamW8GrAlvacp/fQ+onVJv57byfenHmOZ4VxG/5IFjPoeIPmGlFYl5bRXOJ3riGQUIUkhOb9iZqmxospvPyFgxYnURTbImHy99v6ZSYA7LNKmp4gDBDEZt7Y6YUX6yfIjyGNzv1aJMbDZfGKnexWoiIqrOEDCzBL/FePwN983csvMmOa/orz6JopxVtfnJBtIRD6e/J/JzBrsQzwBvDR4yGn1xuZW7AYJNpDrFEobXsmII9oDMJELuDY++ee1KG++P+w8j2Ud5cAeh6Squpj9kuNsJnfdBrRkBof0Tta6SqoWqPQFZ2aWuuJVecMsXUmPgEkrihLHdoBR37q9ZV0+N0djMenl9MU/S60EinpxLK8JQzcPqOMyT/RFtm2XNuyE9QoB6he7hY1Ck3DDUOUUi78/w0EP3SIEIwiKum1xRKtzCTrJ+VKACd+66eYWyi4uTLLT3OUEVLLUNIAytbwPF+E=";
+const _APPLE_ROOT_CA_G3_DER_B64 =
+  "MIICQzCCAcmgAwIBAgIILcX8iNLFS5UwCgYIKoZIzj0EAwMwZzEbMBkGA1UEAwwSQXBwbGUgUm9vdCBDQSAtIEczMSYwJAYDVQQLDB1BcHBsZSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTETMBEGA1UECgwKQXBwbGUgSW5jLjELMAkGA1UEBhMCVVMwHhcNMTQwNDMwMTgxOTA2WhcNMzkwNDMwMTgxOTA2WjBnMRswGQYDVQQDDBJBcHBsZSBSb290IENBIC0gRzMxJjAkBgNVBAsMHUFwcGxlIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MRMwEQYDVQQKDApBcHBsZSBJbmMuMQswCQYDVQQGEwJVUzB2MBAGByqGSM49AgEGBSuBBAAiA2IABJjpLz1AcqTtkyJygRMc3RCV8cWjTnHcFBbZDuWmBSp3ZHtfTjjTuxxEtX/1H7YyYl3J6YRbTzBPEVoA/VhYDKX1DyxNB0cTddqXl5dvMVztK517IDvYuVTZXpmkOlEKMaNCMEAwHQYDVR0OBBYEFLuw3qFYM4iapIqZ3r6966/ayySrMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMDA2gAMGUCMQCD6cHEFl4aXTQY2e3v9GwOAEZLuN+yRhHFD/3meoyhpmvOwgPUnPWTxnS4at+qIxUCMG1mihDK1A3UT82NQz60imOlM27jbdoXt2QfyFMm+YhidDkLF1vLUagM6BgD56KyKA==";
 
 // Notifications strategy:
 // - Production: send a DAILY digest of new words (to avoid spam and to work app-closed)
@@ -54,6 +80,143 @@ function normalizeRoles(inputRoles) {
   }
 
   return Array.from(set);
+}
+
+function _normalizeP8KeyText(s) {
+  const raw = (s ?? "").toString();
+  // Secrets UIs sometimes escape newlines.
+  return raw.includes("\\n") ? raw.replace(/\\n/g, "\n") : raw;
+}
+
+function _loadAppleRootCertificates() {
+  // Apple requires providing DER-encoded root certs to verify App Store signed payloads.
+  const certDir = path.join(__dirname, "apple_root_certs");
+  const out = [];
+
+  // Prefer local cert files if present (useful in emulator/local dev), but they are gitignored.
+  try {
+    if (fs.existsSync(certDir)) {
+      const files = fs
+        .readdirSync(certDir)
+        .filter((f) => f.toLowerCase().endsWith(".cer"))
+        .sort();
+      for (const f of files) {
+        const buf = fs.readFileSync(path.join(certDir, f));
+        try {
+          // eslint-disable-next-line no-new
+          new crypto.X509Certificate(buf);
+          out.push(buf);
+        } catch (e) {
+          logger.warn("Skipping invalid Apple root certificate file", {
+            file: f,
+            error: String(e),
+          });
+        }
+      }
+    }
+  } catch (e) {
+    logger.warn("Failed to load Apple root certificates from disk; falling back to embedded", {
+      error: String(e),
+    });
+  }
+
+  // Always have a safe fallback in production: embedded Apple Root CAs (DER base64).
+  try {
+    const g2 = Buffer.from(_APPLE_ROOT_CA_G2_DER_B64, "base64");
+    const g3 = Buffer.from(_APPLE_ROOT_CA_G3_DER_B64, "base64");
+    // eslint-disable-next-line no-new
+    new crypto.X509Certificate(g2);
+    // eslint-disable-next-line no-new
+    new crypto.X509Certificate(g3);
+    out.push(g2, g3);
+  } catch (e) {
+    throw new Error(`Embedded Apple Root CAs are invalid: ${String(e)}`);
+  }
+
+  return out;
+}
+
+function _envCandidates(env) {
+  const e = (env ?? "").toString().trim().toLowerCase();
+  if (e === "sandbox") return [Environment.SANDBOX];
+  if (e === "production") return [Environment.PRODUCTION];
+  // auto / empty
+  return [Environment.SANDBOX, Environment.PRODUCTION];
+}
+
+function _buildSignedDataVerifier({ environment, bundleId, appAppleId }) {
+  const roots = _loadAppleRootCertificates();
+  const enableOnlineChecks = true;
+  // appAppleId is required by the Apple library in Production; omit in Sandbox.
+  const appIdNum = appAppleId ? Number(appAppleId) : undefined;
+  return new SignedDataVerifier(
+    roots,
+    enableOnlineChecks,
+    environment,
+    bundleId,
+    environment === Environment.PRODUCTION ? appIdNum : undefined
+  );
+}
+
+function _buildAppStoreClient({ signingKeyText, keyId, issuerId, bundleId, environment }) {
+  const keyBuf = Buffer.from(_normalizeP8KeyText(signingKeyText), "utf8");
+  return new AppStoreServerAPIClient(keyBuf, keyId, issuerId, bundleId, environment);
+}
+
+async function _decodeTransactionForAnyEnvironment({
+  env,
+  signedTransactionInfo,
+  transactionId,
+  receipt,
+  bundleId,
+  appAppleId,
+  signingKeyText,
+  keyId,
+  issuerId,
+}) {
+  const receiptUtil = new ReceiptUtility();
+  const candidates = _envCandidates(env);
+  let lastErr = null;
+
+  for (const environment of candidates) {
+    try {
+      const verifier = _buildSignedDataVerifier({ environment, bundleId, appAppleId });
+      // Prefer signedTransactionInfo if provided.
+      if (signedTransactionInfo && signedTransactionInfo.includes(".")) {
+        const decoded = await verifier.verifyAndDecodeTransaction(signedTransactionInfo);
+        return { environment, decoded, signedTransactionInfo };
+      }
+
+      // Otherwise, obtain transactionId and fetch transaction info via server API.
+      let txId = (transactionId ?? "").toString().trim();
+      const r = (receipt ?? "").toString().trim();
+      if (!txId && r) {
+        // base64 receipt -> extract a transactionId
+        const extracted = receiptUtil.extractTransactionIdFromAppReceipt(r);
+        if (extracted) txId = extracted;
+      }
+      if (!txId) {
+        throw new Error("Missing transactionId and no decodable signedTransactionInfo/receipt provided");
+      }
+
+      const client = _buildAppStoreClient({
+        signingKeyText,
+        keyId,
+        issuerId,
+        bundleId,
+        environment,
+      });
+      const info = await client.getTransactionInfo(txId);
+      const sti = (info?.signedTransactionInfo ?? "").toString();
+      if (!sti) throw new Error("App Store getTransactionInfo returned empty signedTransactionInfo");
+      const decoded = await verifier.verifyAndDecodeTransaction(sti);
+      return { environment, decoded, signedTransactionInfo: sti };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+
+  throw lastErr ?? new Error("Failed to decode transaction");
 }
 
 async function findUserDocRefByUid(uid) {
@@ -760,6 +923,588 @@ exports.verifyPlaySubscription = onCall(
       productId,
       rolesUpdated,
     };
+  }
+);
+
+/**
+ * Callable: verifyAppStoreSubscription (iOS)
+ *
+ * Uses App Store Server API + signed transaction verification.
+ * Activates per-tenant entitlement under:
+ *   users/{uid}/entitlements/{tenantId}
+ *
+ * Client passes (best-effort):
+ * - tenantId
+ * - productId
+ * - transactionId (StoreKit transaction id) OR receipt OR signedTransactionInfo (JWS)
+ * - environment: "sandbox" | "production" | "auto"
+ */
+exports.verifyAppStoreSubscription = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+    secrets: [
+      APPSTORE_ISSUER_ID,
+      APPSTORE_KEY_ID,
+      APPSTORE_PRIVATE_KEY_P8,
+      APPSTORE_BUNDLE_ID,
+      APPSTORE_APP_APPLE_ID,
+    ],
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const uid = request.auth.uid;
+    const {
+      tenantId,
+      productId,
+      transactionId,
+      receipt,
+      signedTransactionInfo,
+      environment,
+    } = request.data || {};
+
+    if (!tenantId || typeof tenantId !== "string") {
+      throw new HttpsError("invalid-argument", "tenantId is required");
+    }
+    if (!productId || typeof productId !== "string") {
+      throw new HttpsError("invalid-argument", "productId is required");
+    }
+
+    const tenant = tenantId.trim();
+    const pid = productId.trim();
+    if (!tenant || !pid) {
+      throw new HttpsError("invalid-argument", "tenantId/productId are required");
+    }
+
+    // Tenant-safe SKU validation (iOS): prevent cross-tenant unlock.
+    let subscriptionType = pid.includes("yearly") ? "yearly" : "monthly";
+    try {
+      const cfgSnap = await db
+        .collection("tenants")
+        .doc(tenant)
+        .collection("monetization")
+        .doc("config")
+        .get();
+      const cfg = cfgSnap.exists ? cfgSnap.data() || {} : {};
+      const iap = cfg && typeof cfg.iapProducts === "object" ? cfg.iapProducts : {};
+
+      const monthly = String(iap.monthlyProductIdIOS || iap.monthlyProductId || "").trim();
+      const yearly = String(iap.yearlyProductIdIOS || iap.yearlyProductId || "").trim();
+
+      const allowed = new Set([monthly, yearly].filter(Boolean));
+      if (allowed.size > 0) {
+        if (!allowed.has(pid)) {
+          throw new HttpsError(
+            "permission-denied",
+            `productId is not allowed for tenantId=${tenant}`
+          );
+        }
+        if (pid === yearly) subscriptionType = "yearly";
+        if (pid === monthly) subscriptionType = "monthly";
+      } else {
+        // Backward-compatible fallback for default tenant if config isn't set.
+        if (tenant === "l2l-bdsl") {
+          // If someone hasn't configured iOS yet, keep old fallback.
+          const legacyAllowed = new Set(["premium_monthly", "premium_yearly"]);
+          if (!legacyAllowed.has(pid)) {
+            throw new HttpsError(
+              "failed-precondition",
+              `No iOS IAP products configured for tenantId=${tenant}. Set tenants/${tenant}/monetization/config`
+            );
+          }
+        } else {
+          throw new HttpsError(
+            "failed-precondition",
+            `No iOS IAP products configured for tenantId=${tenant}. Set tenants/${tenant}/monetization/config`
+          );
+        }
+      }
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      console.error("verifyAppStoreSubscription: tenant SKU validation failed", e);
+      throw new HttpsError("internal", `Tenant SKU validation failed: ${e?.message || e}`);
+    }
+
+    const issuerId = APPSTORE_ISSUER_ID.value();
+    const keyId = APPSTORE_KEY_ID.value();
+    const signingKeyText = APPSTORE_PRIVATE_KEY_P8.value();
+    const bundleId = (APPSTORE_BUNDLE_ID.value() || "com.love2learnsign.app").toString();
+    const appAppleId = APPSTORE_APP_APPLE_ID.value();
+
+    if (!issuerId || !keyId || !signingKeyText || !bundleId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Missing App Store Server API secrets (APPSTORE_ISSUER_ID/APPSTORE_KEY_ID/APPSTORE_PRIVATE_KEY_P8/APPSTORE_BUNDLE_ID)"
+      );
+    }
+
+    let decodedTx;
+    let envUsed;
+    let signedTx;
+    try {
+      const out = await _decodeTransactionForAnyEnvironment({
+        env: environment,
+        signedTransactionInfo,
+        transactionId,
+        receipt,
+        bundleId,
+        appAppleId,
+        signingKeyText,
+        keyId,
+        issuerId,
+      });
+      envUsed = out.environment;
+      decodedTx = out.decoded;
+      signedTx = out.signedTransactionInfo;
+    } catch (e) {
+      console.error("verifyAppStoreSubscription: transaction decode failed", e);
+      throw new HttpsError("internal", `App Store transaction verification failed: ${e?.message || e}`);
+    }
+
+    // Enforce bundle + product match.
+    if ((decodedTx.bundleId || "").toString() !== bundleId) {
+      throw new HttpsError("permission-denied", "bundleId mismatch");
+    }
+    if ((decodedTx.productId || "").toString() !== pid) {
+      throw new HttpsError("permission-denied", "productId mismatch");
+    }
+
+    const now = Date.now();
+    const expiresMs = Number(decodedTx.expiresDate || 0);
+    const revokedMs = Number(decodedTx.revocationDate || 0);
+    const active = expiresMs > now && !revokedMs;
+    const renewalDate = expiresMs ? new Date(expiresMs) : null;
+    const originalTransactionId = (decodedTx.originalTransactionId || "").toString();
+    const transactionIdOut = (decodedTx.transactionId || "").toString();
+
+    if (!originalTransactionId) {
+      throw new HttpsError("internal", "Missing originalTransactionId in verified transaction");
+    }
+
+    // Persist mapping so App Store Server Notifications can map to the correct user + tenant.
+    const mapRef = db.collection("appStoreTransactions").doc(originalTransactionId);
+    await mapRef.set(
+      {
+        uid,
+        tenantId: tenant,
+        productId: pid,
+        subscriptionType,
+        environment: envUsed,
+        transactionId: transactionIdOut,
+        updatedAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Option A entitlement doc (source of truth for tenant premium gating).
+    const txHash = crypto
+      .createHash("sha256")
+      .update(String(originalTransactionId))
+      .digest("hex")
+      .substring(0, 32);
+
+    const entRef = db.collection("users").doc(uid).collection("entitlements").doc(tenant);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(entRef);
+      const existing = snap.exists ? (snap.data() || {}) : {};
+      const createdAt = snap.exists && existing.createdAt ? existing.createdAt : FieldValue.serverTimestamp();
+
+      const manualActive = existing.manualActive === true;
+
+      const purchaseActive = active;
+      const purchaseValidUntil = renewalDate ? renewalDate : null;
+      const purchasePlatform = "ios";
+      const purchaseSubscriptionType = subscriptionType;
+      const purchaseProductId = pid;
+
+      const effectiveActive = manualActive || purchaseActive;
+      const effectiveValidUntil = manualActive ? null : purchaseValidUntil;
+      const platformEffective = manualActive ? "manual" : purchasePlatform;
+      const subscriptionTypeEffective = manualActive ? "complimentary" : purchaseSubscriptionType;
+
+      tx.set(
+        entRef,
+        {
+          uid,
+          tenantId: tenant,
+          // Effective fields:
+          productId: purchaseProductId,
+          subscriptionType: subscriptionTypeEffective,
+          platform: platformEffective,
+          active: effectiveActive,
+          validUntil: effectiveValidUntil,
+
+          // Explicit purchase fields:
+          manualActive,
+          purchaseActive,
+          purchaseValidUntil,
+          purchasePlatform,
+          purchaseSubscriptionType,
+          purchaseProductId,
+          purchaseOriginalTransactionId: originalTransactionId,
+          purchaseTransactionId: transactionIdOut || null,
+          purchaseTransactionHash: txHash,
+          purchaseEnvironment: envUsed,
+
+          createdAt,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+
+    // Backward-compatible global premium state (default tenant only)
+    let rolesUpdated = null;
+    if (tenant === "l2l-bdsl") {
+      try {
+        const userRef = await findUserDocRefByUid(uid);
+        const userSnap = await userRef.get();
+        const data = userSnap.exists ? userSnap.data() || {} : {};
+        const currentRoles = Array.isArray(data.roles) ? data.roles : [];
+        const set = new Set(currentRoles.map((r) => String(r)));
+
+        if (active) set.add("paidUser");
+        else set.delete("paidUser");
+
+        const newRoles = normalizeRoles(Array.from(set));
+
+        const update = {
+          uid,
+          roles: newRoles,
+          subscription_active: active,
+          subscription_type: subscriptionType,
+          subscription_platform: "ios",
+          subscription_product_id: pid,
+          subscription_renewal_date: renewalDate ? renewalDate : null,
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        if (!data.createdAt) {
+          update.createdAt = FieldValue.serverTimestamp();
+        }
+        await userRef.set(update, { merge: true });
+        await setUserRolesInAuth(uid, newRoles);
+        rolesUpdated = newRoles;
+      } catch (e) {
+        console.error("verifyAppStoreSubscription: failed to update global roles/claims", e);
+      }
+    }
+
+    // Keep tenant member billing in sync.
+    const tenantRef = db.collection("tenants").doc(tenant);
+    const memberRef = tenantRef.collection("members").doc(uid);
+    await db.runTransaction(async (tx) => {
+      const entSnap = await tx.get(entRef);
+      const ent = entSnap.exists ? (entSnap.data() || {}) : {};
+      const isComplimentary =
+        ent.manualActive === true ||
+        ent.platform === "manual" ||
+        ent.subscriptionType === "complimentary";
+      const billing = {
+        isPremium: ent.active === true,
+        isComplimentary,
+        subscriptionType: ent.subscriptionType || null,
+        validUntil: ent.validUntil || null,
+        productId: ent.productId || null,
+        platform: ent.platform || null,
+      };
+
+      const memberSnap = await tx.get(memberRef);
+      const createdAt =
+        memberSnap.exists && memberSnap.data()?.createdAt
+          ? memberSnap.data().createdAt
+          : FieldValue.serverTimestamp();
+      const existingRole = memberSnap.exists ? (memberSnap.data()?.role ?? "viewer") : "viewer";
+      const existingStatus = memberSnap.exists ? (memberSnap.data()?.status ?? "active") : "active";
+
+      tx.set(
+        memberRef,
+        {
+          uid,
+          role: existingRole,
+          status: existingStatus,
+          billing,
+          updatedAt: FieldValue.serverTimestamp(),
+          createdAt,
+        },
+        { merge: true }
+      );
+    });
+
+    return {
+      success: true,
+      active,
+      renewalDate: renewalDate ? renewalDate.toISOString() : null,
+      tenantId: tenant,
+      productId: pid,
+      originalTransactionId,
+      transactionId: transactionIdOut || null,
+      environment: envUsed,
+      rolesUpdated,
+      // for debugging: don't return full signedTx (big), just a hint
+      signedTxLen: signedTx ? signedTx.length : 0,
+    };
+  }
+);
+
+/**
+ * HTTP: App Store Server Notifications v2
+ *
+ * Configure this URL in App Store Connect -> App Store Server Notifications.
+ * This keeps entitlements in sync for renewals, cancellations, expirations, etc.
+ *
+ * Body: { signedPayload: "ey..." }
+ */
+exports.appStoreNotificationsV2 = onRequest(
+  {
+    region: "us-central1",
+    cors: true,
+    secrets: [
+      APPSTORE_BUNDLE_ID,
+      APPSTORE_APP_APPLE_ID,
+    ],
+  },
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).send("Method Not Allowed");
+        return;
+      }
+
+      const body = (req.body && typeof req.body === "object")
+        ? req.body
+        : (() => {
+            try {
+              return JSON.parse(req.rawBody?.toString("utf8") || "{}");
+            } catch (_) {
+              return {};
+            }
+          })();
+
+      const signedPayload = (body.signedPayload ?? "").toString().trim();
+      if (!signedPayload) {
+        res.status(400).json({ error: "signedPayload is required" });
+        return;
+      }
+
+      const bundleId = (APPSTORE_BUNDLE_ID.value() || "com.love2learnsign.app").toString();
+      const appAppleId = APPSTORE_APP_APPLE_ID.value();
+
+      // Verify + decode notification. Try Sandbox first, then Production if needed.
+      let decodedNotif = null;
+      let envUsed = null;
+      let lastErr = null;
+      for (const env of [Environment.SANDBOX, Environment.PRODUCTION]) {
+        try {
+          const verifier = _buildSignedDataVerifier({ environment: env, bundleId, appAppleId });
+          decodedNotif = await verifier.verifyAndDecodeNotification(signedPayload);
+          envUsed = env;
+          break;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      if (!decodedNotif) {
+        console.error("appStoreNotificationsV2: failed to verify notification", lastErr);
+        // Return 500 so Apple retries (transient network / cert / secret issues).
+        res.status(500).json({ ok: false });
+        return;
+      }
+
+      const data = decodedNotif.data || {};
+      const signedTxInfo = (data.signedTransactionInfo ?? "").toString().trim();
+      const signedRenewalInfo = (data.signedRenewalInfo ?? "").toString().trim();
+
+      if (!signedTxInfo) {
+        logger.warn("appStoreNotificationsV2: missing signedTransactionInfo", { envUsed });
+        // Retry: we couldn't process this notification deterministically.
+        res.status(500).json({ ok: false });
+        return;
+      }
+
+      const verifier = _buildSignedDataVerifier({ environment: envUsed, bundleId, appAppleId });
+      const tx = await verifier.verifyAndDecodeTransaction(signedTxInfo);
+
+      // Renewal info is optional for some notification types; decode if present.
+      let renewal = null;
+      if (signedRenewalInfo) {
+        try {
+          renewal = await verifier.verifyAndDecodeRenewalInfo(signedRenewalInfo);
+        } catch (e) {
+          // Non-fatal; transaction is enough to update active/expiry.
+          logger.warn("appStoreNotificationsV2: failed to decode renewal info", { e: String(e) });
+        }
+      }
+
+      const originalTransactionId = (tx.originalTransactionId || "").toString();
+      if (!originalTransactionId) {
+        logger.warn("appStoreNotificationsV2: missing originalTransactionId", { envUsed });
+        res.status(500).json({ ok: false });
+        return;
+      }
+
+      const mapSnap = await db.collection("appStoreTransactions").doc(originalTransactionId).get();
+      if (!mapSnap.exists) {
+        logger.warn("appStoreNotificationsV2: unknown originalTransactionId (no mapping)", {
+          originalTransactionId,
+          envUsed,
+        });
+        // Important: mapping might appear shortly after client purchase verification.
+        // Return 500 so Apple retries and we can apply the update later.
+        res.status(500).json({ ok: false });
+        return;
+      }
+
+      const map = mapSnap.data() || {};
+      const uid = (map.uid || "").toString().trim();
+      const tenantId = (map.tenantId || "").toString().trim();
+      if (!uid || !tenantId) {
+        logger.warn("appStoreNotificationsV2: mapping missing uid/tenantId", {
+          originalTransactionId,
+        });
+        res.status(500).json({ ok: false });
+        return;
+      }
+
+      // Compute active state from transaction.
+      const now = Date.now();
+      const expiresMs = Number(tx.expiresDate || 0);
+      const revokedMs = Number(tx.revocationDate || 0);
+      const active = expiresMs > now && !revokedMs;
+      const renewalDate = expiresMs ? new Date(expiresMs) : null;
+
+      const productId = (tx.productId || map.productId || "").toString().trim();
+      const subscriptionType = (renewal && renewal.autoRenewProductId)
+        ? (String(renewal.autoRenewProductId).includes("year") ? "yearly" : "monthly")
+        : ((productId.includes("year") || productId.includes("annual")) ? "yearly" : "monthly");
+
+      // Update entitlement (purchase fields).
+      const entRef = db.collection("users").doc(uid).collection("entitlements").doc(tenantId);
+      await db.runTransaction(async (t) => {
+        const snap = await t.get(entRef);
+        const existing = snap.exists ? (snap.data() || {}) : {};
+        const createdAt = snap.exists && existing.createdAt ? existing.createdAt : FieldValue.serverTimestamp();
+        const manualActive = existing.manualActive === true;
+
+        const purchaseActive = active;
+        const purchaseValidUntil = renewalDate ? renewalDate : null;
+        const purchasePlatform = "ios";
+        const purchaseSubscriptionType = subscriptionType;
+        const purchaseProductId = productId;
+
+        const effectiveActive = manualActive || purchaseActive;
+        const effectiveValidUntil = manualActive ? null : purchaseValidUntil;
+        const platformEffective = manualActive ? "manual" : purchasePlatform;
+        const subscriptionTypeEffective = manualActive ? "complimentary" : purchaseSubscriptionType;
+
+        t.set(
+          entRef,
+          {
+            uid,
+            tenantId,
+            productId: purchaseProductId,
+            subscriptionType: subscriptionTypeEffective,
+            platform: platformEffective,
+            active: effectiveActive,
+            validUntil: effectiveValidUntil,
+
+            manualActive,
+            purchaseActive,
+            purchaseValidUntil,
+            purchasePlatform,
+            purchaseSubscriptionType,
+            purchaseProductId,
+            purchaseOriginalTransactionId: originalTransactionId,
+            purchaseTransactionId: (tx.transactionId || "").toString() || null,
+            purchaseEnvironment: envUsed,
+
+            updatedAt: FieldValue.serverTimestamp(),
+            createdAt,
+          },
+          { merge: true }
+        );
+      });
+
+      // Update tenant member billing (same as verify callables).
+      const tenantRef = db.collection("tenants").doc(tenantId);
+      const memberRef = tenantRef.collection("members").doc(uid);
+      await db.runTransaction(async (t) => {
+        const entSnap = await t.get(entRef);
+        const ent = entSnap.exists ? (entSnap.data() || {}) : {};
+        const isComplimentary =
+          ent.manualActive === true ||
+          ent.platform === "manual" ||
+          ent.subscriptionType === "complimentary";
+        const billing = {
+          isPremium: ent.active === true,
+          isComplimentary,
+          subscriptionType: ent.subscriptionType || null,
+          validUntil: ent.validUntil || null,
+          productId: ent.productId || null,
+          platform: ent.platform || null,
+        };
+
+        const memberSnap = await t.get(memberRef);
+        const createdAt =
+          memberSnap.exists && memberSnap.data()?.createdAt
+            ? memberSnap.data().createdAt
+            : FieldValue.serverTimestamp();
+        const existingRole = memberSnap.exists ? (memberSnap.data()?.role ?? "viewer") : "viewer";
+        const existingStatus = memberSnap.exists ? (memberSnap.data()?.status ?? "active") : "active";
+
+        t.set(
+          memberRef,
+          {
+            uid,
+            role: existingRole,
+            status: existingStatus,
+            billing,
+            updatedAt: FieldValue.serverTimestamp(),
+            createdAt,
+          },
+          { merge: true }
+        );
+      });
+
+      // Best-effort: update legacy global roles for default tenant only.
+      if (tenantId === "l2l-bdsl") {
+        try {
+          const userRef = await findUserDocRefByUid(uid);
+          const userSnap = await userRef.get();
+          const u = userSnap.exists ? (userSnap.data() || {}) : {};
+          const currentRoles = Array.isArray(u.roles) ? u.roles : [];
+          const set = new Set(currentRoles.map((r) => String(r)));
+          if (active) set.add("paidUser");
+          else set.delete("paidUser");
+          const newRoles = normalizeRoles(Array.from(set));
+          await userRef.set(
+            {
+              uid,
+              roles: newRoles,
+              subscription_active: active,
+              subscription_type: subscriptionType,
+              subscription_platform: "ios",
+              subscription_product_id: productId,
+              subscription_renewal_date: renewalDate ? renewalDate : null,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+          await setUserRolesInAuth(uid, newRoles);
+        } catch (e) {
+          logger.warn("appStoreNotificationsV2: failed to update legacy user roles", { e: String(e) });
+        }
+      }
+
+      res.status(200).json({ ok: true });
+    } catch (e) {
+      console.error("appStoreNotificationsV2: handler error", e);
+      // Return 500 so Apple retries.
+      res.status(500).json({ ok: false });
+    }
   }
 );
 

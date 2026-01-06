@@ -12,6 +12,8 @@ class FlashcardNotificationService {
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
   static const int _dailyReviewId = 300;
+  static const String _scheduledDayIdsKey = 'flashReviewScheduledDayIds';
+  static const int _reviewDayIdOffset = 40000000; // avoid collisions with 100/200/300
 
   Future<({bool enabled, int hour, int minute})> _loadReviewPrefs() async {
     final prefs = await SharedPreferences.getInstance();
@@ -36,6 +38,35 @@ class FlashcardNotificationService {
 
     await _notifications.initialize(initSettings);
     _isInitialized = true;
+  }
+
+  int _dayId(DateTime d) {
+    final key = d.year * 10000 + d.month * 100 + d.day; // yyyymmdd
+    return _reviewDayIdOffset + key;
+  }
+
+  Future<List<int>> _loadScheduledDayIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_scheduledDayIdsKey) ?? const <String>[];
+    return raw.map((s) => int.tryParse(s) ?? 0).where((v) => v > 0).toList();
+  }
+
+  Future<void> _saveScheduledDayIds(List<int> ids) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _scheduledDayIdsKey,
+      ids.map((i) => i.toString()).toList(),
+    );
+  }
+
+  Future<void> _cancelScheduledDayIds() async {
+    final ids = await _loadScheduledDayIds();
+    for (final id in ids) {
+      try {
+        await _notifications.cancel(id);
+      } catch (_) {}
+    }
+    await _saveScheduledDayIds(const <int>[]);
   }
 
   /// Planifie une notification pour la révision d'un mot
@@ -115,22 +146,88 @@ class FlashcardNotificationService {
   /// Planifie des notifications pour tous les mots à réviser
   Future<void> scheduleAllReviewNotifications() async {
     try {
-      // Migration: cancel legacy per-word scheduled notifications (they used word.hashCode as ID).
-      // This avoids iOS 64-limit issues and prevents duplicates after switching to daily reminder.
+      await initialize();
+
+      // Cancel legacy strategies to avoid duplicates.
+      // - per-word IDs (word.hashCode)
+      // - daily repeating reminder (id=300)
       final allWords = await SpacedRepetitionService().getAllWordsToReview();
       for (final w in allWords) {
         try {
           await _notifications.cancel(w.hashCode);
         } catch (_) {}
       }
+      try {
+        await _notifications.cancel(_dailyReviewId);
+      } catch (_) {}
+      await _cancelScheduledDayIds();
 
-      // New strategy: schedule a single daily reminder at the user's chosen time.
+      // Conditional strategy: schedule only on days that actually have reviews due (daysUntilReview == 0).
       final prefs = await _loadReviewPrefs();
-      if (!prefs.enabled) {
-        await cancelDailyReviewReminder();
+      if (!prefs.enabled) return;
+
+      final dueToday = await SpacedRepetitionService().getWordsDueToday();
+      if (dueToday.isEmpty) {
+        // Nothing due today => no reminder.
         return;
       }
-      await scheduleDailyReviewReminder(hour: prefs.hour, minute: prefs.minute);
+
+      // Schedule a one-shot notification later today at the user's chosen time (if still in the future).
+      final now = tz.TZDateTime.now(tz.local);
+      final when = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        prefs.hour,
+        prefs.minute,
+      );
+      if (!when.isAfter(now)) {
+        // User-configured time already passed; don't notify (due-today only).
+        return;
+      }
+
+      // Ensure channel exists on Android
+      final androidImpl = _notifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidImpl?.createNotificationChannel(const AndroidNotificationChannel(
+        'flashcard_review',
+        'Flashcard Review',
+        description: 'Notifications for flashcard review reminders',
+        importance: Importance.high,
+      ));
+
+      final count = dueToday.length;
+      final body = count == 1
+          ? 'You have 1 flashcard to review'
+          : 'You have $count flashcards to review';
+      final id = _dayId(DateTime(now.year, now.month, now.day));
+
+      const mode = AndroidScheduleMode.inexactAllowWhileIdle;
+      await _notifications.zonedSchedule(
+        id,
+        '📚 Time to review!',
+        body,
+        when,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'flashcard_review',
+            'Flashcard Review',
+            channelDescription: 'Notifications for flashcard review reminders',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        androidScheduleMode: mode,
+        payload: 'review_home',
+      );
+
+      await _saveScheduledDayIds(<int>[id]);
     } catch (e) {
       // Log error but don't crash the app
       print('Failed to schedule all review notifications: $e');

@@ -11,6 +11,9 @@ import 'email_verification_page.dart';
 import 'country_selection_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'widgets/critical_action_overlay.dart';
+import 'dart:io';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 class LoginPage extends StatefulWidget {
   /// When true, a successful login will `pop(true)` instead of navigating to Home.
@@ -319,6 +322,70 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (!kIsWeb && Platform.isIOS) ...[
+                OutlinedButton.icon(
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
+                          setState(() {
+                            _isLoading = true;
+                            _errorMessage = null;
+                          });
+
+                          final authProvider =
+                              context.read<app_auth.AuthProvider>();
+                          final error =
+                              await authProvider.signInWithApple();
+
+                          if (!mounted) return;
+
+                          if (error == 'COUNTRY_SELECTION_NEEDED') {
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (user != null) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => CountrySelectionPage(
+                                    uid: user.uid,
+                                    email: user.email ?? '',
+                                    displayName: user.displayName ??
+                                        user.email?.split('@')[0] ??
+                                        'User',
+                                    photoUrl: user.photoURL,
+                                  ),
+                                ),
+                              );
+                            }
+                            setState(() {
+                              _isLoading = false;
+                            });
+                          } else if (error == null || error.isEmpty) {
+                            if (widget.popOnSuccess) {
+                              setState(() => _isLoading = false);
+                              Navigator.of(context).pop(true);
+                              return;
+                            }
+                            setState(() => _isLoading = false);
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (context) => const HomePage(),
+                              ),
+                              (Route<dynamic> route) => false,
+                            );
+                          } else {
+                            setState(() {
+                              _errorMessage = error;
+                              _isLoading = false;
+                            });
+                          }
+                        },
+                  icon: const FaIcon(FontAwesomeIcons.apple, size: 18),
+                  label: Text(S.of(context)!.signInWithApple),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

@@ -1,6 +1,5 @@
 export 'add_word/add_word_page.dart';
 export 'add_word/style.dart';
-export 'admin/admin_panel_page.dart';
 export 'analytics/search_analytics_page.dart';
 export 'analytics/search_tracking_service.dart';
 export 'auth/auth_provider.dart';

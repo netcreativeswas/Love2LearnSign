@@ -505,49 +505,18 @@ Future<void> scheduleDailyTasks(
   final now = tz.TZDateTime.now(tz.local);
   final contentLocale = await _getTenantContentLocale(tenantId);
 
-  // 1) New words summary at 12 PM (only if new words in last 24h)
-  if (prefs.getBool('notifyNewWords') ?? true) {
-    final since = DateTime.now().subtract(const Duration(hours: 24));
-    final newWordsSnapshot = await TenantDb.concepts(
-      FirebaseFirestore.instance,
-      tenantId: tenantId,
-    ).where('addedAt', isGreaterThan: Timestamp.fromDate(since)).get();
-
-    if (newWordsSnapshot.docs.isNotEmpty) {
-      final nextNoon = tz.TZDateTime(tz.local, now.year, now.month, now.day, 12);
-      final scheduledNoon =
-          nextNoon.isBefore(now) ? nextNoon.add(const Duration(days: 1)) : nextNoon;
-      final titleNew = S.of(navigatorKey.currentContext!)!.notificationNewWordsTitle;
-      // Build body with English/local pairs (max 5)
-      const maxWords = 5;
-      final wordLines = newWordsSnapshot.docs.take(maxWords).map((d) {
-        final data = d.data();
-        final en = ConceptText.labelFor(data, lang: 'en', fallbackLang: 'en');
-        final local =
-            ConceptText.labelFor(data, lang: contentLocale, fallbackLang: 'en');
-        return "$en — $local";
-      }).join('\n');
-      final others = newWordsSnapshot.docs.length > maxWords ? '\n…' : '';
-      final bodyNew = wordLines + others;
-      await _scheduleNewWordsNotification(
-        id: 100,
-        channelId: 'new_words_channel',
-        channelName: 'New Words Notifications',
-        channelDescription: 'Notifications for new words',
-        title: titleNew,
-        body: bodyNew,
-        scheduledDate: scheduledNoon,
-        payload: 'new_words',
-      );
-    }
-  }
-
-  // 2) Learn-word reminder at user-selected hour and minute
+  // Learn-word reminder at user-selected hour and minute
+  // (New words is handled via FCM daily digest; avoid duplicate local notifications.)
   final learnHour = prefs.getInt('learnWordHour') ?? 10;
   final learnMinute = prefs.getInt('learnWordMinute') ?? 0;
   final category = prefs.getString('notificationCategory') ?? 'Random';
   debugPrint('LearnWord prefs: hour=$learnHour, minute=$learnMinute, category=$category');
   if (prefs.getBool('notifyLearnWord') ?? true) {
+    // Ensure we don't leave an old schedule behind.
+    try {
+      await flutterLocalNotificationsPlugin.cancel(200);
+    } catch (_) {}
+
     final nextLearnTime = tz.TZDateTime(
       tz.local,
       now.year,
@@ -611,61 +580,6 @@ Future<void> scheduleDailyTasks(
       payload: args,
     );
   }
-}
-
-/// Planifie une notification pour de nouveaux mots
-Future<void> _scheduleNewWordsNotification({
-  required int id,
-  required String channelId,
-  required String channelName,
-  required String channelDescription,
-  required String title,
-  required String body,
-  required DateTime scheduledDate,
-  required String payload,
-}) async {
-  final androidImpl = flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-
-  await androidImpl?.createNotificationChannel(AndroidNotificationChannel(
-    channelId,
-    channelName,
-    description: channelDescription,
-    importance: Importance.high,
-  ));
-
-  tz.TZDateTime when = tz.TZDateTime.from(scheduledDate, tz.local);
-  final now = tz.TZDateTime.now(tz.local);
-  if (!when.isAfter(now)) when = when.add(const Duration(days: 1));
-  if (!when.isAfter(now.add(const Duration(seconds: 5)))) {
-    when = now.add(const Duration(seconds: 6));
-  }
-
-  const mode = AndroidScheduleMode.inexactAllowWhileIdle;
-
-  await flutterLocalNotificationsPlugin.zonedSchedule(
-    id,
-    title,
-    body,
-    when,
-    NotificationDetails(
-      android: AndroidNotificationDetails(
-        channelId,
-        channelName,
-        channelDescription: channelDescription,
-        importance: Importance.high,
-        priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
-      ),
-      iOS: const DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      ),
-    ),
-    androidScheduleMode: mode,
-    payload: payload,
-  );
 }
 
 /// Planifie une notification d'apprentissage de mot

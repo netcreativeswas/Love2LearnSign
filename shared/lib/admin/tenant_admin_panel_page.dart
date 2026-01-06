@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
 import 'package:l2l_shared/utils/countries.dart' as shared_countries;
 
@@ -63,6 +64,301 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
   String? _hearingFilter; // null == all
   String _dateRange = 'all'; // all/today/7/30/90
   String _premiumFilter = 'all'; // all/premium/free
+
+  late Future<_MemberStats> _statsFuture;
+  final _numFmt = NumberFormat.decimalPattern();
+
+  @override
+  void initState() {
+    super.initState();
+    _statsFuture = _loadMemberStats();
+  }
+
+  CollectionReference<Map<String, dynamic>> _membersRef() {
+    return FirebaseFirestore.instance
+        .collection('tenants')
+        .doc(widget.tenantId)
+        .collection('members');
+  }
+
+  Future<int> _countMembers({DateTime? start, DateTime? endExclusive}) async {
+    Query<Map<String, dynamic>> q = _membersRef();
+    if (start != null) {
+      q = q.where('createdAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(start));
+    }
+    if (endExclusive != null) {
+      q = q.where('createdAt', isLessThan: Timestamp.fromDate(endExclusive));
+    }
+    final agg = await q.count().get();
+    return agg.count ?? 0;
+  }
+
+  Future<_MemberStats> _loadMemberStats() async {
+    final now = DateTime.now();
+    final startToday = DateTime(now.year, now.month, now.day);
+    final startTomorrow = startToday.add(const Duration(days: 1));
+
+    // Rolling windows (inclusive of today using day boundaries).
+    final start7 = startToday.subtract(const Duration(days: 6));
+    final startPrev7 = start7.subtract(const Duration(days: 7));
+    final start30 = startToday.subtract(const Duration(days: 29));
+
+    // Calendar months.
+    final startThisMonth = DateTime(now.year, now.month, 1);
+    final startLastMonth =
+        (now.month == 1) ? DateTime(now.year - 1, 12, 1) : DateTime(now.year, now.month - 1, 1);
+
+    final totalFuture = _countMembers();
+    final todayFuture = _countMembers(start: startToday, endExclusive: startTomorrow);
+    final last7Future = _countMembers(start: start7, endExclusive: startTomorrow);
+    final prev7Future = _countMembers(start: startPrev7, endExclusive: start7);
+    final last30Future = _countMembers(start: start30, endExclusive: startTomorrow);
+    final thisMonthFuture = _countMembers(start: startThisMonth, endExclusive: startTomorrow);
+    final lastMonthFuture = _countMembers(start: startLastMonth, endExclusive: startThisMonth);
+
+    final res = await Future.wait<int>([
+      totalFuture,
+      todayFuture,
+      last7Future,
+      prev7Future,
+      last30Future,
+      thisMonthFuture,
+      lastMonthFuture,
+    ]);
+
+    final total = res[0];
+    final today = res[1];
+    final last7 = res[2];
+    final prev7 = res[3];
+    final last30 = res[4];
+    final thisMonth = res[5];
+    final lastMonth = res[6];
+
+    final trend7 = _Trend.from(current: last7, previous: prev7);
+
+    return _MemberStats(
+      tenantId: widget.tenantId,
+      total: total,
+      today: today,
+      last7: last7,
+      last30: last30,
+      thisMonth: thisMonth,
+      lastMonth: lastMonth,
+      trend7: trend7,
+    );
+  }
+
+  void _refreshStats() {
+    setState(() => _statsFuture = _loadMemberStats());
+  }
+
+  String _fmtCount(int v) => _numFmt.format(v);
+
+  Widget _statCard(
+    ThemeData theme, {
+    required String label,
+    required String value,
+    String? hint,
+    IconData? icon,
+    Color? tint,
+  }) {
+    final scheme = theme.colorScheme;
+    final bg = tint != null ? tint.withValues(alpha: 0.10) : scheme.surfaceContainerHighest;
+    final fg = tint ?? scheme.onSurface;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.onSurface.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 18, color: fg),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.80),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+            ),
+          ),
+          if (hint != null && hint.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              hint.trim(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.70),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _statsHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      color: scheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Members overview',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tenant: ${widget.tenantId}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurface.withValues(alpha: 0.70),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Refresh stats',
+                  onPressed: _refreshStats,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            FutureBuilder<_MemberStats>(
+              future: _statsFuture,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snap.hasError) {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: scheme.errorContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Failed to load stats: ${snap.error}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onErrorContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                }
+                final s = snap.data;
+                if (s == null) {
+                  return const SizedBox.shrink();
+                }
+
+                final tiles = <Widget>[
+                  _statCard(
+                    theme,
+                    label: 'Total members',
+                    value: _fmtCount(s.total),
+                    icon: Icons.group_outlined,
+                    tint: scheme.primary,
+                  ),
+                  _statCard(
+                    theme,
+                    label: 'New today',
+                    value: _fmtCount(s.today),
+                    icon: Icons.today_outlined,
+                    tint: scheme.secondary,
+                  ),
+                  _statCard(
+                    theme,
+                    label: 'Last 7 days',
+                    value: _fmtCount(s.last7),
+                    hint: s.trend7.label,
+                    icon: Icons.date_range_outlined,
+                    tint: scheme.tertiary,
+                  ),
+                  _statCard(
+                    theme,
+                    label: 'Last 30 days',
+                    value: _fmtCount(s.last30),
+                    icon: Icons.calendar_view_month_outlined,
+                  ),
+                  _statCard(
+                    theme,
+                    label: 'This month',
+                    value: _fmtCount(s.thisMonth),
+                    icon: Icons.event_available_outlined,
+                  ),
+                  _statCard(
+                    theme,
+                    label: 'Last month',
+                    value: _fmtCount(s.lastMonth),
+                    icon: Icons.history_outlined,
+                  ),
+                ];
+
+                return LayoutBuilder(
+                  builder: (context, c) {
+                    final w = c.maxWidth;
+                    final cols = w < 420 ? 2 : (w < 860 ? 3 : 6);
+                    const gap = 12.0;
+                    final tileWidth = (w - gap * (cols - 1)) / cols;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: tiles
+                          .map((t) => SizedBox(width: tileWidth, child: t))
+                          .toList(growable: false),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _openFiltersSheet() async {
     final theme = Theme.of(context);
@@ -484,6 +780,9 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
       initialHearingStatus: hearing,
       productId: productId,
       validUntil: validUntil is Timestamp ? validUntil.toDate() : null,
+      onSaveRole: (nextRole, nextStatus) async {
+        await _setRole(uid: uid, role: nextRole, status: nextStatus);
+      },
       onSave: (nextName, nextCountry, nextHearing) async {
         await _updateMemberProfile(
           uid: uid,
@@ -628,436 +927,426 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: isDesktop ? null : AppBar(title: const Text('Admin Panel')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      hintText: 'Search (name, email, country, uid)...',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (v) => setState(() => _search = v),
-                  ),
-                ),
-                if (!isDesktop) ...[
-                  const SizedBox(width: 10),
-                  OutlinedButton.icon(
-                    onPressed: _openFiltersSheet,
-                    icon: const Icon(Icons.filter_list, size: 18),
-                    label: const Text('Filters'),
-                  ),
-                ],
-              ],
+      appBar: isDesktop
+          ? null
+          : AppBar(
+              title: const Text('Admin Panel'),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              surfaceTintColor: Colors.transparent,
             ),
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            sliver: SliverToBoxAdapter(child: _statsHeader(context)),
           ),
-          if (isDesktop)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Row(
                 children: [
-                  DropdownButton<String>(
-                    value: _roleFilter,
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('Role: all')),
-                      DropdownMenuItem(value: 'viewer', child: Text('viewer')),
-                      DropdownMenuItem(value: 'analyst', child: Text('analyst')),
-                      DropdownMenuItem(value: 'editor', child: Text('editor')),
-                      DropdownMenuItem(
-                          value: 'tenantadmin', child: Text('tenantAdmin')),
-                      DropdownMenuItem(value: 'owner', child: Text('owner')),
-                    ],
-                    onChanged: (v) => setState(() => _roleFilter = v ?? 'all'),
-                  ),
-                  const SizedBox(width: 12),
-                  DropdownButton<String>(
-                    value: _statusFilter,
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('Status: all')),
-                      DropdownMenuItem(value: 'active', child: Text('active')),
-                      DropdownMenuItem(
-                          value: 'inactive', child: Text('inactive')),
-                    ],
-                    onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
-                  ),
-                  const SizedBox(width: 12),
-                  DropdownButton<String>(
-                    value: _premiumFilter,
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'all', child: Text('Premium: all')),
-                      DropdownMenuItem(
-                          value: 'premium', child: Text('premium')),
-                      DropdownMenuItem(value: 'free', child: Text('free')),
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _premiumFilter = v ?? 'all'),
-                  ),
-                  const SizedBox(width: 12),
-                  DropdownButton<String>(
-                    value: _dateRange,
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('Date: all')),
-                      DropdownMenuItem(value: 'today', child: Text('today')),
-                      DropdownMenuItem(
-                          value: '7', child: Text('last 7 days')),
-                      DropdownMenuItem(
-                          value: '30', child: Text('last 30 days')),
-                      DropdownMenuItem(
-                          value: '90', child: Text('last 90 days')),
-                    ],
-                    onChanged: (v) => setState(() => _dateRange = v ?? 'all'),
-                  ),
-                  const SizedBox(width: 12),
-                  DropdownButton<String?>(
-                    value: _countryFilter,
-                    hint: const Text('Country: all'),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text('Country: all'),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search),
+                        hintText: 'Search (name, email, country, uid)...',
+                        border: OutlineInputBorder(),
                       ),
-                      ...shared_countries.countries
-                          .map((c) => DropdownMenuItem<String?>(
-                              value: c, child: Text(c)))
-                          .toList(),
-                    ],
-                    onChanged: (v) => setState(() => _countryFilter = v),
+                      onChanged: (v) => setState(() => _search = v),
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  DropdownButton<String?>(
-                    value: _hearingFilter,
-                    hint: const Text('Hearing: all'),
-                    items: const [
-                      DropdownMenuItem<String?>(
-                          value: null, child: Text('Hearing: all')),
-                      DropdownMenuItem<String?>(
-                          value: 'Hearing', child: Text('Hearing')),
-                      DropdownMenuItem<String?>(
-                          value: 'Deaf', child: Text('Deaf')),
-                      DropdownMenuItem<String?>(
-                          value: 'Hard of Hearing',
-                          child: Text('Hard of Hearing')),
-                    ],
-                    onChanged: (v) => setState(() => _hearingFilter = v),
-                  ),
+                  if (!isDesktop) ...[
+                    const SizedBox(width: 10),
+                    OutlinedButton.icon(
+                      onPressed: _openFiltersSheet,
+                      icon: const Icon(Icons.filter_list, size: 18),
+                      label: const Text('Filters'),
+                    ),
+                  ],
                 ],
               ),
             ),
-          const Divider(height: 1),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('tenants')
-                  .doc(widget.tenantId)
-                  .collection('members')
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
-              builder: (context, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snap.hasError) {
-                  return Center(
-                      child: Text('Failed to load members: ${snap.error}'));
-                }
+          ),
+          if (isDesktop)
+            SliverToBoxAdapter(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    DropdownButton<String>(
+                      value: _roleFilter,
+                      items: const [
+                        DropdownMenuItem(value: 'all', child: Text('Role: all')),
+                        DropdownMenuItem(value: 'viewer', child: Text('viewer')),
+                        DropdownMenuItem(value: 'analyst', child: Text('analyst')),
+                        DropdownMenuItem(value: 'editor', child: Text('editor')),
+                        DropdownMenuItem(
+                            value: 'tenantadmin', child: Text('tenantAdmin')),
+                        DropdownMenuItem(value: 'owner', child: Text('owner')),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _roleFilter = v ?? 'all'),
+                    ),
+                    const SizedBox(width: 12),
+                    DropdownButton<String>(
+                      value: _statusFilter,
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'all', child: Text('Status: all')),
+                        DropdownMenuItem(value: 'active', child: Text('active')),
+                        DropdownMenuItem(
+                            value: 'inactive', child: Text('inactive')),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _statusFilter = v ?? 'all'),
+                    ),
+                    const SizedBox(width: 12),
+                    DropdownButton<String>(
+                      value: _premiumFilter,
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'all', child: Text('Premium: all')),
+                        DropdownMenuItem(value: 'premium', child: Text('premium')),
+                        DropdownMenuItem(value: 'free', child: Text('free')),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _premiumFilter = v ?? 'all'),
+                    ),
+                    const SizedBox(width: 12),
+                    DropdownButton<String>(
+                      value: _dateRange,
+                      items: const [
+                        DropdownMenuItem(value: 'all', child: Text('Date: all')),
+                        DropdownMenuItem(value: 'today', child: Text('today')),
+                        DropdownMenuItem(value: '7', child: Text('last 7 days')),
+                        DropdownMenuItem(value: '30', child: Text('last 30 days')),
+                        DropdownMenuItem(value: '90', child: Text('last 90 days')),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _dateRange = v ?? 'all'),
+                    ),
+                    const SizedBox(width: 12),
+                    DropdownButton<String?>(
+                      value: _countryFilter,
+                      hint: const Text('Country: all'),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Country: all'),
+                        ),
+                        ...shared_countries.countries
+                            .map((c) =>
+                                DropdownMenuItem<String?>(value: c, child: Text(c)))
+                            .toList(),
+                      ],
+                      onChanged: (v) => setState(() => _countryFilter = v),
+                    ),
+                    const SizedBox(width: 12),
+                    DropdownButton<String?>(
+                      value: _hearingFilter,
+                      hint: const Text('Hearing: all'),
+                      items: const [
+                        DropdownMenuItem<String?>(
+                            value: null, child: Text('Hearing: all')),
+                        DropdownMenuItem<String?>(
+                            value: 'Hearing', child: Text('Hearing')),
+                        DropdownMenuItem<String?>(
+                            value: 'Deaf', child: Text('Deaf')),
+                        DropdownMenuItem<String?>(
+                            value: 'Hard of Hearing',
+                            child: Text('Hard of Hearing')),
+                      ],
+                      onChanged: (v) => setState(() => _hearingFilter = v),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SliverToBoxAdapter(child: Divider(height: 1)),
+          StreamBuilder<QuerySnapshot>(
+            stream: _membersRef()
+                .orderBy('createdAt', descending: true)
+                .snapshots(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snap.hasError) {
+                return SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: Text('Failed to load members: ${snap.error}')),
+                );
+              }
 
-                final docs = snap.data?.docs ?? const [];
-                final members = <QueryDocumentSnapshot>[];
-                for (final d in docs) {
-                  final data = (d.data() as Map<String, dynamic>?) ?? {};
-                  if (_matchesFilters(data)) members.add(d);
-                }
+              final docs = snap.data?.docs ?? const [];
+              final members = <QueryDocumentSnapshot>[];
+              for (final d in docs) {
+                final data = (d.data() as Map<String, dynamic>?) ?? {};
+                if (_matchesFilters(data)) members.add(d);
+              }
 
-                if (members.isEmpty) {
-                  return const Center(child: Text('No members found.'));
-                }
+              if (members.isEmpty) {
+                return const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: Text('No members found.')),
+                );
+              }
 
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: members.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final doc = members[i];
-                    final data = (doc.data() as Map<String, dynamic>?) ?? {};
-                    final profile = _profileFrom(data);
-                    final uid = (data['uid'] ?? doc.id).toString();
-                    final role = (data['role'] ?? 'viewer')
-                        .toString()
-                        .toLowerCase()
-                        .trim();
-                    final status = (data['status'] ?? 'active')
-                        .toString()
-                        .toLowerCase()
-                        .trim();
-                    final email = (profile['email'] ?? '').toString();
-                    final name = (profile['displayName'] ?? '').toString();
-                    final country =
-                        (profile['countryCode'] ?? profile['country'] ?? '')
-                            .toString();
-                    final hearing =
-                        (profile['hearingStatus'] ?? profile['userType'] ?? '')
-                            .toString();
-                    final premium = _isPremium(data);
-                    final featureRoles = _featureRolesFrom(data);
-                    final isJw = featureRoles.contains('jw');
-                    final providerLabel = _signInProviderLabel(profile);
-                    final isNarrow = MediaQuery.sizeOf(context).width < 520;
-                    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                    final canDelete = uid.isNotEmpty && currentUid.isNotEmpty && uid != currentUid;
+              return SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) {
+                      final doc = members[i];
+                      final data = (doc.data() as Map<String, dynamic>?) ?? {};
+                      final profile = _profileFrom(data);
+                      final uid = (data['uid'] ?? doc.id).toString();
+                      final role = (data['role'] ?? 'viewer')
+                          .toString()
+                          .toLowerCase()
+                          .trim();
+                      final status = (data['status'] ?? 'active')
+                          .toString()
+                          .toLowerCase()
+                          .trim();
+                      final email = (profile['email'] ?? '').toString();
+                      final name = (profile['displayName'] ?? '').toString();
+                      final country =
+                          (profile['countryCode'] ?? profile['country'] ?? '')
+                              .toString();
+                      final hearing =
+                          (profile['hearingStatus'] ?? profile['userType'] ?? '')
+                              .toString();
+                      final premium = _isPremium(data);
+                      final featureRoles = _featureRolesFrom(data);
+                      final isJw = featureRoles.contains('jw');
+                      final providerLabel = _signInProviderLabel(profile);
+                      final currentUid =
+                          FirebaseAuth.instance.currentUser?.uid ?? '';
+                      final canDelete = uid.isNotEmpty &&
+                          currentUid.isNotEmpty &&
+                          uid != currentUid;
 
-                    final statusLabel =
-                        (status == 'active') ? 'Active' : 'Delayed user';
+                      final isActive = status == 'active';
+                      final statusLabel = isActive ? 'Active' : 'Inactive';
 
-                    final controls = Column(
-                      crossAxisAlignment: isNarrow
-                          ? CrossAxisAlignment.stretch
-                          : CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          mainAxisSize:
-                              isNarrow ? MainAxisSize.max : MainAxisSize.min,
-                          mainAxisAlignment: isNarrow
-                              ? MainAxisAlignment.spaceBetween
-                              : MainAxisAlignment.end,
+                      IconData hearingIcon(String raw) {
+                        final s = raw.trim().toLowerCase();
+                        if (s == 'deaf' || s.contains('deaf')) {
+                          return Icons.hearing_disabled;
+                        }
+                        return Icons.hearing;
+                      }
+
+                      Widget infoRow(IconData icon, String text) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              statusLabel,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w700,
-                              ),
+                            Icon(
+                              icon,
+                              size: 16,
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 8),
-                            if (canDelete)
-                              IconButton(
-                                tooltip: 'Delete user',
-                                onPressed: () => _confirmAndDeleteTenantUser(
-                                  uid: uid,
-                                  displayName: name,
-                                  email: email,
+                            Expanded(
+                              child: Text(
+                                text,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w400,
                                 ),
-                                icon: const Icon(Icons.delete_forever),
-                                color: theme.colorScheme.error,
-                                visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                            ),
-                            const SizedBox(width: 6),
-                            Transform.scale(
-                              scale: 0.85,
-                              child: Switch(
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              value: status == 'active',
-                              onChanged: (v) async {
-                                final nextStatus = v ? 'active' : 'inactive';
-                                try {
-                                    await _setRole(uid: uid, role: role, status: nextStatus);
-                                } catch (e) {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Failed to set status: $e')),
-                                  );
-                                }
-                              },
                               ),
                             ),
                           ],
-                        ),
-                      ],
-                    );
+                        );
+                      }
 
-                    return InkWell(
-                      onTap: () => _showMemberDetails(context, data),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                              color: theme.colorScheme.outlineVariant,
-                              width: 0.8),
-                        ),
-                        child: Stack(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            name.trim().isNotEmpty
-                                                ? name.trim()
-                                                : '(no displayName)',
-                                            style: theme.textTheme.titleMedium
-                                                ?.copyWith(
-                                                    fontWeight:
-                                                        FontWeight.w800),
-                                          ),
-                                          if (hearing.trim().isNotEmpty) ...[
-                                            const SizedBox(height: 4),
+                      final infoLines = <Widget>[
+                        if (hearing.trim().isNotEmpty)
+                          infoRow(hearingIcon(hearing), _hearingLabel(hearing)),
+                        if (email.trim().isNotEmpty)
+                          infoRow(Icons.email_outlined, email.trim()),
+                        if (country.trim().isNotEmpty)
+                          infoRow(
+                            Icons.place_outlined,
+                            '${_countryFlagEmoji(country)} ${country.trim()}'.trim(),
+                          ),
+                      ];
+
+                      final controls = Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (canDelete)
+                            IconButton(
+                              tooltip: 'Delete user',
+                              onPressed: () => _confirmAndDeleteTenantUser(
+                                uid: uid,
+                                displayName: name,
+                                email: email,
+                              ),
+                              icon: const Icon(Icons.delete_forever),
+                              color: theme.colorScheme.error,
+                              visualDensity: const VisualDensity(
+                                  horizontal: -4, vertical: -4),
+                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                statusLabel,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Transform.scale(
+                                scale: 0.85,
+                                child: Switch(
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  value: isActive,
+                                  onChanged: (v) async {
+                                    final nextStatus = v ? 'active' : 'inactive';
+                                    try {
+                                      await _setRole(
+                                        uid: uid,
+                                        role: role,
+                                        status: nextStatus,
+                                      );
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text('Failed to set status: $e'),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+
+                      final card = InkWell(
+                        onTap: () => _showMemberDetails(context, data),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: theme.colorScheme.outlineVariant,
+                                width: 0.8),
+                          ),
+                          child: Stack(
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
                                             Text(
-                                              _hearingLabel(hearing),
-                                              style: theme.textTheme.bodySmall
-                                                  ?.copyWith(
-                                                color: theme.colorScheme.onSurfaceVariant,
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                              name.trim().isNotEmpty
+                                                  ? name.trim()
+                                                  : '(no displayName)',
+                                              style: theme.textTheme.titleMedium
+                                                  ?.copyWith(fontWeight: FontWeight.w800),
                                             ),
-                                          ],
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            email.trim().isNotEmpty
-                                                ? email.trim()
-                                                : uid,
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                    color: theme.colorScheme
-                                                        .onSurfaceVariant),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              if (country.trim().isNotEmpty)
-                                                Text(
-                                                  '${_countryFlagEmoji(country)} ${country.trim()}'
-                                                      .trim(),
-                                                  style: theme
-                                                      .textTheme.bodySmall
-                                                      ?.copyWith(
-                                                          color: theme
-                                                              .colorScheme
-                                                              .onSurfaceVariant),
-                                                ),
+                                            if (infoLines.isNotEmpty) ...[
+                                              const SizedBox(height: 8),
+                                              for (int j = 0; j < infoLines.length; j++) ...[
+                                                infoLines[j],
+                                                if (j != infoLines.length - 1)
+                                                  const SizedBox(height: 6),
+                                              ],
                                             ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Wrap(
-                                            spacing: 8,
-                                            runSpacing: 6,
-                                            crossAxisAlignment:
-                                                WrapCrossAlignment.center,
-                                            children: [
-                                              _chip(
-                                                theme,
-                                                label: premium
-                                                    ? 'Premium'
-                                                    : 'Learner',
-                                                bg: premium
-                                                    ? theme.colorScheme
-                                                        .secondaryContainer
-                                                    : theme.colorScheme
-                                                        .surfaceContainerHighest,
-                                                fg: premium
-                                                    ? theme.colorScheme
-                                                        .onSecondaryContainer
-                                                    : theme.colorScheme
-                                                        .onSurfaceVariant,
-                                              ),
-                                              if (isJw)
+                                            const SizedBox(height: 10),
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 6,
+                                              crossAxisAlignment:
+                                                  WrapCrossAlignment.center,
+                                              children: [
                                                 _chip(
                                                   theme,
-                                                  label: 'JW',
-                                                  icon: Icons.verified_user,
-                                                  bg: theme.colorScheme
-                                                      .tertiaryContainer,
-                                                  fg: theme.colorScheme
-                                                      .onTertiaryContainer,
+                                                  label: premium ? 'Premium' : 'Learner',
+                                                  bg: premium
+                                                      ? theme.colorScheme.secondaryContainer
+                                                      : theme.colorScheme.surfaceContainerHighest,
+                                                  fg: premium
+                                                      ? theme.colorScheme.onSecondaryContainer
+                                                      : theme.colorScheme.onSurfaceVariant,
                                                 ),
-                                              _chip(
-                                                theme,
-                                                label: providerLabel,
-                                                icon: providerLabel == 'Google'
-                                                    ? Icons.g_mobiledata
-                                                    : Icons.email,
-                                                bg: providerLabel == 'Google'
-                                                    ? theme.colorScheme
-                                                        .primaryContainer
-                                                    : theme.colorScheme
-                                                        .surfaceContainerHighest,
-                                                fg: providerLabel == 'Google'
-                                                    ? theme.colorScheme
-                                                        .onPrimaryContainer
-                                                    : theme.colorScheme
-                                                        .onSurfaceVariant,
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Row(
-                                            children: [
-                                              Text(
-                                                'Role',
-                                                style: theme.textTheme.bodySmall?.copyWith(
-                                                  color: theme.colorScheme.onSurfaceVariant,
-                                                  fontWeight: FontWeight.w700,
+                                                if (isJw)
+                                                  _chip(
+                                                    theme,
+                                                    label: 'JW',
+                                                    icon: Icons.verified_user,
+                                                    bg: theme.colorScheme.tertiaryContainer,
+                                                    fg: theme.colorScheme.onTertiaryContainer,
+                                                  ),
+                                                _chip(
+                                                  theme,
+                                                  label: providerLabel,
+                                                  icon: providerLabel == 'Google'
+                                                      ? Icons.g_mobiledata
+                                                      : Icons.email,
+                                                  bg: providerLabel == 'Google'
+                                                      ? theme.colorScheme.primaryContainer
+                                                      : theme.colorScheme.surfaceContainerHighest,
+                                                  fg: providerLabel == 'Google'
+                                                      ? theme.colorScheme.onPrimaryContainer
+                                                      : theme.colorScheme.onSurfaceVariant,
                                                 ),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                child: DropdownButton<String>(
-                                                  isExpanded: true,
-                                                  value: role,
-                                                  items: const [
-                                                    DropdownMenuItem(value: 'viewer', child: Text('viewer')),
-                                                    DropdownMenuItem(value: 'analyst', child: Text('analyst')),
-                                                    DropdownMenuItem(value: 'editor', child: Text('editor')),
-                                                    DropdownMenuItem(value: 'tenantadmin', child: Text('tenantAdmin')),
-                                                    DropdownMenuItem(value: 'owner', child: Text('owner')),
-                                                  ],
-                                                  onChanged: (v) async {
-                                                    final next = (v ?? role).toLowerCase().trim();
-                                                    if (next == role) return;
-                                                    try {
-                                                      await _setRole(uid: uid, role: next, status: status);
-                                                    } catch (e) {
-                                                      if (!context.mounted) return;
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        SnackBar(content: Text('Failed to set role: $e')),
-                                                      );
-                                                    }
-                                                  },
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
+                                              ],
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    if (!isNarrow) ...[
                                       const SizedBox(width: 12),
-                                      controls,
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(minWidth: 120),
+                                        child: controls,
+                                      ),
                                     ],
-                                  ],
-                                ),
-                                if (isNarrow) ...[
-                                  const SizedBox(height: 12),
-                                  controls,
+                                  ),
                                 ],
-                              ],
-                            ),
-                            if (hearing.trim().isNotEmpty)
-                              const SizedBox.shrink(),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                      );
+
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: i == members.length - 1 ? 0 : 10),
+                        child: card,
+                      );
+                    },
+                    childCount: members.length,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -1065,6 +1354,51 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
   }
 
   // (Card pills removed for mobile-first UI. Keep helper removed to avoid unused code.)
+}
+
+class _MemberStats {
+  final String tenantId;
+  final int total;
+  final int today;
+  final int last7;
+  final int last30;
+  final int thisMonth;
+  final int lastMonth;
+  final _Trend trend7;
+
+  const _MemberStats({
+    required this.tenantId,
+    required this.total,
+    required this.today,
+    required this.last7,
+    required this.last30,
+    required this.thisMonth,
+    required this.lastMonth,
+    required this.trend7,
+  });
+}
+
+class _Trend {
+  final int current;
+  final int previous;
+  final double? pct; // null means previous==0
+
+  const _Trend._({required this.current, required this.previous, required this.pct});
+
+  factory _Trend.from({required int current, required int previous}) {
+    if (previous <= 0) return _Trend._(current: current, previous: previous, pct: null);
+    return _Trend._(current: current, previous: previous, pct: (current - previous) / previous);
+  }
+
+  String get label {
+    if (previous <= 0) {
+      if (current <= 0) return 'vs previous 7d: 0';
+      return 'vs previous 7d: new';
+    }
+    final p = (pct ?? 0) * 100.0;
+    final sign = p >= 0 ? '+' : '';
+    return 'vs previous 7d: $sign${p.toStringAsFixed(0)}%';
+  }
 }
 
 class _EditMemberDialog extends StatefulWidget {
@@ -1084,6 +1418,7 @@ class _EditMemberDialog extends StatefulWidget {
   final DateTime? validUntil;
   final Future<void> Function(
       String displayName, String country, String hearingStatus) onSave;
+  final Future<void> Function(String role, String status) onSaveRole;
   final Future<void> Function(bool jw, bool complimentaryPremium) onSaveAccess;
   final Future<Map<String, dynamic>?> Function() onRefresh;
   final bool isBottomSheet;
@@ -1104,6 +1439,7 @@ class _EditMemberDialog extends StatefulWidget {
     required this.productId,
     required this.validUntil,
     required this.onSave,
+    required this.onSaveRole,
     required this.onSaveAccess,
     required this.onRefresh,
     this.isBottomSheet = false,
@@ -1118,6 +1454,8 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
   late final TextEditingController _nameCtrl;
   String? _country;
   String? _hearing;
+  String _role = 'viewer';
+  String _status = 'active';
   bool _jw = false;
   bool _complimentaryPremium = false;
   bool _premiumEffective = false;
@@ -1129,6 +1467,35 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
   String _productId = '';
   DateTime? _validUntil;
 
+  String _normalizeRole(String raw) {
+    final s = raw.trim().toLowerCase();
+    if (s == 'owner') return 'owner';
+    if (s == 'tenantadmin' || s == 'tenant_admin') return 'tenantadmin';
+    if (s == 'admin') return 'tenantadmin'; // treat legacy 'admin' as tenantadmin for tenant members
+    if (s == 'editor') return 'editor';
+    if (s == 'analyst') return 'analyst';
+    return 'viewer';
+  }
+
+  String _normalizeStatus(String raw) {
+    final s = raw.trim().toLowerCase();
+    return (s == 'inactive') ? 'inactive' : 'active';
+  }
+
+  String? _normalizeHearing(String? raw) {
+    final s = (raw ?? '').trim();
+    if (s.isEmpty) return null;
+    final lower = s.toLowerCase();
+    if (lower == 'hearing') return 'Hearing';
+    if (lower == 'deaf') return 'Deaf';
+    if (lower == 'hard of hearing' || lower == 'hard_of_hearing') {
+      return 'Hard of Hearing';
+    }
+    // If the stored value is already in the canonical set, keep it.
+    if (s == 'Hearing' || s == 'Deaf' || s == 'Hard of Hearing') return s;
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1136,9 +1503,9 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
     _country = widget.initialCountry.trim().isEmpty
         ? null
         : widget.initialCountry.trim();
-    _hearing = widget.initialHearingStatus.trim().isEmpty
-        ? null
-        : widget.initialHearingStatus.trim();
+    _hearing = _normalizeHearing(widget.initialHearingStatus);
+    _role = _normalizeRole(widget.role);
+    _status = _normalizeStatus(widget.status);
     _providerLabel = widget.providerLabel;
     _email = widget.email;
     _jw = widget.jw;
@@ -1172,7 +1539,7 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
 
     if (displayName.isNotEmpty) _nameCtrl.text = displayName;
     if (country.isNotEmpty) _country = country;
-    if (hearing.isNotEmpty) _hearing = hearing;
+    if (hearing.isNotEmpty) _hearing = _normalizeHearing(hearing);
     if (email.isNotEmpty) _email = email;
     _providerLabel = provider == 'google.com' ? 'Google' : 'Email';
 
@@ -1193,6 +1560,8 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
     setState(() => _saving = true);
     try {
       await widget.onSaveAccess(_jw, _complimentaryPremium);
+      // Role/status is saved via a separate callable. Keep status unchanged unless edited.
+      await widget.onSaveRole(_role, _status);
       await widget.onSave(
         _nameCtrl.text.trim(),
         (_country ?? '').trim(),
@@ -1406,6 +1775,24 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
             key: _formKey,
             child: Column(
               children: [
+                DropdownButtonFormField<String>(
+                  value: _role,
+                  decoration: const InputDecoration(
+                    labelText: 'Role',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'viewer', child: Text('viewer')),
+                    DropdownMenuItem(value: 'analyst', child: Text('analyst')),
+                    DropdownMenuItem(value: 'editor', child: Text('editor')),
+                    DropdownMenuItem(value: 'tenantadmin', child: Text('tenantAdmin')),
+                    DropdownMenuItem(value: 'owner', child: Text('owner')),
+                  ],
+                  onChanged: (_saving || _refreshing)
+                      ? null
+                      : (v) => setState(() => _role = (v ?? _role).trim().toLowerCase()),
+                ),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: _nameCtrl,
                   decoration: const InputDecoration(

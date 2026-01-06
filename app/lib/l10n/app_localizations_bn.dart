@@ -1263,6 +1263,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get signInWithGoogle => 'Google দিয়ে সাইন ইন করুন';
 
   @override
+  String get signInWithApple => 'Apple দিয়ে সাইন ইন করুন';
+
+  @override
   String get signUpWithGoogle => 'Google দিয়ে সাইন আপ করুন';
 
   @override

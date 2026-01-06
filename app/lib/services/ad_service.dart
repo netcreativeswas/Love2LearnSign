@@ -52,8 +52,8 @@ class AdService {
   static const String _prodRewardedAdUnitIdAndroid = 'ca-app-pub-8517443606450525/3663321522';
   
   // Production ad unit IDs - iOS
-  static const String _prodInterstitialAdUnitIdIOS = 'ca-app-pub-8517443606450525/2426987822';
-  static const String _prodRewardedAdUnitIdIOS = 'ca-app-pub-8517443606450525/7815045879';
+  static const String _prodInterstitialAdUnitIdIOS = 'ca-app-pub-8517443606450525/8829765480';
+  static const String _prodRewardedAdUnitIdIOS = 'ca-app-pub-8517443606450525/2452398708';
 
   String get _interstitialAdUnitId {
     if (kDebugMode && !_forceProdAds) {

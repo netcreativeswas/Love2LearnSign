@@ -24,6 +24,12 @@ class SessionCounterService {
   /// Get current user ID
   String? get _userId => FirebaseAuth.instance.currentUser?.uid;
 
+  /// Fast UI helper: get last cached token balance (may be null if never cached).
+  Future<int?> getCachedQuizTokens() => _getCachedTokens(_TokenType.quiz);
+
+  /// Fast UI helper: get last cached token balance (may be null if never cached).
+  Future<int?> getCachedFlashcardTokens() => _getCachedTokens(_TokenType.flashcard);
+
   /// Get current month key (YYYY-MM format)
   String get _currentMonthKey {
     final now = DateTime.now();
@@ -214,7 +220,7 @@ class SessionCounterService {
   Future<_TokenState> _ensureTokenState(_TokenType type) async {
     final userId = _userId;
     if (userId == null) {
-      return _ensureTokenStateLocal(type);
+      return _ensureTokenStateLocal(type, userId: null);
     }
 
     try {
@@ -239,10 +245,13 @@ class SessionCounterService {
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
+      // Cache locally for instant UI on next visit (even if Firestore is slow).
+      await _cacheTokens(type, userId: userId, tokens: tokens, lastRefresh: lastRefresh);
       return _TokenState(tokens);
     } catch (e) {
       debugPrint('❌ Error ensuring token state remotely: $e');
-      return _ensureTokenStateLocal(type);
+      // Fallback to local storage if Firestore fails (e.g., App Check / network issues).
+      return _ensureTokenStateLocal(type, userId: userId);
     }
   }
 
@@ -250,7 +259,7 @@ class SessionCounterService {
     final clamped = math.max(0, math.min(tokens, _tokenCap));
     final userId = _userId;
     if (userId == null) {
-      await _setTokenCountLocal(type, clamped);
+      await _setTokenCountLocal(type, clamped, userId: null);
       return;
     }
 
@@ -260,17 +269,19 @@ class SessionCounterService {
         _tokenFieldName(type): clamped,
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+      // Keep cache in sync.
+      await _cacheTokens(type, userId: userId, tokens: clamped, lastRefresh: _currentMonthKey);
     } catch (e) {
       debugPrint('❌ Error setting token count remotely: $e');
       // Fallback to local storage if Firestore fails (e.g., permission denied for freeUser)
-      await _setTokenCountLocal(type, clamped);
+      await _setTokenCountLocal(type, clamped, userId: userId);
     }
   }
 
-  Future<_TokenState> _ensureTokenStateLocal(_TokenType type) async {
+  Future<_TokenState> _ensureTokenStateLocal(_TokenType type, {required String? userId}) async {
     final prefs = await SharedPreferences.getInstance();
-    final tokensKey = _guestTokenKey(type);
-    final refreshKey = _guestRefreshKey(type);
+    final tokensKey = userId == null ? _guestTokenKey(type) : _userTokenKey(userId, type);
+    final refreshKey = userId == null ? _guestRefreshKey(type) : _userRefreshKey(userId, type);
 
     int tokens = prefs.getInt(tokensKey) ?? _monthlyTokenRegenAmount;
     final currentMonth = _currentMonthKey;
@@ -287,11 +298,13 @@ class SessionCounterService {
     return _TokenState(tokens);
   }
 
-  Future<void> _setTokenCountLocal(_TokenType type, int tokens) async {
+  Future<void> _setTokenCountLocal(_TokenType type, int tokens, {required String? userId}) async {
     final prefs = await SharedPreferences.getInstance();
     final clamped = math.max(0, math.min(tokens, _tokenCap));
-    await prefs.setInt(_guestTokenKey(type), clamped);
-    await prefs.setString(_guestRefreshKey(type), _currentMonthKey);
+    final tokensKey = userId == null ? _guestTokenKey(type) : _userTokenKey(userId, type);
+    final refreshKey = userId == null ? _guestRefreshKey(type) : _userRefreshKey(userId, type);
+    await prefs.setInt(tokensKey, clamped);
+    await prefs.setString(refreshKey, _currentMonthKey);
   }
 
   String _tokenFieldName(_TokenType type) {
@@ -316,6 +329,36 @@ class SessionCounterService {
 
   String _guestRefreshKey(_TokenType type) =>
       'guest_${type.name}_last_refresh';
+
+  String _userTokenKey(String userId, _TokenType type) => 'user_${userId}_${type.name}_tokens';
+
+  String _userRefreshKey(String userId, _TokenType type) => 'user_${userId}_${type.name}_last_refresh';
+
+  Future<void> _cacheTokens(
+    _TokenType type, {
+    required String userId,
+    required int tokens,
+    required String lastRefresh,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_userTokenKey(userId, type), tokens);
+      await prefs.setString(_userRefreshKey(userId, type), lastRefresh);
+    } catch (_) {
+      // non-fatal
+    }
+  }
+
+  Future<int?> _getCachedTokens(_TokenType type) async {
+    try {
+      final uid = _userId;
+      final prefs = await SharedPreferences.getInstance();
+      final key = uid == null ? _guestTokenKey(type) : _userTokenKey(uid, type);
+      return prefs.getInt(key);
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 enum _TokenType { flashcard, quiz }

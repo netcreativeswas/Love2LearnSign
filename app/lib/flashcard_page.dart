@@ -20,6 +20,7 @@ import 'widgets/fullscreen_video_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'package:l2l_shared/tenancy/concept_media.dart';
+import 'services/flashcard_notification_service.dart';
 
 // For flip animation, we use pi from dart:math above.
 
@@ -219,6 +220,8 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
     // Sauvegarder dans le service de répétition espacée
     final wordId = _cards[_currentIndex].id;
     SpacedRepetitionService().markWordAsMastered(wordId);
+    // Recompute reminders (only if something is due today; service checks prefs).
+    FlashcardNotificationService().scheduleAllReviewNotifications();
 
     // Avance automatiquement vers la prochaine carte
     _nextCard();
@@ -239,6 +242,8 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
     final wordId = _cards[_currentIndex].id.toString();
     final frequencyString = _getFrequencyString(frequency);
     SpacedRepetitionService().addWordToReview(wordId, frequencyString);
+    // Recompute reminders (only if something is due today; service checks prefs).
+    FlashcardNotificationService().scheduleAllReviewNotifications();
 
     // Avance automatiquement vers la prochaine carte
     _nextCard();

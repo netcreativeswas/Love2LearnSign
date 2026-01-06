@@ -427,6 +427,7 @@
 "newUserSignUp": "নতুন ব্যবহারকারী? দয়া করে নিবন্ধন করুন",
 "signUpLink": "নিবন্ধন",
 "signInWithGoogle": "Google দিয়ে সাইন ইন করুন",
+"signInWithApple": "Apple দিয়ে সাইন ইন করুন",
 "signUpWithGoogle": "Google দিয়ে সাইন আপ করুন",
 "approvingYourAccount": "অ্যাকাউন্ট অনুমোদিত হচ্ছে...",
 "emailVerifiedApprovedMessage": "ই-মেইল যাচাই করা হয়েছে! আপনার অ্যাকাউন্ট অনুমোদিত। অনুগ্রহ করে সাইন ইন করুন।",

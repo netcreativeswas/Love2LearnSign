@@ -280,6 +280,56 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Sign in with Apple (iOS only)
+  Future<String?> signInWithApple() async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      final result = await _authService.signInWithApple();
+      if (result == null) {
+        _isLoading = false;
+        notifyListeners();
+        return 'Sign-in cancelled';
+      }
+
+      // Load user data (non-blocking)
+      try {
+        await loadUserData();
+      } catch (e) {
+        _authLog('Warning: Failed to load user data after Apple sign in: $e');
+      }
+
+      _isLoading = false;
+      notifyListeners();
+
+      // Check if user profile exists - if not, need to complete signup
+      final profile = await _authService.getUserProfile();
+      if (profile == null) {
+        _authLog('⚠️ No user profile found - redirecting to country selection');
+        return 'COUNTRY_SELECTION_NEEDED';
+      }
+
+      final country = profile['country'];
+      final userType = profile['userType'];
+      final needsCountry =
+          country == null || (country is String && country.trim().isEmpty) || country == 'Unknown';
+      final needsUserType =
+          userType == null || (userType is String && userType.trim().isEmpty);
+      if (needsCountry || needsUserType) {
+        _authLog('⚠️ User profile incomplete (country: $country, userType: $userType) - redirecting to country selection');
+        return 'COUNTRY_SELECTION_NEEDED';
+      }
+
+      return null; // Success
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      _authLog('AuthProvider signInWithApple error: $e');
+      return 'Failed to sign in with Apple';
+    }
+  }
+
   // Complete Google Sign-Up after country selection
   Future<String?> completeGoogleSignUp(
     String uid,

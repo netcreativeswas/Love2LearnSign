@@ -36,7 +36,9 @@ service firebase.storage {
       return isAdminOrEditor() ||
         (request.auth != null &&
          memberDoc(tenantId).exists &&
-         (memberDoc(tenantId).data.role in ['owner', 'admin', 'editor']));
+         // Tenant roles (canonical): owner / tenantadmin / editor
+         // Backward-compatible: admin (legacy) / tenant_admin (older naming)
+         (memberDoc(tenantId).data.role in ['owner', 'tenantadmin', 'tenant_admin', 'admin', 'editor']));
     }
 
     function isVideoUpload(maxBytes) {

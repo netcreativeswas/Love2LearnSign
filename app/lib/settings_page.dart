@@ -18,7 +18,7 @@ import 'tenancy/tenant_picker_page.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 import 'services/notification_permission_service.dart';
 import 'services/flashcard_notification_service.dart';
-import 'app_root.dart' show scheduleDailyTasks;
+import 'app_root.dart' show scheduleDailyTasks, flutterLocalNotificationsPlugin;
 import 'theme_provider.dart';
 import 'widgets/cupertino_sheet_container.dart';
 import 'services/cache_service.dart';
@@ -182,10 +182,9 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _selectedCategory = category;
     });
-    final plugin = FlutterLocalNotificationsPlugin();
-    await plugin.cancel(200);
+    await flutterLocalNotificationsPlugin.cancel(200);
     await scheduleDailyTasks(
-      plugin,
+      flutterLocalNotificationsPlugin,
       tenantId: context.read<TenantScope>().tenantId,
     );
   }
@@ -202,11 +201,10 @@ class _SettingsPageState extends State<SettingsPage> {
       _learnWordHour = hour;
       _learnWordMinute = minute;
     });
-    final plugin = FlutterLocalNotificationsPlugin();
     // Cancel existing and reschedule
-    await plugin.cancel(200);
+    await flutterLocalNotificationsPlugin.cancel(200);
     await scheduleDailyTasks(
-      plugin,
+      flutterLocalNotificationsPlugin,
       tenantId: context.read<TenantScope>().tenantId,
     );
   }
@@ -249,6 +247,12 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _notifyNewWords = value;
     });
+    if (!value) {
+      // Cleanup: we no longer use local new-words scheduling (FCM digest only).
+      try {
+        await FlutterLocalNotificationsPlugin().cancel(100);
+      } catch (_) {}
+    }
     try {
       if (value) {
         // iOS needs explicit permission for push notifications as well.
@@ -285,15 +289,14 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       });
     }
-    final plugin = FlutterLocalNotificationsPlugin();
     if (!value) {
       // Cancel the learn-word reminder when disabled
-      await plugin.cancel(200);
+      await flutterLocalNotificationsPlugin.cancel(200);
     } else {
       // When enabled, cancel any existing and reschedule
-      await plugin.cancel(200);
+      await flutterLocalNotificationsPlugin.cancel(200);
       await scheduleDailyTasks(
-        plugin,
+        flutterLocalNotificationsPlugin,
         tenantId: context.read<TenantScope>().tenantId,
       );
     }

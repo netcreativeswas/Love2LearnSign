@@ -29,6 +29,7 @@ import 'package:flutter_iconly/flutter_iconly.dart';
 import 'services/favorites_repository.dart';
 import 'services/share_utils.dart';
 import 'services/spaced_repetition_service.dart';
+import 'services/flashcard_notification_service.dart';
 import 'package:l2l_shared/auth/auth_provider.dart' as app_auth;
 
 
@@ -724,6 +725,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       },
                       onDeleteSession: (date) async {
                         await SpacedRepetitionService().deleteWordsForDate(date);
+                        await FlashcardNotificationService()
+                            .scheduleAllReviewNotifications();
                         await _loadReviewSessionsData();
                       },
                       // Refresh the Review Box after returning from Flashcards

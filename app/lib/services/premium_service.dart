@@ -14,6 +14,35 @@ class PremiumService {
   static const String _lastReminderKey = 'last_premium_reminder_date';
   static const String _learnedSignsCountKey = 'learned_signs_count';
   static const String _interstitialCtaDismissedKey = 'interstitial_cta_dismissed_date';
+  static const String _premiumCacheKeyPrefix = 'premium_cache';
+
+  String _premiumCacheKey({required String uid, required String tenantId}) =>
+      '${_premiumCacheKeyPrefix}_${tenantId}_$uid';
+
+  Future<void> _cachePremiumForTenant({
+    required String uid,
+    required String tenantId,
+    required bool isPremium,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_premiumCacheKey(uid: uid, tenantId: tenantId), isPremium);
+    } catch (_) {
+      // non-fatal
+    }
+  }
+
+  /// Fast UI helper: returns last cached premium value for this user+tenant (or null if never cached).
+  Future<bool?> getCachedPremiumForTenant(String tenantId) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_premiumCacheKey(uid: userId, tenantId: tenantId));
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Check if user is premium
   Future<bool> isPremium() async {
@@ -36,6 +65,7 @@ class PremiumService {
         final roles = rolesClaim.map((e) => e.toString()).toList();
         // Admin is always privileged.
         if (roles.contains('admin')) {
+          await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: true);
           return true;
         }
       }
@@ -54,6 +84,7 @@ class PremiumService {
           final role = (data['role'] ?? '').toString().trim().toLowerCase();
           final status = (data['status'] ?? 'active').toString().trim().toLowerCase();
           if (status != 'inactive' && (role == 'admin' || role == 'owner')) {
+            await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: true);
             return true;
           }
         }
@@ -70,28 +101,49 @@ class PremiumService {
       if (ent.exists) {
         final data = ent.data() ?? <String, dynamic>{};
         final active = data['active'] == true;
-        if (!active) return false;
+        if (!active) {
+          await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: false);
+          return false;
+        }
         final validUntil = (data['validUntil'] as Timestamp?)?.toDate();
-        if (validUntil == null) return true;
-        return DateTime.now().isBefore(validUntil);
+        final isPremium = validUntil == null ? true : DateTime.now().isBefore(validUntil);
+        await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: isPremium);
+        return isPremium;
       }
 
       // Fallback: legacy global subscription stored on /users doc.
-      if (tenantId != TenantDb.defaultTenantId) return false;
+      if (tenantId != TenantDb.defaultTenantId) {
+        await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: false);
+        return false;
+      }
       final doc = await _getUserDocSnapshotByUid(userId);
-      if (doc == null || !doc.exists) return false;
+      if (doc == null || !doc.exists) {
+        await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: false);
+        return false;
+      }
 
       final data = doc.data() as Map<String, dynamic>;
       final roles = List<String>.from(data['roles'] ?? []);
-      if (!roles.contains('paidUser')) return false;
+      if (!roles.contains('paidUser')) {
+        await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: false);
+        return false;
+      }
 
       final isActive = data['subscription_active'] as bool? ?? false;
-      if (!isActive) return false;
+      if (!isActive) {
+        await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: false);
+        return false;
+      }
 
       final renewalDate = (data['subscription_renewal_date'] as Timestamp?)?.toDate();
-      if (renewalDate == null) return false;
+      if (renewalDate == null) {
+        await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: false);
+        return false;
+      }
 
-      return DateTime.now().isBefore(renewalDate);
+      final isPremium = DateTime.now().isBefore(renewalDate);
+      await _cachePremiumForTenant(uid: userId, tenantId: tenantId, isPremium: isPremium);
+      return isPremium;
     } catch (e) {
       debugPrint('❌ Error checking premium status: $e');
       return false;
