@@ -37,12 +37,14 @@ service cloud.firestore {
 
     function isTenantAdminOrAbove(tenantId) {
       return isPlatformAdmin() || isAdmin() ||
-             (isTenantMember(tenantId) && (tenantRole(tenantId, request.auth.uid) in ['owner', 'admin']));
+             (isTenantMember(tenantId) &&
+              (tenantRole(tenantId, request.auth.uid) in ['owner', 'tenantadmin', 'tenant_admin', 'admin']));
     }
 
     function isTenantEditorOrAbove(tenantId) {
       return isPlatformAdmin() || isAdmin() ||
-             (isTenantMember(tenantId) && (tenantRole(tenantId, request.auth.uid) in ['owner', 'admin', 'editor']));
+             (isTenantMember(tenantId) &&
+              (tenantRole(tenantId, request.auth.uid) in ['owner', 'tenantadmin', 'tenant_admin', 'admin', 'editor']));
     }
     
     // Helper function to check ownership

@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:l2l_shared/analytics/search_tracking_service.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
-import 'package:l2l_shared/debug/agent_logger.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:provider/provider.dart';
@@ -87,24 +86,6 @@ class _SearchAnalyticsPageState extends State<SearchAnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // #region agent log
-    // NOTE: keep payload minimal, no secrets.
-    AgentLogger.log({
-      'sessionId': 'debug-session',
-      'runId': 'pixel9pro-pre',
-      'hypothesisId': 'H1',
-      'location': 'shared/search_analytics_page.dart:build',
-      'message': 'SearchAnalyticsPage build',
-      'data': {
-        'selectedDays': _selectedDays,
-        'heatmapMetric': _heatmapMetric,
-        'isDashboard': L2LLayoutScope.maybeOf(context)?.isDashboard ?? false,
-        'isDashboardDesktop': L2LLayoutScope.isDashboardDesktop(context),
-      },
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-    });
-    // #endregion
-
     final authProvider = Provider.of<AuthProvider>(context);
     final override = widget.userRoleOverride?.toLowerCase().trim();
     final canRead = authProvider.isAdmin ||
@@ -1005,24 +986,6 @@ class _SearchAnalyticsPageState extends State<SearchAnalyticsPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // #region agent log
-        AgentLogger.log({
-          'sessionId': 'debug-session',
-          'runId': 'pixel9pro-pre',
-          'hypothesisId': 'H1',
-          'location': 'shared/search_analytics_page.dart:_buildDailyHeatmap.LayoutBuilder',
-          'message': 'DUH constraints',
-          'data': {
-            'maxW': constraints.maxWidth,
-            'maxH': constraints.maxHeight,
-            'weekCount': weekCount,
-            'selectedDays': _selectedDays,
-            'isDashboardDesktop': isDashboardDesktop,
-          },
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        });
-        // #endregion
-
         // Desktop: try to fit without scrolling (unless needed).
         // Mobile: keep a stable GitHub-like square size + always use horizontal scroll
         // instead of squeezing (prevents "stacked/overlapping" look on small screens).
@@ -1116,22 +1079,6 @@ class _SearchAnalyticsPageState extends State<SearchAnalyticsPage> {
         // Desktop: only scroll when needed.
         // Mobile: always wrap in horizontal scroll so content never gets squished.
         if (!needsScroll && isDashboardDesktop) return content;
-
-        // #region agent log
-        AgentLogger.log({
-          'sessionId': 'debug-session',
-          'runId': 'pixel9pro-pre',
-          'hypothesisId': 'H1',
-          'location': 'shared/search_analytics_page.dart:_buildDailyHeatmap.scrollWrap',
-          'message': 'DUH uses horizontal scroll wrapper',
-          'data': {
-            'needsScroll': needsScroll,
-            'gridWidth': gridWidth,
-            'cell': cell,
-          },
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        });
-        // #endregion
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,

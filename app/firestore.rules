@@ -31,43 +31,44 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/platform/platform/members/$(request.auth.uid));
     }
 
-    function tenantDoc(tenantId) {
-      return get(/databases/$(database)/documents/tenants/$(tenantId));
-    }
-
     function isTenantPublic(tenantId) {
       return exists(/databases/$(database)/documents/tenants/$(tenantId)) &&
-             (
-               // Treat missing visibility as public for backward compatibility.
-               get(/databases/$(database)/documents/tenants/$(tenantId)).data.visibility == 'public' ||
-               !('visibility' in get(/databases/$(database)/documents/tenants/$(tenantId)).data)
-             );
+        (
+          // Treat missing visibility as public for backward compatibility.
+          get(/databases/$(database)/documents/tenants/$(tenantId)).data.visibility == 'public' ||
+          !('visibility' in get(/databases/$(database)/documents/tenants/$(tenantId)).data)
+        );
     }
 
-    function tenantMemberDoc(tenantId, uid) {
-      return get(/databases/$(database)/documents/tenants/$(tenantId)/members/$(uid));
+    function tenantMemberExists(tenantId, uid) {
+      return exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(uid));
     }
 
     function isTenantMember(tenantId) {
       return request.auth != null &&
-             tenantMemberDoc(tenantId, request.auth.uid).exists;
+             tenantMemberExists(tenantId, request.auth.uid);
     }
 
     function tenantRole(tenantId) {
-      return tenantMemberDoc(tenantId, request.auth.uid).data.role;
+      return get(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid)).data.role;
     }
 
     function isTenantEditorOrAbove(tenantId) {
       // Accept global admin/editor (bootstrap-friendly), or per-tenant roles.
       return isAdminOrEditor() ||
              (isTenantMember(tenantId) &&
-              (tenantRole(tenantId) in ['owner', 'admin', 'editor']));
+              // Canonical tenant roles:
+              // - owner, tenantadmin, editor
+              // Backward-compat:
+              // - admin (legacy), tenant_admin (older naming)
+              (tenantRole(tenantId) in ['owner', 'tenantadmin', 'tenant_admin', 'admin', 'editor']));
     }
 
     function isTenantAdminOrAbove(tenantId) {
       // Tenant membership management should be restricted more tightly than content editing.
       return isAdmin() || isPlatformAdmin() ||
-             (isTenantMember(tenantId) && (tenantRole(tenantId) in ['owner', 'admin']));
+             (isTenantMember(tenantId) &&
+              (tenantRole(tenantId) in ['owner', 'tenantadmin', 'tenant_admin', 'admin']));
     }
     
     function isOwnDocument() {

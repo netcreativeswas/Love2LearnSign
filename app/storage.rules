@@ -28,23 +28,33 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
     }
 
+    function memberExists(tenantId) {
+      return request.auth != null &&
+             firestore.exists(/databases/(default)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
+    }
+
     function isTenantMember(tenantId) {
-      return request.auth != null && memberDoc(tenantId).exists;
+      return memberExists(tenantId);
     }
 
     function isTenantEditorOrAbove(tenantId) {
       return isAdminOrEditor() ||
         (request.auth != null &&
-         memberDoc(tenantId).exists &&
+         memberExists(tenantId) &&
          // Tenant roles (canonical): owner / tenantadmin / editor
          // Backward-compatible: admin (legacy) / tenant_admin (older naming)
          (memberDoc(tenantId).data.role in ['owner', 'tenantadmin', 'tenant_admin', 'admin', 'editor']));
     }
 
     function isVideoUpload(maxBytes) {
+      // Some web uploads may arrive as application/octet-stream even when client sets metadata.
+      // We still enforce the path (videos_*) + size cap, so allowing octet-stream here is safe.
       return request.resource != null &&
              request.resource.size < maxBytes &&
-             request.resource.contentType.matches('video/mp4');
+             (
+               request.resource.contentType.matches('video/mp4') ||
+               request.resource.contentType.matches('application/octet-stream')
+             );
     }
 
     function isImageUpload(maxBytes) {

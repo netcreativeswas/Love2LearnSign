@@ -1,8 +1,5 @@
 // ignore_for_file: unused_import, unnecessary_import, unused_field, unused_element, unused_local_variable
-// Only import dart:io if not on web, for Platform checks and File usage
 import 'package:flutter/foundation.dart' show kIsWeb;
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:io' if (dart.library.html) 'dart:html' as io;
 import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -407,6 +404,7 @@ class _AddWordPageState extends State<AddWordPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Upload failed: ${e.code}')),
         );
+        rethrow;
       }
     } catch (e) {
       // debug upload error
@@ -695,6 +693,9 @@ class _AddWordPageState extends State<AddWordPage> {
           conceptId: conceptId,
         ),
       );
+      if ((uploadedUrls['videos_480'] as String).trim().isEmpty) {
+        throw StateError('Upload failed: videos_480');
+      }
     }
 
     if (_selectedVideoSD != null) {
@@ -706,6 +707,9 @@ class _AddWordPageState extends State<AddWordPage> {
           conceptId: conceptId,
         ),
       );
+      if ((uploadedUrls['videos_360'] as String).trim().isEmpty) {
+        throw StateError('Upload failed: videos_360');
+      }
     }
 
     if (_selectedVideoHD != null) {
@@ -717,6 +721,9 @@ class _AddWordPageState extends State<AddWordPage> {
           conceptId: conceptId,
         ),
       );
+      if ((uploadedUrls['videos_720'] as String).trim().isEmpty) {
+        throw StateError('Upload failed: videos_720');
+      }
     }
 
     // Upload main thumbnails
