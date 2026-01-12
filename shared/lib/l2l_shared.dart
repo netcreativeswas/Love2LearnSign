@@ -8,4 +8,5 @@ export 'layout/l2l_layout_scope.dart';
 export 'theme_extensions.dart';
 export 'words_admin/words_list_page.dart';
 export 'words_admin/words_editor_page.dart';
+export 'words_admin/word_management_page.dart';
 

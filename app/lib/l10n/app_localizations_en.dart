@@ -192,6 +192,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noNewVideos => 'No new videos recently.';
 
   @override
+  String get learnAlso => 'LEARN ANOTHER WORD';
+
+  @override
   String get online => 'Online';
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:provider/provider.dart';
 import 'package:l2l_shared/auth/auth_provider.dart';
 import 'utils/countries.dart';
@@ -55,13 +56,19 @@ class _CountrySelectionPageState extends State<CountrySelectionPage> {
 
     try {
       final authProvider = context.read<AuthProvider>();
-      await authProvider.completeGoogleSignUp(
+      final user = fb_auth.FirebaseAuth.instance.currentUser;
+      final isApple =
+          user?.providerData.any((p) => p.providerId == 'apple.com') ?? false;
+      final provider = isApple ? 'apple' : 'google';
+
+      await authProvider.completeOAuthSignUp(
         widget.uid,
         widget.email,
         widget.displayName,
         widget.photoUrl,
         _selectedCountry!,
         _selectedUserType!,
+        provider: provider,
       );
 
       if (!mounted) return;

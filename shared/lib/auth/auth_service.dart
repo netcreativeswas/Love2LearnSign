@@ -149,19 +149,20 @@ class AuthService {
     String? userType,
   }) async {
     try {
-      // Distinguish between Google (auto-approved) and Email/Password (pending)
-      final isGoogleSignIn = provider == 'google';
+      // Distinguish between trusted OAuth providers (auto-approved) and Email/Password (pending)
+      final p = (provider ?? '').toString().trim().toLowerCase();
+      final isTrustedOAuth = p == 'google' || p == 'apple';
       
       final userData = {
         'uid': uid, // Store original UID for reference
         'email': email,
         'displayName': displayName,
-        // Google: auto-assign freeUser role, Email: empty until email verification
-        'roles': isGoogleSignIn ? ['freeUser'] : [],
-        // Google: auto-approved, Email: pending until email verification
-        'status': isGoogleSignIn ? 'approved' : 'pending',
-        // Google: approved immediately, Email: requires email verification
-        'approved': isGoogleSignIn ? true : false,
+        // OAuth: auto-assign freeUser role, Email: empty until email verification
+        'roles': isTrustedOAuth ? ['freeUser'] : [],
+        // OAuth: auto-approved, Email: pending until email verification
+        'status': isTrustedOAuth ? 'approved' : 'pending',
+        // OAuth: approved immediately, Email: requires email verification
+        'approved': isTrustedOAuth ? true : false,
         'photoUrl': photoUrl,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -640,6 +641,47 @@ class AuthService {
     String country,
     String userType,
   ) async {
+    return completeOAuthSignUp(
+      uid,
+      email,
+      displayName,
+      photoUrl,
+      country,
+      userType,
+      provider: 'google',
+    );
+  }
+
+  // Complete Apple sign-up after additional info
+  Future<void> completeAppleSignUp(
+    String uid,
+    String email,
+    String displayName,
+    String? photoUrl,
+    String country,
+    String userType,
+  ) async {
+    return completeOAuthSignUp(
+      uid,
+      email,
+      displayName,
+      photoUrl,
+      country,
+      userType,
+      provider: 'apple',
+    );
+  }
+
+  // Complete OAuth sign-up (Google/Apple) after additional info
+  Future<void> completeOAuthSignUp(
+    String uid,
+    String email,
+    String displayName,
+    String? photoUrl,
+    String country,
+    String userType, {
+    required String provider,
+  }) async {
     try {
       // IMPORTANT:
       // - If users/{uid} already exists, client updates must NOT touch roles/approved/status
@@ -653,7 +695,7 @@ class AuthService {
           email,
           displayName,
           country: country,
-          provider: 'google',
+          provider: provider,
           photoUrl: photoUrl,
           userType: userType,
         );
@@ -662,6 +704,7 @@ class AuthService {
           <String, dynamic>{
             'country': country.trim(),
             'userType': userType.trim(),
+            'provider': provider.trim(),
             // Optional compatibility fields (dashboard/joinTenant read either key).
             'countryCode': country.trim(),
             'hearingStatus': userType.trim(),
@@ -675,7 +718,7 @@ class AuthService {
       final user = _auth.currentUser;
       await user?.getIdToken(true);
     } catch (e) {
-      throw Exception('Failed to complete Google sign up: $e');
+      throw Exception('Failed to complete sign up: $e');
     }
   }
 

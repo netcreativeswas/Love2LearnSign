@@ -35,6 +35,32 @@ class WordsRepository {
     }
   }
 
+  /// Fetch the most recently added words (best-effort).
+  ///
+  /// Prefers `addedAt` (used by AddWord), falls back to `createdAt` if needed.
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> fetchLatestWords({
+    int limit = 3,
+  }) async {
+    final n = limit <= 0 ? 0 : limit;
+    if (n == 0) return const [];
+
+    try {
+      final snap = await _col
+          .orderBy('addedAt', descending: true)
+          .limit(n)
+          .get();
+      return snap.docs;
+    } catch (_) {
+      // Some older tenants/collections may not have consistent `addedAt`.
+      // Fallback to `createdAt` to keep the UI usable.
+      final snap = await _col
+          .orderBy('createdAt', descending: true)
+          .limit(n)
+          .get();
+      return snap.docs;
+    }
+  }
+
   Query<Map<String, dynamic>> _baseListQuery({required String orderByField}) => _col.orderBy(orderByField);
 
   String _labelsLowerFieldPath(String langCodeLower) => 'labels_lower.$langCodeLower';

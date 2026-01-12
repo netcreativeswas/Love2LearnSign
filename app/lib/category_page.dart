@@ -4,6 +4,7 @@ import 'package:l2l_shared/tenancy/tenant_db.dart';
 import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'package:l2l_shared/tenancy/concept_media.dart';
 import 'services/cache_service.dart';
+import 'services/prefetch_queue.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'video_viewer_page.dart';
@@ -356,7 +357,7 @@ class _CategoryPageState extends State<CategoryPage> {
     }).toSet();
 
     for (final url in videoUrls) {
-      await CacheService.instance.getSingleFileRespectingSettings(url);
+      PrefetchQueue.instance.enqueue(url);
     }
   }
 class _SortHeaderDelegate extends SliverPersistentHeaderDelegate {

@@ -54,6 +54,12 @@
 	<array/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Allow Flutter tools on your computer to connect and debug your application. This prompt will not appear on release builds.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to allow you to select images or videos when adding new sign language content.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app needs access to save images or videos to your photo library when you share sign language content.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to your camera to allow you to take photos or videos when adding new sign language content.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

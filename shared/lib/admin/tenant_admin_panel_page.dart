@@ -946,190 +946,190 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search),
-                        hintText: 'Search (name, email, country, uid)...',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (v) => setState(() => _search = v),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Search (name, email, country, uid)...',
+                      border: OutlineInputBorder(),
                     ),
+                    onChanged: (v) => setState(() => _search = v),
                   ),
-                  if (!isDesktop) ...[
-                    const SizedBox(width: 10),
-                    OutlinedButton.icon(
-                      onPressed: _openFiltersSheet,
-                      icon: const Icon(Icons.filter_list, size: 18),
-                      label: const Text('Filters'),
-                    ),
-                  ],
+                ),
+                if (!isDesktop) ...[
+                  const SizedBox(width: 10),
+                  OutlinedButton.icon(
+                    onPressed: _openFiltersSheet,
+                    icon: const Icon(Icons.filter_list, size: 18),
+                    label: const Text('Filters'),
+                  ),
                 ],
+              ],
               ),
             ),
           ),
           if (isDesktop)
             SliverToBoxAdapter(
               child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+              scrollDirection: Axis.horizontal,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    DropdownButton<String>(
-                      value: _roleFilter,
-                      items: const [
-                        DropdownMenuItem(value: 'all', child: Text('Role: all')),
-                        DropdownMenuItem(value: 'viewer', child: Text('viewer')),
-                        DropdownMenuItem(value: 'analyst', child: Text('analyst')),
-                        DropdownMenuItem(value: 'editor', child: Text('editor')),
-                        DropdownMenuItem(
-                            value: 'tenantadmin', child: Text('tenantAdmin')),
-                        DropdownMenuItem(value: 'owner', child: Text('owner')),
-                      ],
+              child: Row(
+                children: [
+                  DropdownButton<String>(
+                    value: _roleFilter,
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('Role: all')),
+                      DropdownMenuItem(value: 'viewer', child: Text('viewer')),
+                      DropdownMenuItem(value: 'analyst', child: Text('analyst')),
+                      DropdownMenuItem(value: 'editor', child: Text('editor')),
+                      DropdownMenuItem(
+                          value: 'tenantadmin', child: Text('tenantAdmin')),
+                      DropdownMenuItem(value: 'owner', child: Text('owner')),
+                    ],
                       onChanged: (v) =>
                           setState(() => _roleFilter = v ?? 'all'),
-                    ),
-                    const SizedBox(width: 12),
-                    DropdownButton<String>(
-                      value: _statusFilter,
-                      items: const [
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String>(
+                    value: _statusFilter,
+                    items: const [
                         DropdownMenuItem(
                             value: 'all', child: Text('Status: all')),
-                        DropdownMenuItem(value: 'active', child: Text('active')),
-                        DropdownMenuItem(
-                            value: 'inactive', child: Text('inactive')),
-                      ],
+                      DropdownMenuItem(value: 'active', child: Text('active')),
+                      DropdownMenuItem(
+                          value: 'inactive', child: Text('inactive')),
+                    ],
                       onChanged: (v) =>
                           setState(() => _statusFilter = v ?? 'all'),
-                    ),
-                    const SizedBox(width: 12),
-                    DropdownButton<String>(
-                      value: _premiumFilter,
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'all', child: Text('Premium: all')),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String>(
+                    value: _premiumFilter,
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'all', child: Text('Premium: all')),
                         DropdownMenuItem(value: 'premium', child: Text('premium')),
-                        DropdownMenuItem(value: 'free', child: Text('free')),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _premiumFilter = v ?? 'all'),
-                    ),
-                    const SizedBox(width: 12),
-                    DropdownButton<String>(
-                      value: _dateRange,
-                      items: const [
-                        DropdownMenuItem(value: 'all', child: Text('Date: all')),
-                        DropdownMenuItem(value: 'today', child: Text('today')),
+                      DropdownMenuItem(value: 'free', child: Text('free')),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _premiumFilter = v ?? 'all'),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String>(
+                    value: _dateRange,
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('Date: all')),
+                      DropdownMenuItem(value: 'today', child: Text('today')),
                         DropdownMenuItem(value: '7', child: Text('last 7 days')),
                         DropdownMenuItem(value: '30', child: Text('last 30 days')),
                         DropdownMenuItem(value: '90', child: Text('last 90 days')),
                       ],
                       onChanged: (v) =>
                           setState(() => _dateRange = v ?? 'all'),
-                    ),
-                    const SizedBox(width: 12),
-                    DropdownButton<String?>(
-                      value: _countryFilter,
-                      hint: const Text('Country: all'),
-                      items: [
-                        const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text('Country: all'),
-                        ),
-                        ...shared_countries.countries
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String?>(
+                    value: _countryFilter,
+                    hint: const Text('Country: all'),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Country: all'),
+                      ),
+                      ...shared_countries.countries
                             .map((c) =>
                                 DropdownMenuItem<String?>(value: c, child: Text(c)))
-                            .toList(),
-                      ],
-                      onChanged: (v) => setState(() => _countryFilter = v),
-                    ),
-                    const SizedBox(width: 12),
-                    DropdownButton<String?>(
-                      value: _hearingFilter,
-                      hint: const Text('Hearing: all'),
-                      items: const [
-                        DropdownMenuItem<String?>(
-                            value: null, child: Text('Hearing: all')),
-                        DropdownMenuItem<String?>(
-                            value: 'Hearing', child: Text('Hearing')),
-                        DropdownMenuItem<String?>(
-                            value: 'Deaf', child: Text('Deaf')),
-                        DropdownMenuItem<String?>(
-                            value: 'Hard of Hearing',
-                            child: Text('Hard of Hearing')),
-                      ],
-                      onChanged: (v) => setState(() => _hearingFilter = v),
-                    ),
-                  ],
-                ),
+                          .toList(),
+                    ],
+                    onChanged: (v) => setState(() => _countryFilter = v),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String?>(
+                    value: _hearingFilter,
+                    hint: const Text('Hearing: all'),
+                    items: const [
+                      DropdownMenuItem<String?>(
+                          value: null, child: Text('Hearing: all')),
+                      DropdownMenuItem<String?>(
+                          value: 'Hearing', child: Text('Hearing')),
+                      DropdownMenuItem<String?>(
+                          value: 'Deaf', child: Text('Deaf')),
+                      DropdownMenuItem<String?>(
+                          value: 'Hard of Hearing',
+                          child: Text('Hard of Hearing')),
+                    ],
+                    onChanged: (v) => setState(() => _hearingFilter = v),
+                  ),
+                ],
               ),
+            ),
             ),
           const SliverToBoxAdapter(child: Divider(height: 1)),
           StreamBuilder<QuerySnapshot>(
             stream: _membersRef()
-                .orderBy('createdAt', descending: true)
-                .snapshots(),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
                 return const SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(child: CircularProgressIndicator()),
                 );
-              }
-              if (snap.hasError) {
+                }
+                if (snap.hasError) {
                 return SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(child: Text('Failed to load members: ${snap.error}')),
                 );
-              }
+                }
 
-              final docs = snap.data?.docs ?? const [];
-              final members = <QueryDocumentSnapshot>[];
-              for (final d in docs) {
-                final data = (d.data() as Map<String, dynamic>?) ?? {};
-                if (_matchesFilters(data)) members.add(d);
-              }
+                final docs = snap.data?.docs ?? const [];
+                final members = <QueryDocumentSnapshot>[];
+                for (final d in docs) {
+                  final data = (d.data() as Map<String, dynamic>?) ?? {};
+                  if (_matchesFilters(data)) members.add(d);
+                }
 
-              if (members.isEmpty) {
+                if (members.isEmpty) {
                 return const SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(child: Text('No members found.')),
                 );
-              }
+                }
 
               return SliverPadding(
-                padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, i) {
-                      final doc = members[i];
-                      final data = (doc.data() as Map<String, dynamic>?) ?? {};
-                      final profile = _profileFrom(data);
-                      final uid = (data['uid'] ?? doc.id).toString();
-                      final role = (data['role'] ?? 'viewer')
-                          .toString()
-                          .toLowerCase()
-                          .trim();
-                      final status = (data['status'] ?? 'active')
-                          .toString()
-                          .toLowerCase()
-                          .trim();
-                      final email = (profile['email'] ?? '').toString();
-                      final name = (profile['displayName'] ?? '').toString();
-                      final country =
-                          (profile['countryCode'] ?? profile['country'] ?? '')
-                              .toString();
-                      final hearing =
-                          (profile['hearingStatus'] ?? profile['userType'] ?? '')
-                              .toString();
-                      final premium = _isPremium(data);
-                      final featureRoles = _featureRolesFrom(data);
-                      final isJw = featureRoles.contains('jw');
-                      final providerLabel = _signInProviderLabel(profile);
+                    final doc = members[i];
+                    final data = (doc.data() as Map<String, dynamic>?) ?? {};
+                    final profile = _profileFrom(data);
+                    final uid = (data['uid'] ?? doc.id).toString();
+                    final role = (data['role'] ?? 'viewer')
+                        .toString()
+                        .toLowerCase()
+                        .trim();
+                    final status = (data['status'] ?? 'active')
+                        .toString()
+                        .toLowerCase()
+                        .trim();
+                    final email = (profile['email'] ?? '').toString();
+                    final name = (profile['displayName'] ?? '').toString();
+                    final country =
+                        (profile['countryCode'] ?? profile['country'] ?? '')
+                            .toString();
+                    final hearing =
+                        (profile['hearingStatus'] ?? profile['userType'] ?? '')
+                            .toString();
+                    final premium = _isPremium(data);
+                    final featureRoles = _featureRolesFrom(data);
+                    final isJw = featureRoles.contains('jw');
+                    final providerLabel = _signInProviderLabel(profile);
                       final currentUid =
                           FirebaseAuth.instance.currentUser?.uid ?? '';
                       final canDelete = uid.isNotEmpty &&
@@ -1147,21 +1147,25 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                         return Icons.hearing;
                       }
 
+                      final infoColor = theme.brightness == Brightness.light
+                          ? theme.colorScheme.onSurface.withValues(alpha: 0.78)
+                          : theme.colorScheme.onSurfaceVariant;
+
                       Widget infoRow(IconData icon, String text) {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                      children: [
                             Icon(
                               icon,
                               size: 16,
-                              color: theme.colorScheme.onSurfaceVariant,
+                              color: infoColor,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 text,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: infoColor,
                                   fontWeight: FontWeight.w400,
                                 ),
                               ),
@@ -1186,16 +1190,16 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (canDelete)
-                            IconButton(
-                              tooltip: 'Delete user',
-                              onPressed: () => _confirmAndDeleteTenantUser(
-                                uid: uid,
-                                displayName: name,
-                                email: email,
-                              ),
-                              icon: const Icon(Icons.delete_forever),
-                              color: theme.colorScheme.error,
+                            if (canDelete)
+                              IconButton(
+                                tooltip: 'Delete user',
+                                onPressed: () => _confirmAndDeleteTenantUser(
+                                  uid: uid,
+                                  displayName: name,
+                                  email: email,
+                                ),
+                                icon: const Icon(Icons.delete_forever),
+                                color: theme.colorScheme.error,
                               visualDensity: const VisualDensity(
                                   horizontal: -4, vertical: -4),
                             ),
@@ -1208,72 +1212,72 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                                   color: theme.colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w600,
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Transform.scale(
-                                scale: 0.85,
-                                child: Switch(
+                            ),
+                            const SizedBox(width: 6),
+                            Transform.scale(
+                              scale: 0.85,
+                              child: Switch(
                                   materialTapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
                                   value: isActive,
-                                  onChanged: (v) async {
-                                    final nextStatus = v ? 'active' : 'inactive';
-                                    try {
+                              onChanged: (v) async {
+                                final nextStatus = v ? 'active' : 'inactive';
+                                try {
                                       await _setRole(
                                         uid: uid,
                                         role: role,
                                         status: nextStatus,
                                       );
-                                    } catch (e) {
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                } catch (e) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
                                           content:
                                               Text('Failed to set status: $e'),
                                         ),
-                                      );
-                                    }
-                                  },
-                                ),
+                                  );
+                                }
+                              },
                               ),
-                            ],
-                          ),
-                        ],
-                      );
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
 
                       final card = InkWell(
-                        onTap: () => _showMemberDetails(context, data),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                                color: theme.colorScheme.outlineVariant,
-                                width: 0.8),
-                          ),
-                          child: Stack(
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: Column(
+                      onTap: () => _showMemberDetails(context, data),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                              color: theme.colorScheme.outlineVariant,
+                              width: 0.8),
+                        ),
+                        child: Stack(
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              name.trim().isNotEmpty
-                                                  ? name.trim()
-                                                  : '(no displayName)',
-                                              style: theme.textTheme.titleMedium
+                                        children: [
+                                          Text(
+                                            name.trim().isNotEmpty
+                                                ? name.trim()
+                                                : '(no displayName)',
+                                            style: theme.textTheme.titleMedium
                                                   ?.copyWith(fontWeight: FontWeight.w800),
                                             ),
                                             if (infoLines.isNotEmpty) ...[
-                                              const SizedBox(height: 8),
+                                          const SizedBox(height: 8),
                                               for (int j = 0; j < infoLines.length; j++) ...[
                                                 infoLines[j],
                                                 if (j != infoLines.length - 1)
@@ -1281,45 +1285,45 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                                               ],
                                             ],
                                             const SizedBox(height: 10),
-                                            Wrap(
-                                              spacing: 8,
-                                              runSpacing: 6,
-                                              crossAxisAlignment:
-                                                  WrapCrossAlignment.center,
-                                              children: [
-                                                _chip(
-                                                  theme,
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 6,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            children: [
+                                              _chip(
+                                                theme,
                                                   label: premium ? 'Premium' : 'Learner',
-                                                  bg: premium
+                                                bg: premium
                                                       ? theme.colorScheme.secondaryContainer
                                                       : theme.colorScheme.surfaceContainerHighest,
-                                                  fg: premium
+                                                fg: premium
                                                       ? theme.colorScheme.onSecondaryContainer
                                                       : theme.colorScheme.onSurfaceVariant,
-                                                ),
-                                                if (isJw)
-                                                  _chip(
-                                                    theme,
-                                                    label: 'JW',
-                                                    icon: Icons.verified_user,
-                                                    bg: theme.colorScheme.tertiaryContainer,
-                                                    fg: theme.colorScheme.onTertiaryContainer,
-                                                  ),
+                                              ),
+                                              if (isJw)
                                                 _chip(
                                                   theme,
-                                                  label: providerLabel,
-                                                  icon: providerLabel == 'Google'
-                                                      ? Icons.g_mobiledata
-                                                      : Icons.email,
-                                                  bg: providerLabel == 'Google'
+                                                  label: 'JW',
+                                                  icon: Icons.verified_user,
+                                                    bg: theme.colorScheme.tertiaryContainer,
+                                                    fg: theme.colorScheme.onTertiaryContainer,
+                                                ),
+                                              _chip(
+                                                theme,
+                                                label: providerLabel,
+                                                icon: providerLabel == 'Google'
+                                                    ? Icons.g_mobiledata
+                                                    : Icons.email,
+                                                bg: providerLabel == 'Google'
                                                       ? theme.colorScheme.primaryContainer
                                                       : theme.colorScheme.surfaceContainerHighest,
-                                                  fg: providerLabel == 'Google'
+                                                fg: providerLabel == 'Google'
                                                       ? theme.colorScheme.onPrimaryContainer
                                                       : theme.colorScheme.onSurfaceVariant,
-                                                ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
+                                          ),
                                           ],
                                         ),
                                       ),
@@ -1327,23 +1331,23 @@ class _TenantAdminPanelPageState extends State<TenantAdminPanelPage> {
                                       ConstrainedBox(
                                         constraints: const BoxConstraints(minWidth: 120),
                                         child: controls,
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
                                 ],
                               ),
-                            ],
-                          ),
+                          ],
                         ),
-                      );
+                      ),
+                    );
 
                       return Padding(
                         padding: EdgeInsets.only(bottom: i == members.length - 1 ? 0 : 10),
                         child: card,
-                      );
-                    },
+                );
+              },
                     childCount: members.length,
-                  ),
+            ),
                 ),
               );
             },
@@ -1842,6 +1846,12 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
       ),
     );
 
+    // In dark mode, some tenants use a very dark primary; using it for TextButtons
+    // on a dark surface makes the actions effectively invisible.
+    final actionFg = theme.brightness == Brightness.dark
+        ? theme.colorScheme.secondary
+        : theme.colorScheme.primary;
+
     final actions = [
       TextButton.icon(
         onPressed:
@@ -1855,7 +1865,7 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
             : const Icon(Icons.bug_report, size: 18),
         label: const Text('Diagnostic premium'),
         style: TextButton.styleFrom(
-          foregroundColor: theme.colorScheme.primary,
+          foregroundColor: actionFg,
         ),
       ),
       TextButton.icon(
@@ -1868,7 +1878,7 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
             : const Icon(Icons.refresh, size: 18),
         label: const Text('Refresh'),
         style: TextButton.styleFrom(
-          foregroundColor: theme.colorScheme.primary,
+          foregroundColor: actionFg,
         ),
       ),
       TextButton(

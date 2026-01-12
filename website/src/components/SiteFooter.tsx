@@ -121,9 +121,13 @@ function SiteFooterContent() {
               const company = "NetCreative";
               const text = t("footer.madeByLine", { netcreative: company });
               if (typeof text !== "string" || !text.includes(company)) {
+                const token = "__NAME__";
+                const template = t("common.madeBy", { name: token });
+                const safeTemplate = typeof template === "string" ? template : `${t("common.madeBy")} ${token}`;
+                const [before, after] = safeTemplate.split(token);
                 return (
                   <>
-                    {t("common.madeBy")}{" "}
+                    {before}
                     <a
                       href="https://netcreative-swas.net"
                       target="_blank"
@@ -132,6 +136,7 @@ function SiteFooterContent() {
                     >
                       {company}
                     </a>
+                    {after}
                   </>
                 );
               }

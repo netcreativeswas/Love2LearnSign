@@ -167,6 +167,12 @@ class _EditWordPageState extends State<EditWordPage> {
 
   late final WordsRepository _repo;
 
+  bool get _canDelete {
+    final override = widget.userRoleOverride?.toLowerCase().trim();
+    // Backward-compat: if no override is provided, keep legacy behavior (allow delete).
+    return override == null || override.isEmpty || override == 'admin';
+  }
+
   Future<String> _putBytes({
     required Uint8List bytes,
     required SettableMetadata metadata,
@@ -887,6 +893,13 @@ class _EditWordPageState extends State<EditWordPage> {
   }
 
   Future<void> _deleteWord() async {
+    if (!_canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Delete is only available for admins.')),
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -932,11 +945,12 @@ class _EditWordPageState extends State<EditWordPage> {
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: _isLoading ? null : _deleteWord,
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Delete'),
-                      ),
+                      if (_canDelete)
+                        TextButton.icon(
+                          onPressed: _isLoading ? null : _deleteWord,
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Delete'),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1083,7 +1097,13 @@ class _EditWordPageState extends State<EditWordPage> {
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
-                                  Text('File selected: ${_selectedimageFlashcard!.name}'),
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedimageFlashcard!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   TextButton(
                                     onPressed: () {
@@ -1150,7 +1170,13 @@ class _EditWordPageState extends State<EditWordPage> {
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
-                                  Text('File selected: ${_selectedVideo!.name}'),
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedVideo!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   TextButton(
                                     onPressed: () => setState(() {
@@ -1182,7 +1208,13 @@ class _EditWordPageState extends State<EditWordPage> {
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
-                                  Text('File selected: ${_selectedVideoSD!.name}'),
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedVideoSD!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   TextButton(
                                     onPressed: () => setState(() {
@@ -1214,7 +1246,13 @@ class _EditWordPageState extends State<EditWordPage> {
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
-                                  Text('File selected: ${_selectedVideoHD!.name}'),
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedVideoHD!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   TextButton(
                                     onPressed: () => setState(() {
@@ -1246,7 +1284,13 @@ class _EditWordPageState extends State<EditWordPage> {
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
-                                  Text('File selected: ${_selectedVideoThumbnailSmall!.name}'),
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedVideoThumbnailSmall!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   TextButton(
                                     onPressed: () => setState(() {
@@ -1301,7 +1345,13 @@ class _EditWordPageState extends State<EditWordPage> {
                                       padding: const EdgeInsets.only(top: 6.0),
                                       child: Row(
                                         children: [
-                                          Text('File selected: ${_selectedVariantVideos[i]!.name}'),
+                                          Expanded(
+                                            child: Text(
+                                              'File selected: ${_selectedVariantVideos[i]!.name}',
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                            ),
+                                          ),
                                           const SizedBox(width: 8),
                                           TextButton(
                                             onPressed: () => setState(() {
@@ -1333,7 +1383,13 @@ class _EditWordPageState extends State<EditWordPage> {
                                       padding: const EdgeInsets.only(top: 6.0),
                                       child: Row(
                                         children: [
-                                          Text('File selected: ${_selectedVariantVideosSD[i]!.name}'),
+                                          Expanded(
+                                            child: Text(
+                                              'File selected: ${_selectedVariantVideosSD[i]!.name}',
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                            ),
+                                          ),
                                           const SizedBox(width: 8),
                                           TextButton(
                                             onPressed: () => setState(() {
@@ -1365,7 +1421,13 @@ class _EditWordPageState extends State<EditWordPage> {
                                       padding: const EdgeInsets.only(top: 6.0),
                                       child: Row(
                                         children: [
-                                          Text('File selected: ${_selectedVariantVideosHD[i]!.name}'),
+                                          Expanded(
+                                            child: Text(
+                                              'File selected: ${_selectedVariantVideosHD[i]!.name}',
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                            ),
+                                          ),
                                           const SizedBox(width: 8),
                                           TextButton(
                                             onPressed: () => setState(() {
@@ -1397,7 +1459,13 @@ class _EditWordPageState extends State<EditWordPage> {
                                       padding: const EdgeInsets.only(top: 6.0),
                                       child: Row(
                                         children: [
-                                          Text('File selected: ${_selectedVariantThumbnails[i]!.name}'),
+                                          Expanded(
+                                            child: Text(
+                                              'File selected: ${_selectedVariantThumbnails[i]!.name}',
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                            ),
+                                          ),
                                           const SizedBox(width: 8),
                                           TextButton(
                                             onPressed: () => setState(() {
@@ -1429,7 +1497,13 @@ class _EditWordPageState extends State<EditWordPage> {
                                       padding: const EdgeInsets.only(top: 6.0),
                                       child: Row(
                                         children: [
-                                          Text('File selected: ${_selectedVariantThumbnailsSmall[i]!.name}'),
+                                          Expanded(
+                                            child: Text(
+                                              'File selected: ${_selectedVariantThumbnailsSmall[i]!.name}',
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                            ),
+                                          ),
                                           const SizedBox(width: 8),
                                           TextButton(
                                             onPressed: () => setState(() {

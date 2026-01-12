@@ -7,10 +7,9 @@ import 'package:l2l_shared/auth/auth_provider.dart';
 import 'package:l2l_shared/layout/l2l_layout_scope.dart';
 import 'package:provider/provider.dart';
 
-import 'package:l2l_shared/add_word/add_word_page.dart';
+import 'package:l2l_shared/words_admin/word_management_page.dart';
 import 'admin_dashboard_page.dart';
 import 'widgets/dashboard_content.dart';
-import 'package:l2l_shared/words_admin/words_list_page.dart';
 import 'web_bridge.dart';
 import 'tenancy/dashboard_tenant_scope.dart';
 import 'tenancy/tenant_switcher_page.dart';
@@ -136,12 +135,21 @@ List<_NavItem> _navItemsForRole({
         builder: AdminDashboardPage.new,
       ),
       _NavItem(
-        label: 'Add Word',
-        icon: Icons.add_circle_outline,
+        label: 'Word Management',
+        icon: Icons.menu_book_outlined,
         builder: () => Builder(
           builder: (ctx) {
             final t = ctx.watch<DashboardTenantScope>();
-            return AddWordPage(tenantId: t.tenantId, signLangId: t.signLangId);
+            final raw = t.isPlatformAdmin ? 'admin' : (t.selectedTenantRole ?? 'viewer');
+            final r = raw.toLowerCase().trim();
+            final normalized = (t.isPlatformAdmin || r == 'owner' || r == 'tenantadmin' || r == 'admin')
+                ? 'admin'
+                : (r == 'editor' ? 'editor' : 'viewer');
+            return WordManagementPage(
+              tenantId: t.tenantId,
+              signLangId: t.signLangId,
+              userRoleOverride: normalized,
+            );
           },
         ),
       ),
@@ -174,21 +182,6 @@ List<_NavItem> _navItemsForRole({
         icon: Icons.monetization_on_outlined,
         builder: TenantMonetizationMetricsPage.new,
       ),
-      _NavItem(
-        label: 'Words List',
-        icon: Icons.list_alt_outlined,
-        builder: () => Builder(
-          builder: (ctx) {
-            final t = ctx.watch<DashboardTenantScope>();
-            final role = t.isPlatformAdmin ? 'admin' : (t.selectedTenantRole ?? 'viewer');
-            return WordsListPage(
-              userRoleOverride: role,
-              tenantId: t.tenantId,
-              signLangId: t.signLangId,
-            );
-          },
-        ),
-      ),
       if (isPlatformAdmin)
         const _NavItem(
           label: 'Owner',
@@ -201,12 +194,16 @@ List<_NavItem> _navItemsForRole({
   if (isEditor) {
     return [
       _NavItem(
-        label: 'Add Word',
-        icon: Icons.add_circle_outline,
+        label: 'Word Management',
+        icon: Icons.menu_book_outlined,
         builder: () => Builder(
           builder: (ctx) {
             final t = ctx.watch<DashboardTenantScope>();
-            return AddWordPage(tenantId: t.tenantId, signLangId: t.signLangId);
+            return WordManagementPage(
+              tenantId: t.tenantId,
+              signLangId: t.signLangId,
+              userRoleOverride: 'editor',
+            );
           },
         ),
       ),

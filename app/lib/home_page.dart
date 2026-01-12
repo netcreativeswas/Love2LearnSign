@@ -17,6 +17,7 @@ import 'widgets/main_btm_nav_bar.dart';
 import 'widgets/main_drawer.dart';
 
 import 'widgets/review_sessions_row.dart';
+import 'widgets/cached_thumb.dart';
 import 'dictionary_page.dart';
 import 'game_master.dart';
 import 'theme.dart';
@@ -520,12 +521,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                                 Widget thumb;
                                 if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-                                  thumb = Image.network(
-                                    thumbnailUrl,
+                                  thumb = CachedThumb(
+                                    url: thumbnailUrl,
                                     width: 70,
                                     height: 70,
                                     fit: BoxFit.cover,
-                                    alignment: Alignment.topCenter,
+                                    placeholder: Image.asset(
+                                      'assets/videoLoadingPlaceholder.webp',
+                                      width: 70,
+                                      height: 70,
+                                      fit: BoxFit.cover,
+                                      alignment: Alignment.topCenter,
+                                    ),
                                   );
                                 } else {
                                   // Fallback to the same asset but without any colored container
@@ -610,22 +617,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                                 Widget thumbnailWidget;
                                 if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-                                  thumbnailWidget = Stack(
-                                    children: [
-                                      Container(
-                                        width: 70,
-                                        height: 70,
-                                        color: Colors.transparent,
-                                        child: Image.asset('assets/videoLoadingPlaceholder.webp', width: 70, height: 70, fit: BoxFit.cover),
-                                      ),
-                                      Image.network(
-                                        thumbnailUrl,
-                                        width: 70,
-                                        height: 70,
-                                        fit: BoxFit.cover,
-                                        alignment: Alignment.topCenter,
-                                      ),
-                                    ],
+                                  thumbnailWidget = CachedThumb(
+                                    url: thumbnailUrl,
+                                    width: 70,
+                                    height: 70,
+                                    fit: BoxFit.cover,
+                                    placeholder: Image.asset(
+                                      'assets/videoLoadingPlaceholder.webp',
+                                      width: 70,
+                                      height: 70,
+                                      fit: BoxFit.cover,
+                                    ),
                                   );
                                 } else {
                                   thumbnailWidget = Container(
@@ -807,22 +809,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                             Widget thumbnailWidget;
                             if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-                              thumbnailWidget = Stack(
-                                children: [
-                                  Container(
-                                    width: 70,
-                                    height: 70,
-                                    color: Theme.of(context).colorScheme.surface3,
-                                    child: Image.asset('assets/videoLoadingPlaceholder.webp', width: 70, height: 70, fit: BoxFit.cover),
-                                  ),
-                                  Image.network(
-                                    thumbnailUrl,
+                              thumbnailWidget = CachedThumb(
+                                url: thumbnailUrl,
+                                width: 70,
+                                height: 70,
+                                fit: BoxFit.cover,
+                                placeholder: Container(
+                                  width: 70,
+                                  height: 70,
+                                  color: Theme.of(context).colorScheme.surface3,
+                                  child: Image.asset(
+                                    'assets/videoLoadingPlaceholder.webp',
                                     width: 70,
                                     height: 70,
                                     fit: BoxFit.cover,
-                                    alignment: Alignment.topCenter,
                                   ),
-                                ],
+                                ),
                               );
                             } else {
                               thumbnailWidget = Container(
@@ -1177,6 +1179,7 @@ class _MiniatureMenu extends StatelessWidget {
               tenantId: scope.tenantId,
               signLangId: scope.signLangId,
               uiLocale: uiLocale,
+              context: context,
             );
             break;
           case _MiniAction.toggleFavorite:

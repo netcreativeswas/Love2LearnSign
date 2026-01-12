@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'l10n/dynamic_l10n.dart';
@@ -22,6 +23,7 @@ import 'app_root.dart' show scheduleDailyTasks, flutterLocalNotificationsPlugin;
 import 'theme_provider.dart';
 import 'widgets/cupertino_sheet_container.dart';
 import 'services/cache_service.dart';
+import 'services/prefetch_queue.dart';
 import 'services/android_intent_helper.dart';
 import 'services/ios_settings_helper.dart';
 import 'l10n/dynamic_l10n.dart';
@@ -575,6 +577,58 @@ class _SettingsPageState extends State<SettingsPage> {
                   ?.copyWith(fontSize: 18, color: Theme.of(context).colorScheme.primary),
             ),
           ),
+          if (kDebugMode)
+            ListTile(
+              leading: const Icon(Icons.storage),
+              title: const Text('Cache debug'),
+              subtitle: Text(
+                'queue=${PrefetchQueue.instance.queued} running=${PrefetchQueue.instance.running}',
+              ),
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  final videoPath = await CacheService.instance.getVideoCacheDirPath();
+                  final videoBytes = await CacheService.instance.getApproxCacheSizeBytes();
+                  final videoCount = await CacheService.instance.getVideoCacheFileCount();
+                  final thumbPath = await CacheService.instance.getThumbCacheDirPath();
+                  final thumbBytes = await CacheService.instance.getApproxThumbCacheSizeBytes();
+                  final thumbCount = await CacheService.instance.getThumbCacheFileCount();
+                  final lastPrune = await CacheService.instance.getLastVideoPruneAtIso();
+
+                  if (!mounted) return;
+                  showDialog<void>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Cache debug info'),
+                      content: SingleChildScrollView(
+                        child: Text(
+                          'Video cache:\\n'
+                          '- path: $videoPath\\n'
+                          '- size: ${(videoBytes / (1024 * 1024)).toStringAsFixed(1)} MB\\n'
+                          '- files: $videoCount\\n'
+                          '- lastPrune(UTC): ${lastPrune ?? 'never'}\\n\\n'
+                          'Thumb cache:\\n'
+                          '- path: $thumbPath\\n'
+                          '- size: ${(thumbBytes / (1024 * 1024)).toStringAsFixed(1)} MB\\n'
+                          '- files: $thumbCount\\n\\n'
+                          'PrefetchQueue: queued=${PrefetchQueue.instance.queued} running=${PrefetchQueue.instance.running}',
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  );
+                } catch (e) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('Cache debug failed: $e')),
+                  );
+                }
+              },
+            ),
           SwitchListTile(
             title: Text(
               S.of(context)!.preloadVideosTitle,
@@ -1117,26 +1171,35 @@ class _SettingsPageState extends State<SettingsPage> {
     bool obscure1 = true;
     bool obscure2 = true;
 
-    await showDialog<void>(
+    await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
       builder: (ctx) {
+        final maxH = MediaQuery.sizeOf(ctx).height * 0.85;
         return StatefulBuilder(
           builder: (ctx, setLocal) {
             final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
-            return AnimatedPadding(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
+            return Padding(
               padding: EdgeInsets.only(bottom: bottomInset),
-              child: AlertDialog(
-                scrollable: true,
-                title: Text(s.enableDashboardAccessTitle),
-                content: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxH),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Text(
+                        s.enableDashboardAccessTitle,
+                        style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(ctx).colorScheme.primary,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
                       Text(s.dashboardAccessAccount(email)),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       TextField(
                         controller: pass1,
                         obscureText: obscure1,
@@ -1151,7 +1214,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: pass2,
                         obscureText: obscure2,
@@ -1169,36 +1232,44 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       const SizedBox(height: 12),
                       Text(s.dashboardAccessHelpText),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: Text(s.cancel),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                final p1 = pass1.text;
+                                final p2 = pass2.text;
+                                if (p1.length < 8) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(s.passwordMinLength8)),
+                                  );
+                                  return;
+                                }
+                                if (p1 != p2) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(s.passwordsDoNotMatch)),
+                                  );
+                                  return;
+                                }
+                                Navigator.of(ctx).pop();
+                                await _linkPasswordToCurrentUser(email: email, password: p1);
+                              },
+                              child: Text(s.setPasswordButton),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: Text(s.cancel),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final p1 = pass1.text;
-                      final p2 = pass2.text;
-                      if (p1.length < 8) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(s.passwordMinLength8)),
-                        );
-                        return;
-                      }
-                      if (p1 != p2) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(s.passwordsDoNotMatch)),
-                        );
-                        return;
-                      }
-                      Navigator.of(ctx).pop();
-                      await _linkPasswordToCurrentUser(email: email, password: p1);
-                    },
-                    child: Text(s.setPasswordButton),
-                  ),
-                ],
               ),
             );
           },

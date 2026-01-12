@@ -434,6 +434,12 @@ abstract class AppLocalizations {
   /// **'No new videos recently.'**
   String get noNewVideos;
 
+  /// No description provided for @learnAlso.
+  ///
+  /// In en, this message translates to:
+  /// **'LEARN ANOTHER WORD'**
+  String get learnAlso;
+
   /// No description provided for @online.
   ///
   /// In en, this message translates to:

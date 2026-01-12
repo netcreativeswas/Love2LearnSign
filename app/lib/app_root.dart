@@ -23,6 +23,7 @@ import 'l10n/dynamic_l10n.dart';
 import 'locale_provider.dart';
 import 'password_reset_page.dart';
 import 'services/location_service.dart';
+import 'services/learn_word_notification_service.dart';
 import 'services/subscription_service.dart';
 import 'tenancy/tenant_member_access_provider.dart';
 import 'tenancy/tenant_scope.dart';
@@ -397,11 +398,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             brightness: Brightness.light,
             primary: primary,
             secondary: secondary,
+            localeCode: localeProv.locale.languageCode,
           ),
           darkTheme: AppTheme.themed(
             brightness: Brightness.dark,
             primary: primary,
             secondary: secondary,
+            localeCode: localeProv.locale.languageCode,
           ),
           themeMode: context.watch<ThemeProvider>().mode,
           title: (tenant.appConfig?.displayName.trim().isNotEmpty == true)
@@ -502,7 +505,6 @@ Future<void> scheduleDailyTasks(
   required String tenantId,
 }) async {
   final prefs = await SharedPreferences.getInstance();
-  final now = tz.TZDateTime.now(tz.local);
   final contentLocale = await _getTenantContentLocale(tenantId);
 
   // Learn-word reminder at user-selected hour and minute
@@ -511,138 +513,21 @@ Future<void> scheduleDailyTasks(
   final learnMinute = prefs.getInt('learnWordMinute') ?? 0;
   final category = prefs.getString('notificationCategory') ?? 'Random';
   debugPrint('LearnWord prefs: hour=$learnHour, minute=$learnMinute, category=$category');
-  if (prefs.getBool('notifyLearnWord') ?? true) {
-    // Ensure we don't leave an old schedule behind.
-    try {
-      await flutterLocalNotificationsPlugin.cancel(200);
-    } catch (_) {}
-
-    final nextLearnTime = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      learnHour,
-      learnMinute,
-    );
-    final scheduledLearn = nextLearnTime.isBefore(now)
-        ? nextLearnTime.add(const Duration(days: 1))
-        : nextLearnTime;
-
-    // Build query based on category
-    Query query = TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId);
-    var snapshot = await query.get();
-    if (snapshot.docs.isEmpty) return;
-    if (category != 'Random') {
-      query = query.where('category_main', isEqualTo: category);
-      snapshot = await query.get();
-      if (snapshot.docs.isEmpty) {
-        // If no docs in this category, fallback to all words
-        final allSnapshot =
-            await TenantDb.concepts(FirebaseFirestore.instance, tenantId: tenantId).get();
-        if (allSnapshot.docs.isEmpty) return;
-        snapshot = allSnapshot;
-      }
-    }
-
-    final docs = snapshot.docs.toList()..shuffle();
-    if (docs.isEmpty) return;
-    final pick = docs.first;
-    final pickData = pick.data() as Map<String, dynamic>? ?? <String, dynamic>{};
-    final wordEnglish = ConceptText.labelFor(pickData, lang: 'en', fallbackLang: 'en');
-    final wordLocal =
-        ConceptText.labelFor(pickData, lang: contentLocale, fallbackLang: 'en');
-
-    final wordEnglishCapitalized = wordEnglish.isEmpty
-        ? wordEnglish
-        : '${wordEnglish[0].toUpperCase()}${wordEnglish.substring(1)}';
-    final bodyText = '$wordEnglishCapitalized $wordLocal';
-
-    final args = jsonEncode({
-      'route': '/video',
-      'args': {
-        'wordId': pick.id,
-        'english': wordEnglish,
-        'bengali': wordLocal,
-        'variants': pick['variants'],
-      }
-    });
-
-    final titleLearn = 'Learn one Sign Today!';
-    await _scheduleLearnWordNotification(
-      id: 200,
-      channelId: 'learn_word_channel',
-      channelName: 'Learn Word Notifications',
-      channelDescription: 'Daily reminder to learn a new word',
-      title: titleLearn,
-      body: bodyText,
-      scheduledDate: scheduledLearn,
-      payload: args,
-    );
-  }
-}
-
-/// Planifie une notification d'apprentissage de mot
-Future<void> _scheduleLearnWordNotification({
-  required int id,
-  required String channelId,
-  required String channelName,
-  required String channelDescription,
-  required String title,
-  required String body,
-  required DateTime scheduledDate,
-  required String payload,
-}) async {
-  final androidImpl = flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-
-  await androidImpl?.createNotificationChannel(AndroidNotificationChannel(
-    channelId,
-    channelName,
-    description: channelDescription,
-    importance: Importance.high,
-  ));
-
-  tz.TZDateTime when = tz.TZDateTime.from(scheduledDate, tz.local);
-  final now = tz.TZDateTime.now(tz.local);
-  if (!when.isAfter(now)) when = when.add(const Duration(days: 1));
-  if (!when.isAfter(now.add(const Duration(seconds: 5)))) {
-    when = now.add(const Duration(seconds: 6));
+  final enabled = prefs.getBool('notifyLearnWord') ?? true;
+  final svc = LearnWordNotificationService();
+  if (!enabled) {
+    await svc.cancelAll(plugin);
+    return;
   }
 
-  const mode = AndroidScheduleMode.inexactAllowWhileIdle;
-
-  await flutterLocalNotificationsPlugin.zonedSchedule(
-    id,
-    title,
-    body,
-    when,
-    NotificationDetails(
-      android: AndroidNotificationDetails(
-        channelId,
-        channelName,
-        channelDescription: channelDescription,
-        importance: Importance.high,
-        priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
-        actions: <AndroidNotificationAction>[
-          AndroidNotificationAction(
-            'OPEN_LEARN_WORD',
-            'Watch video',
-            showsUserInterface: true,
-            cancelNotification: true,
-          ),
-        ],
-      ),
-      iOS: const DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      ),
-    ),
-    androidScheduleMode: mode,
-    payload: payload,
-    matchDateTimeComponents: DateTimeComponents.time,
+  // Batch schedule ahead so the word-of-day rotates even if the app stays closed.
+  await svc.scheduleBatch(
+    plugin: plugin,
+    tenantId: tenantId,
+    hour: learnHour,
+    minute: learnMinute,
+    category: category,
+    contentLocale: contentLocale,
   );
 }
 

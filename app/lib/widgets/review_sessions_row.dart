@@ -297,6 +297,7 @@ class _ReviewSessionsRowState extends State<ReviewSessionsRow> {
                                       tenantId: scope.tenantId,
                                       signLangId: scope.signLangId,
                                       uiLocale: uiLocale,
+                                      context: context,
                                     );
                                   },
                                 ),

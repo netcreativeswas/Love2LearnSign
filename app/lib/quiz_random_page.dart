@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'tenancy/tenant_scope.dart';
 import 'services/cache_service.dart';
+import 'services/prefetch_queue.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'quiz_video_page.dart';
 import 'services/share_utils.dart';
@@ -227,15 +228,12 @@ class _QuizRandomPageState extends State<QuizRandomPage> {
         try {
           final url = _extractVideoUrl(doc);
           if (url.isEmpty) continue;
-
-          final fileInfo = await CacheService.instance.getFromCacheOnly(url);
-          if (fileInfo == null) {
-            debugPrint('⬇️ Caching: $url');
-            await CacheService.instance.getSingleFileRespectingSettings(url);
-            debugPrint('✅ Cached: $url');
-          } else {
-            debugPrint('✅ Already cached: $url');
-          }
+          unawaited(
+            PrefetchQueue.instance.enqueue(
+              url,
+              isCancelled: () => _isDisposed,
+            ),
+          );
         } catch (e, st) {
           // Never block the UI; best-effort only
           debugPrint('⚠️ Precache failed: $e\n$st');

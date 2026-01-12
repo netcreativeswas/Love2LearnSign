@@ -125,7 +125,7 @@ function HomeContent() {
                       if (typeof text !== "string" || !text.includes(company)) {
                         return (
                           <>
-                            {t("common.madeBy")} {siteConfig.developerName}
+                            {t("common.madeBy", { name: siteConfig.developerName })}
                           </>
                         );
                       }

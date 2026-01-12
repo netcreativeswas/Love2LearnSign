@@ -163,8 +163,10 @@ class SessionCounterService {
 
   /// Add flashcard tokens via rewarded ad.
   Future<int> unlockFlashcardSessions() async {
-    final tokens =
-        await _addTokens(_TokenType.flashcard, _rewardedAdUnlockSessions);
+    final tokens = await _optimisticAddTokens(
+      _TokenType.flashcard,
+      _rewardedAdUnlockSessions,
+    );
     debugPrint('✅ Flashcard tokens restored to $tokens');
     return tokens;
   }
@@ -187,10 +189,58 @@ class SessionCounterService {
 
   /// Add quiz tokens via rewarded ad.
   Future<int> unlockQuizSessions() async {
-    final tokens =
-        await _addTokens(_TokenType.quiz, _rewardedAdUnlockSessions);
+    final tokens = await _optimisticAddTokens(
+      _TokenType.quiz,
+      _rewardedAdUnlockSessions,
+    );
     debugPrint('✅ Quiz tokens restored to $tokens');
     return tokens;
+  }
+
+  /// Optimistically add tokens and update local cache immediately for snappy UI.
+  /// Firestore is updated in the background (best-effort) to avoid a 1–3s UI lag after rewarded ads.
+  Future<int> _optimisticAddTokens(_TokenType type, int amount) async {
+    final userId = _userId;
+
+    // Compute baseline from cached/local state (fast).
+    int current;
+    if (userId == null) {
+      current = (await _ensureTokenStateLocal(type, userId: null)).tokens;
+    } else {
+      final cached = await _getCachedTokens(type);
+      if (cached != null) {
+        current = cached;
+      } else {
+        current = (await _ensureTokenStateLocal(type, userId: userId)).tokens;
+      }
+    }
+
+    if (current >= _tokenCap) return current;
+    final next = math.min(current + amount, _tokenCap);
+
+    // Update local storage immediately (what the UI reads for instant display).
+    if (userId == null) {
+      await _setTokenCountLocal(type, next, userId: null);
+    } else {
+      await _cacheTokens(type, userId: userId, tokens: next, lastRefresh: _currentMonthKey);
+    }
+
+    // Best-effort remote sync (do not block UI).
+    if (userId != null) {
+      Future(() async {
+        try {
+          final counterRef = _firestore.collection('user_counters').doc(userId);
+          await counterRef.set({
+            _tokenFieldName(type): next,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } catch (e) {
+          debugPrint('⚠️ Token remote sync failed (non-fatal): $e');
+        }
+      });
+    }
+
+    return next;
   }
 
   Future<int> _getTokenBalance(_TokenType type) async {

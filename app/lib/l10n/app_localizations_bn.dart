@@ -189,6 +189,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get noNewVideos => 'কোনো নতুন ভিডিও যোগ হয়নি';
 
   @override
+  String get learnAlso => 'আরও শিখুন';
+
+  @override
   String get online => 'অনলাইন';
 
   @override

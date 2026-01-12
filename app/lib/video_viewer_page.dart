@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io' show File;
 import 'package:video_player/video_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:l2l_shared/tenancy/tenant_db.dart';
@@ -48,7 +49,10 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
   String _english = '';
   String _bengali = '';
   List<dynamic> _variants = [];
-  List<VideoPlayerController> _controllers = [];
+  // Lazy-loaded controllers per variant index (to reduce iOS memory pressure).
+  List<VideoPlayerController?> _controllers = [];
+  // Cached variant video URLs (same order as _variants).
+  List<String> _variantUrls = [];
   late PageController _pageController;
   int _currentIndex = 0;
   double _currentSpeed = 1.0;
@@ -68,6 +72,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
   // Store the selected random word for "Learn Also" section (to prevent re-shuffling on Play/Pause)
   String? _selectedRelatedWordId;
   Map<String, dynamic>? _selectedRelatedWordData;
+
+  // Prevent duplicate in-flight controller initializations per index.
+  final Map<int, Future<void>> _initVariantTasks = {};
 
   void _cyclePlaybackSpeed(VideoPlayerController controller) {
     if (_isDisposed || !mounted) return;
@@ -341,88 +348,156 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
 
     if (variants != null && variants.isNotEmpty) {
       _variants = variants;
-      _controllers = List<VideoPlayerController>.filled(
+      _variantUrls = List<String>.generate(
         variants.length,
-        // Placeholder; will be replaced per index
-        VideoPlayerController.networkUrl(Uri.parse('https://invalid.local/placeholder.mp4')),
+        (i) {
+          final v = variants[i] is Map
+              ? Map<String, dynamic>.from(variants[i] as Map)
+              : <String, dynamic>{};
+          final url = ConceptMedia.video480FromVariant(v);
+          try {
+            return Uri.parse(url).toString();
+          } catch (_) {
+            return url;
+          }
+        },
         growable: false,
       );
-      for (int i = 0; i < variants.length; i++) {
-        // Check if disposed before each iteration
-        if (_isDisposed || !mounted) {
-          // Dispose any already initialized controllers
-          for (var ctrl in _controllers) {
-            try {
-              if (ctrl.value.isInitialized) ctrl.dispose();
-            } catch (_) {}
-          }
-          return;
-        }
-        
-        final v = variants[i] is Map ? Map<String, dynamic>.from(variants[i] as Map) : <String, dynamic>{};
-        final url = ConceptMedia.video480FromVariant(v);
-        try {
-          final sanitizedUrl = Uri.parse(url).toString();
-          final file = await CacheService.instance.getSingleFileRespectingSettings(sanitizedUrl);
-          
-          // Check again after async operation
-          if (_isDisposed || !mounted) {
-            // Dispose any already initialized controllers
-            for (var ctrl in _controllers) {
-              try {
-                if (ctrl.value.isInitialized) ctrl.dispose();
-              } catch (_) {}
-            }
-            return;
-          }
-          
-          final controller = file != null
-              ? VideoPlayerController.file(file)
-              : VideoPlayerController.networkUrl(Uri.parse(sanitizedUrl));
-          await controller.initialize();
-          
-          // Final check before using controller
-          if (_isDisposed || !mounted) {
-            try {
-              controller.dispose();
-            } catch (_) {}
-            return;
-          }
-          
-          controller.setLooping(true);
-          _controllers[i] = controller;
-        } catch (e) {
-          print('Error loading video for $url: $e');
-        }
-      }
-      if (_controllers.isNotEmpty && !_isDisposed && mounted) {
-        // S'assurer que toutes les autres vidéos sont en pause
-        for (int i = 1; i < _controllers.length; i++) {
-          try {
-            if (_controllers[i].value.isInitialized) {
-              await _controllers[i].pause();
-              await _controllers[i].seekTo(Duration.zero);
-            }
-          } catch (_) {}
-        }
-        // Jouer seulement la première vidéo depuis le début
-        try {
-          final firstController = _controllers[0];
-          if (firstController.value.isInitialized && !_isDisposed) {
-            await firstController.seekTo(Duration.zero);
-            await firstController.play();
-          }
-        } catch (_) {}
-        
-        if (mounted && !_isDisposed) {
-          setState(() {});
-        }
-      }
+      _controllers = List<VideoPlayerController?>.filled(
+        variants.length,
+        null,
+        growable: false,
+      );
+
+      // Initialize only the first variant now (lazy-load the rest on demand).
+      _currentIndex = 0;
+      await _ensureVariantController(0, autoplay: true);
+
+      // Prefetch adjacent variant files (download only, no controller init).
+      _prefetchVariantFile(1);
     } else {
-      print('No variants found or empty list.');
+      _variants = const [];
+      _variantUrls = const [];
+      _controllers = const [];
     }
 
-    setState(() => _isLoading = false);
+    if (mounted && !_isDisposed) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _prefetchVariantFile(int index) async {
+    if (_isDisposed || !mounted) return;
+    if (index < 0 || index >= _variantUrls.length) return;
+    final url = _variantUrls[index].trim();
+    if (url.isEmpty) return;
+    try {
+      // Best-effort: download into cache (respects Wi‑Fi-only); no controller init here.
+      await CacheService.instance.getSingleFileRespectingSettings(url);
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> _ensureVariantController(
+    int index, {
+    required bool autoplay,
+  }) async {
+    if (_isDisposed || !mounted) return;
+    if (index < 0 || index >= _variantUrls.length) return;
+
+    final existing = (index < _controllers.length) ? _controllers[index] : null;
+    if (existing != null && existing.value.isInitialized) {
+      if (autoplay && index == _currentIndex) {
+        try {
+          await existing.seekTo(Duration.zero);
+          await existing.play();
+        } catch (_) {}
+      }
+      return;
+    }
+
+    // De-dupe concurrent initializations per index.
+    if (_initVariantTasks[index] != null) {
+      await _initVariantTasks[index];
+      return;
+    }
+
+    final task = Future<void>(() async {
+      final url = _variantUrls[index].trim();
+      if (url.isEmpty) return;
+
+      File? file;
+      try {
+        file = await CacheService.instance.getSingleFileRespectingSettings(url);
+      } catch (_) {
+        file = null;
+      }
+
+      if (_isDisposed || !mounted) return;
+
+      final controller = file != null
+          ? VideoPlayerController.file(file)
+          : VideoPlayerController.networkUrl(Uri.parse(url));
+
+      try {
+        await controller.initialize();
+      } catch (e) {
+        try {
+          controller.dispose();
+        } catch (_) {}
+        return;
+      }
+
+      if (_isDisposed || !mounted) {
+        try {
+          controller.dispose();
+        } catch (_) {}
+        return;
+      }
+
+      controller.setLooping(true);
+
+      setState(() {
+        if (index >= 0 && index < _controllers.length) {
+          _controllers[index] = controller;
+        }
+      });
+
+      // Evict far controllers to reduce memory (keep current and neighbors).
+      _evictFarVariantControllers(keepIndex: _currentIndex);
+
+      if (autoplay && index == _currentIndex) {
+        try {
+          await controller.seekTo(Duration.zero);
+          await controller.play();
+        } catch (_) {}
+      } else {
+        try {
+          await controller.pause();
+          await controller.seekTo(Duration.zero);
+        } catch (_) {}
+      }
+    });
+
+    _initVariantTasks[index] = task;
+    await task.whenComplete(() {
+      _initVariantTasks.remove(index);
+    });
+  }
+
+  void _evictFarVariantControllers({required int keepIndex}) {
+    // Keep current + adjacent controllers. Dispose the rest.
+    for (int i = 0; i < _controllers.length; i++) {
+      if ((i - keepIndex).abs() <= 1) continue;
+      final c = _controllers[i];
+      if (c != null) {
+        try {
+          c.dispose();
+        } catch (_) {}
+        _controllers[i] = null;
+      }
+    }
   }
 
   // Load a random related word from the same category (called only once)
@@ -462,6 +537,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
     for (var controller in _controllers) {
+      if (controller == null) continue;
       try {
         controller.dispose();
       } catch (_) {}
@@ -479,6 +555,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       // Pause all video controllers when app goes to background
       for (var controller in _controllers) {
+        if (controller == null) continue;
         if (controller.value.isInitialized && controller.value.isPlaying) {
           controller.pause();
         }
@@ -487,7 +564,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
       // Resume the current video when app comes to foreground
       if (_currentIndex >= 0 && _currentIndex < _controllers.length) {
         final currentController = _controllers[_currentIndex];
-        if (currentController.value.isInitialized && !currentController.value.isPlaying) {
+        if (currentController != null &&
+            currentController.value.isInitialized &&
+            !currentController.value.isPlaying) {
           currentController.play();
         }
       }
@@ -503,7 +582,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     if (_currentIndex >= 0 && _currentIndex < _controllers.length) {
       try {
         final previous = _controllers[_currentIndex];
-        if (previous.value.isInitialized) {
+        if (previous != null && previous.value.isInitialized) {
           await previous.pause();
           await previous.seekTo(Duration.zero); // Remettre au début
         }
@@ -521,18 +600,13 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
     }
     
     // Play new controller at default speed depuis le début
-    if (index >= 0 && index < _controllers.length && !_isDisposed && mounted) {
-      try {
-        final current = _controllers[index];
-        if (current.value.isInitialized) {
-          await current.seekTo(Duration.zero); // S'assurer qu'on commence depuis le début
-          current.setPlaybackSpeed(1.0);
-          await current.play();
-        }
-      } catch (e) {
-        debugPrint('Error playing new controller: $e');
-      }
-    }
+    // Ensure controller is initialized lazily, then play.
+    await _ensureVariantController(index, autoplay: true);
+
+    // Prefetch adjacent files and evict far controllers.
+    _prefetchVariantFile(index - 1);
+    _prefetchVariantFile(index + 1);
+    _evictFarVariantControllers(keepIndex: index);
     
     _isTransitioning = false;
   }
@@ -601,6 +675,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
                 tenantId: scope.tenantId,
                 signLangId: scope.signLangId,
                 uiLocale: uiLocale,
+                context: context,
               );
             },
           ),
@@ -762,15 +837,18 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
                                       wordId: widget.wordId,
                                       english: _english,
                                       bengali: _bengali,
-                                      controllers: _variants.length > 1 ? _controllers : null,
-                                      currentIndex: _variants.length > 1 ? 0 : null,
-                                      onPageChanged: _variants.length > 1 ? (index) {
-                                        // Update state when navigating in fullscreen
-                                        setState(() {
-                                          _currentIndex = index;
-                                        });
-                                      } : null,
-                                      totalVariants: _variants.length > 1 ? _variants.length : null,
+                                      variantUrls: _variantUrls.length > 1 ? _variantUrls : null,
+                                      currentIndex: _variantUrls.length > 1 ? 0 : null,
+                                      onPageChanged: _variantUrls.length > 1
+                                          ? (index) {
+                                              setState(() {
+                                                _currentIndex = index;
+                                              });
+                                              // Warm underlying page so it matches when exiting fullscreen.
+                                              _ensureVariantController(index, autoplay: false);
+                                            }
+                                          : null,
+                                      totalVariants: _variantUrls.length > 1 ? _variantUrls.length : null,
                                       categoryMain: _categoryMain,
                                       categorySub: _categorySub,
                                     ),
@@ -1072,13 +1150,15 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
                                             wordId: widget.wordId,
                                             english: _english,
                                             bengali: _bengali,
-                                            controllers: _controllers,
+                                            variantUrls: _variantUrls.length > 1 ? _variantUrls : null,
                                             currentIndex: _currentIndex,
                                             onPageChanged: (index) {
                                               // Update state when navigating in fullscreen
                                               setState(() {
                                                 _currentIndex = index;
                                               });
+                                              // Warm underlying page so it matches when exiting fullscreen.
+                                              _ensureVariantController(index, autoplay: false);
                                             },
                                             totalVariants: _variants.length,
                                             categoryMain: _categoryMain,
@@ -1302,9 +1382,10 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
       return const SizedBox.shrink();
     }
     
-    // Tenant-localized label (BN has a hard-coded string; other locales fall back to EN for now).
+    // UI-localized label.
+    final learnAlsoText = S.of(context)!.learnAlso;
+    // Tenant-local content language for the secondary label on cards.
     final localLang = context.read<TenantScope>().contentLocale;
-    final learnAlsoText = localLang == 'bn' ? 'আরও শিখুন' : 'LEARN ALSO';
     
     // If no word selected yet, show loading or empty
     if (_selectedRelatedWordId == null || _selectedRelatedWordData == null) {
@@ -1520,9 +1601,10 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
       return const SizedBox.shrink();
     }
     
-    // Tenant-localized label (BN has a hard-coded string; other locales fall back to EN for now).
+    // UI-localized label.
+    final learnOppositeText = S.of(context)!.tryTheOpposite;
+    // Tenant-local content language for the secondary label on cards.
     final localLang = context.read<TenantScope>().contentLocale;
-    final learnOppositeText = localLang == 'bn' ? 'বিপরীত শিখুন' : 'LEARN THE OPPOSITE';
     
     return FutureBuilder<DocumentSnapshot?>(
       future: _findAntonymDocument(),

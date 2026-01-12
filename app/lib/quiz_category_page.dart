@@ -5,6 +5,7 @@ import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'package:l2l_shared/tenancy/concept_media.dart';
 import 'package:video_player/video_player.dart';
 import 'services/cache_service.dart';
+import 'services/prefetch_queue.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'quiz_video_page.dart';
@@ -346,30 +347,18 @@ class _QuizCategoryPageState extends State<QuizCategoryPage> {
     if (shouldPrecache && (!wifiOnly || connectivity == ConnectivityResult.wifi)) {
       final start = _currentQuestion; // next question index
       debugPrint('🚀 Background precache started (${_quizDocuments.length - start} items)');
-      int yielded = 0;
       for (int i = start; i < _quizDocuments.length; i++) {
         if (!mounted || _isDisposed) break;
         final v = (_quizDocuments[i].data()['variants'] as List<dynamic>?) ?? [];
         if (v.isEmpty) continue;
         final url = ConceptMedia.video480FromVariant(Map<String, dynamic>.from(v[0] as Map));
         if (url.isEmpty) continue;
-        try {
-          final fileInfo = await CacheService.instance.getFromCacheOnly(url);
-          if (fileInfo == null) {
-            debugPrint('⬇️ Caching: $url');
-            await CacheService.instance.getSingleFileRespectingSettings(url);
-            debugPrint('✅ Cached: $url');
-          } else {
-            debugPrint('✅ Already cached: $url');
-          }
-        } catch (e) {
-          debugPrint('⚠️ Precache failed for $url – $e');
-        }
-        yielded++;
-        if (yielded % 2 == 0) {
-          // Yield to UI every couple of files so the spinner/buttons stay responsive
-          await Future.delayed(const Duration(milliseconds: 1));
-        }
+        unawaited(
+          PrefetchQueue.instance.enqueue(
+            url,
+            isCancelled: () => !mounted || _isDisposed,
+          ),
+        );
       }
     }
 
@@ -426,10 +415,12 @@ class _QuizCategoryPageState extends State<QuizCategoryPage> {
   Future<void> _preloadQuizVideos(List<String> videoUrls, {String? excludeUrl}) async {
     for (final url in videoUrls) {
       if (url == excludeUrl) continue;
-      final file = await CacheService.instance.getFromCacheOnly(url);
-      if (file == null) {
-        await CacheService.instance.getSingleFileRespectingSettings(url);
-      }
+      unawaited(
+        PrefetchQueue.instance.enqueue(
+          url,
+          isCancelled: () => _isDisposed,
+        ),
+      );
     }
   }
 

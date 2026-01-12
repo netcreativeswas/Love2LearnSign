@@ -339,17 +339,59 @@ class AuthProvider with ChangeNotifier {
     String country,
     String userType,
   ) async {
+    return completeOAuthSignUp(
+      uid,
+      email,
+      displayName,
+      photoUrl,
+      country,
+      userType,
+      provider: 'google',
+    );
+  }
+
+  // Complete Apple Sign-Up after country selection
+  Future<String?> completeAppleSignUp(
+    String uid,
+    String email,
+    String displayName,
+    String? photoUrl,
+    String country,
+    String userType,
+  ) async {
+    return completeOAuthSignUp(
+      uid,
+      email,
+      displayName,
+      photoUrl,
+      country,
+      userType,
+      provider: 'apple',
+    );
+  }
+
+  // Complete OAuth Sign-Up (Google/Apple) after country selection
+  Future<String?> completeOAuthSignUp(
+    String uid,
+    String email,
+    String displayName,
+    String? photoUrl,
+    String country,
+    String userType, {
+    required String provider,
+  }) async {
     try {
       _isLoading = true;
       notifyListeners();
 
-      await _authService.completeGoogleSignUp(
+      await _authService.completeOAuthSignUp(
         uid,
         email,
         displayName,
         photoUrl,
         country,
         userType,
+        provider: provider,
       );
 
       await loadUserData();

@@ -143,7 +143,20 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
       debugPrint('Flashcards: cache-only fetch failed: $e');
     }
 
-    // Fallback to progressive network stream
+    // Prefer download-to-cache (respects Wi‑Fi-only setting) before falling back to streaming.
+    try {
+      final file = await CacheService.instance.getSingleFileRespectingSettings(url);
+      if (file != null) {
+        final c = VideoPlayerController.file(file);
+        await c.initialize().timeout(const Duration(seconds: 6));
+        c.setLooping(true);
+        return c;
+      }
+    } catch (e) {
+      debugPrint('Flashcards: cache download failed: $e');
+    }
+
+    // Final fallback: progressive network stream
     final c = VideoPlayerController.networkUrl(Uri.parse(url));
     await c.initialize().timeout(const Duration(seconds: 6));
     c.setLooping(true);
@@ -930,10 +943,18 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
       final data = doc.data() as Map<String, dynamic>;
       subtitle = '${_currentIndex + 1}/${_cards.length}';
 
-      // Display the tenant local language (with fallback to EN).
+      // Display words in the active UI language:
+      // - UI English => English
+      // - UI Local (tenant-local) => tenant local
       final scope = context.read<TenantScope>();
-      final localLang = scope.contentLocale;
-      word = ConceptText.labelFor(data, lang: localLang, fallbackLang: 'en');
+      final uiLang =
+          Localizations.localeOf(context).languageCode.trim().toLowerCase();
+      final tenantLocal = scope.contentLocale.trim().toLowerCase();
+      final useLocal = tenantLocal.isNotEmpty &&
+          tenantLocal != 'en' &&
+          uiLang == tenantLocal;
+      final primaryLang = useLocal ? tenantLocal : 'en';
+      word = ConceptText.labelFor(data, lang: primaryLang, fallbackLang: 'en');
 
       if (data.containsKey('variants')) {
         final variants = data['variants'] as List<dynamic>;

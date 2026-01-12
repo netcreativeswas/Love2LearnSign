@@ -18,6 +18,7 @@ import 'game_master.dart';
 import 'services/history_repository.dart';
 import 'services/favorites_repository.dart';
 import 'services/share_utils.dart';
+import 'widgets/cached_thumb.dart';
 import 'package:l2l_shared/analytics/search_tracking_service.dart';
 import 'package:l2l_shared/tenancy/concept_text.dart';
 import 'dart:async';
@@ -75,9 +76,8 @@ class _DictionarySortBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isEnglish = sortLang.toLowerCase() == 'en' || sortLang.trim().isEmpty;
     final local = localLang.trim().toLowerCase();
-    final label = isEnglish
-        ? S.of(context)!.english
-        : (local == 'bn' ? S.of(context)!.bengali : local.toUpperCase());
+    final label =
+        isEnglish ? S.of(context)!.english : _labelForLangCode(context, local);
     return Container(
       margin: EdgeInsets.zero,
       decoration: BoxDecoration(
@@ -119,6 +119,14 @@ class _DictionarySortBar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _labelForLangCode(BuildContext context, String code) {
+    final c = code.trim().toLowerCase();
+    if (c.isEmpty || c == 'en') return S.of(context)!.english;
+    if (c == 'bn') return S.of(context)!.bengali;
+    // Future-proof: show code for any new tenant language (vi/km/...) without hardcoding.
+    return c.toUpperCase();
   }
 }
 
@@ -1132,27 +1140,23 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
 
                 Widget thumbnailWidget;
                 if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-                  thumbnailWidget = Stack(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        color: Theme.of(context).colorScheme.surface3,
-                child: Image.asset('assets/videoLoadingPlaceholder.webp',
-                    width: 32, height: 32, fit: BoxFit.cover),
-                      ),
-                      Image.network(
-                        thumbnailUrl,
+                  thumbnailWidget = CachedThumb(
+                    url: thumbnailUrl,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                    placeholder: Container(
+                      width: 32,
+                      height: 32,
+                      color: Theme.of(context).colorScheme.surface3,
+                      child: Image.asset(
+                        'assets/videoLoadingPlaceholder.webp',
                         width: 32,
                         height: 32,
                         fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                        cacheWidth: 64,
-                        cacheHeight: 64,
-                        filterQuality: FilterQuality.low,
-                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                       ),
-                    ],
+                    ),
+                    error: const SizedBox.shrink(),
                   );
                 } else {
                   thumbnailWidget = Container(
@@ -1254,6 +1258,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                             tenantId: scope.tenantId,
                             signLangId: scope.signLangId,
                             uiLocale: uiLocale,
+                            context: context,
                           );
                         },
                       ),
@@ -1383,26 +1388,23 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
 
               Widget thumbnailWidget;
               if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-                thumbnailWidget = Stack(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      color: Theme.of(context).colorScheme.surface3,
-                        child: Image.asset('assets/videoLoadingPlaceholder.webp', width: 32, height: 32, fit: BoxFit.cover),
-                    ),
-                    Image.network(
-                      thumbnailUrl,
+                thumbnailWidget = CachedThumb(
+                  url: thumbnailUrl,
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                  placeholder: Container(
+                    width: 32,
+                    height: 32,
+                    color: Theme.of(context).colorScheme.surface3,
+                    child: Image.asset(
+                      'assets/videoLoadingPlaceholder.webp',
                       width: 32,
                       height: 32,
                       fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                        cacheWidth: 64,
-                        cacheHeight: 64,
-                        filterQuality: FilterQuality.low,
-                      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                     ),
-                  ],
+                  ),
+                  error: const SizedBox.shrink(),
                 );
               } else {
                 thumbnailWidget = Container(
@@ -1504,6 +1506,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                             tenantId: scope.tenantId,
                             signLangId: scope.signLangId,
                             uiLocale: uiLocale,
+                            context: context,
                           );
                         },
                       ),

@@ -15,7 +15,7 @@
     "logoAlt": "{appName} logo",
     "close": "Close",
     "support": "Support",
-    "madeBy": "Made by",
+    "madeBy": "Made by {name}",
     "googlePlay": "Google Play"
   },
   "home": {

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:line_icons/line_icons.dart';
 // removed stale import to arb app_localizations
+import 'dart:io' show File;
+import '../services/cache_service.dart';
 import '../services/share_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:love_to_learn_sign/tenancy/tenant_scope.dart';
@@ -18,6 +20,8 @@ class FullscreenVideoPlayer extends StatefulWidget {
   final String? bengali;
   // Carousel support
   final List<VideoPlayerController>? controllers;
+  // Alternative carousel support: provide URLs and let fullscreen lazy-load controllers.
+  final List<String>? variantUrls;
   final int? currentIndex;
   final Function(int)? onPageChanged;
   final int? totalVariants;
@@ -32,6 +36,7 @@ class FullscreenVideoPlayer extends StatefulWidget {
     this.english,
     this.bengali,
     this.controllers,
+    this.variantUrls,
     this.currentIndex,
     this.onPageChanged,
     this.totalVariants,
@@ -46,6 +51,9 @@ class FullscreenVideoPlayer extends StatefulWidget {
 class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with WidgetsBindingObserver {
   late VideoPlayerController _currentController;
   late int _currentIndex;
+  // Controllers created by fullscreen (lazy URL mode). Parent-owned controllers are not disposed here.
+  final Map<int, VideoPlayerController> _ownedControllers = {};
+  int? _externalIndex;
   
   String _capitalizeFirstLetter(String s) {
     if (s.isEmpty) return s;
@@ -59,6 +67,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
     WidgetsBinding.instance.addObserver(this);
     _currentController = widget.controller;
     _currentIndex = widget.currentIndex ?? 0;
+    _externalIndex = _currentIndex; // passed-in controller belongs to parent
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -87,12 +96,118 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
         await _currentController.seekTo(Duration.zero);
         await _currentController.play();
       }
+      return;
+    }
+
+    // Lazy-load carousel mode (variantUrls provided).
+    if (widget.variantUrls != null &&
+        index >= 0 &&
+        index < widget.variantUrls!.length &&
+        widget.onPageChanged != null) {
+      // Pause and reset previous controller
+      if (_currentController.value.isInitialized) {
+        try {
+          await _currentController.pause();
+          await _currentController.seekTo(Duration.zero);
+        } catch (_) {}
+      }
+
+      setState(() {
+        _currentIndex = index;
+      });
+      widget.onPageChanged!(index);
+
+      final url = widget.variantUrls![index].trim();
+      if (url.isEmpty) return;
+
+      // Reuse if we already created it in fullscreen.
+      final existing = _ownedControllers[index];
+      if (existing != null) {
+        setState(() => _currentController = existing);
+        if (_currentController.value.isInitialized) {
+          await _currentController.seekTo(Duration.zero);
+          await _currentController.play();
+        }
+        _evictFarOwnedControllers(keepIndex: index);
+        _prefetchAdjacentFiles(index);
+        return;
+      }
+
+      File? file;
+      try {
+        file = await CacheService.instance.getFromCacheOnly(url);
+        file ??= await CacheService.instance.getSingleFileRespectingSettings(url);
+      } catch (_) {
+        file = null;
+      }
+      if (!mounted) return;
+
+      final ctrl = file != null
+          ? VideoPlayerController.file(file)
+          : VideoPlayerController.networkUrl(Uri.parse(url));
+      try {
+        await ctrl.initialize();
+      } catch (_) {
+        try {
+          ctrl.dispose();
+        } catch (_) {}
+        return;
+      }
+      ctrl.setLooping(true);
+
+      if (!mounted) {
+        try {
+          ctrl.dispose();
+        } catch (_) {}
+        return;
+      }
+
+      _ownedControllers[index] = ctrl;
+      setState(() => _currentController = ctrl);
+      await _currentController.seekTo(Duration.zero);
+      await _currentController.play();
+
+      _evictFarOwnedControllers(keepIndex: index);
+      _prefetchAdjacentFiles(index);
+      return;
+    }
+  }
+
+  void _prefetchAdjacentFiles(int index) {
+    if (widget.variantUrls == null) return;
+    final urls = widget.variantUrls!;
+    for (final i in <int>[index - 1, index + 1]) {
+      if (i < 0 || i >= urls.length) continue;
+      final u = urls[i].trim();
+      if (u.isEmpty) continue;
+      CacheService.instance.getSingleFileRespectingSettings(u);
+    }
+  }
+
+  void _evictFarOwnedControllers({required int keepIndex}) {
+    final keys = _ownedControllers.keys.toList();
+    for (final k in keys) {
+      if ((k - keepIndex).abs() <= 1) continue;
+      // Never dispose the parent-owned controller.
+      if (_externalIndex != null && k == _externalIndex) continue;
+      final c = _ownedControllers.remove(k);
+      try {
+        c?.dispose();
+      } catch (_) {}
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Dispose only controllers created by fullscreen (lazy URL mode).
+    for (final entry in _ownedControllers.entries) {
+      if (_externalIndex != null && entry.key == _externalIndex) continue;
+      try {
+        entry.value.dispose();
+      } catch (_) {}
+    }
+    _ownedControllers.clear();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -117,6 +232,13 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
           }
         }
       }
+      if (widget.variantUrls != null) {
+        for (final c in _ownedControllers.values) {
+          if (c.value.isInitialized && c.value.isPlaying) {
+            c.pause();
+          }
+        }
+      }
     } else if (state == AppLifecycleState.resumed) {
       // Resume video when app comes to foreground
       if (_currentController.value.isInitialized && !_currentController.value.isPlaying) {
@@ -129,9 +251,9 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
   Widget build(BuildContext context) {
     final controller = _currentController;
     final screenSize = MediaQuery.of(context).size;
-    final hasCarousel = widget.controllers != null && 
-                        widget.controllers!.length > 1 &&
-                        widget.onPageChanged != null;
+    final totalCarousel =
+        widget.controllers?.length ?? widget.variantUrls?.length ?? 0;
+    final hasCarousel = totalCarousel > 1 && widget.onPageChanged != null;
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
     
@@ -299,7 +421,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
                     ),
                   ),
                 ),
-              if (_currentIndex < widget.controllers!.length - 1)
+              if (_currentIndex < totalCarousel - 1)
                 Positioned(
                   right: 20,
                   top: 0,
@@ -416,6 +538,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
                           tenantId: scope.tenantId,
                           signLangId: scope.signLangId,
                           uiLocale: uiLocale,
+                          context: context,
                         );
                       },
                       icon: Icon(IconlyLight.send),

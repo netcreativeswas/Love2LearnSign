@@ -132,6 +132,14 @@ class _AppBootstrapState extends State<AppBootstrap> {
     // Request permission (iOS) + subscribe to topic for server push new words digest.
     await _initMessagingAndPermissions();
 
+    // Ads SDK init + tenant-scoped ad unit config (deferred; non-critical for first paint).
+    try {
+      await AdService().setTenant(_tenantScope.tenantId);
+      await AdService().initialize();
+    } catch (e) {
+      debugPrint('Ads init failed (non-fatal): $e');
+    }
+
     // Notification channels + scheduling can be expensive on some devices
     await _initNotificationsChannels();
     await _initNotificationServices();

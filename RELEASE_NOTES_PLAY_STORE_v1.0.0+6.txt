@@ -1,0 +1,17 @@
+What's New:
+• iOS subscription support with automatic verification
+• Dictionary sort preferences now persist after app restart
+• Games page loads faster with instant token display
+• Fixed video uploads for tenant admins and editors
+
+Bug Fixes:
+• Dictionary sort order (English/Bangoli) now remembered
+• Games page UI appears immediately without delay
+• iOS AppBar alignment fixed to match other pages
+• Storage upload permissions fixed for tenant roles
+
+Technical:
+• Improved caching for premium status and session tokens
+• Enhanced security rules for tenant permissions
+• Better error handling for upload failures
+

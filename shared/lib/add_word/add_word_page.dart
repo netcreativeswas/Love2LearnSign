@@ -18,11 +18,17 @@ import 'style.dart';
 class AddWordPage extends StatefulWidget {
   final String tenantId;
   final String signLangId;
+  final bool embedded;
+  final double? dashboardMaxWidth;
+  final VoidCallback? onSaved;
 
   const AddWordPage({
     super.key,
     this.tenantId = TenantDb.defaultTenantId,
     this.signLangId = TenantDb.defaultSignLangId,
+    this.embedded = false,
+    this.dashboardMaxWidth,
+    this.onSaved,
   });
 
   @override
@@ -1082,20 +1088,26 @@ class _AddWordPageState extends State<AddWordPage> {
 
     setState(() => _isLoading = false);
 
-    // Show confirmation dialog
-    await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Word saved'),
-        content: const Text('Word saved in the database. You can add another word.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+    // Notify parent (dashboard split view wants to refresh left panel stats).
+    widget.onSaved?.call();
+
+    // For dashboard embedded mode (bulk adding), avoid a blocking dialog on every save.
+    if (!widget.embedded) {
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Word saved'),
+          content:
+              const Text('Word saved in the database. You can add another word.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
 
     // Reset form fields
     setState(() {
@@ -1212,22 +1224,21 @@ class _AddWordPageState extends State<AddWordPage> {
   @override
   Widget build(BuildContext context) {
     final isDashboard = L2LLayoutScope.maybeOf(context)?.isDashboard ?? false;
-    return Scaffold(
-      appBar: isDashboard
-          ? null
-          : AppBar(
-              title: const Text('Add New Word'),
-            ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: isDashboard ? 400 : double.infinity),
-          child: GestureDetector(
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
+    final maxWidth = isDashboard
+        ? (widget.dashboardMaxWidth ?? (widget.embedded ? double.infinity : 400))
+        : double.infinity;
+
+    final body = Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
                   // Checkbox for variants (no auto-scroll per request)
                   Row(
                     children: [
@@ -1402,7 +1413,13 @@ class _AddWordPageState extends State<AddWordPage> {
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
-                                  Text('File selected: ${_selectedimageFlashcard!.name}'),
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedimageFlashcard!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   TextButton(
                                 onPressed: () {
@@ -1457,7 +1474,13 @@ class _AddWordPageState extends State<AddWordPage> {
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
-                                  Text('File selected: ${_selectedVideoSD!.name}'),
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedVideoSD!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   TextButton(
                                     onPressed: () {
@@ -1497,7 +1520,13 @@ class _AddWordPageState extends State<AddWordPage> {
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
-                                  Text('File selected: ${_selectedVideo!.name}'),
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedVideo!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   TextButton(
                                     onPressed: () {
@@ -1540,7 +1569,13 @@ class _AddWordPageState extends State<AddWordPage> {
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
-                                  Text('File selected: ${_selectedVideoHD!.name}'),
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedVideoHD!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   TextButton(
                                 onPressed: () {
@@ -1592,7 +1627,13 @@ class _AddWordPageState extends State<AddWordPage> {
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Row(
                                       children: [
-                                        Text('File selected: ${_selectedVideoThumbnail!.name}'),
+                                        Expanded(
+                                          child: Text(
+                                            'File selected: ${_selectedVideoThumbnail!.name}',
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                        ),
                                         const SizedBox(width: 8),
                                         TextButton(
                                       onPressed: () {
@@ -1648,7 +1689,13 @@ class _AddWordPageState extends State<AddWordPage> {
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Row(
                                       children: [
-                                        Text('File selected: ${_selectedVideoThumbnailSmall!.name}'),
+                                        Expanded(
+                                          child: Text(
+                                            'File selected: ${_selectedVideoThumbnailSmall!.name}',
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                        ),
                                         const SizedBox(width: 8),
                                         TextButton(
                                       onPressed: () {
@@ -1728,7 +1775,13 @@ class _AddWordPageState extends State<AddWordPage> {
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Row(
                                       children: [
-                                        Text('File selected: ${_selectedVariantVideosSD[index]!.name}'),
+                                        Expanded(
+                                          child: Text(
+                                            'File selected: ${_selectedVariantVideosSD[index]!.name}',
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                        ),
                                         const SizedBox(width: 8),
                                         TextButton(
                                           onPressed: () {
@@ -1768,7 +1821,13 @@ class _AddWordPageState extends State<AddWordPage> {
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Row(
                                       children: [
-                                        Text('File selected: ${_selectedVariantVideos[index]!.name}'),
+                                        Expanded(
+                                          child: Text(
+                                            'File selected: ${_selectedVariantVideos[index]!.name}',
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                        ),
                                         const SizedBox(width: 8),
                                         TextButton(
                                           onPressed: () {
@@ -1810,7 +1869,13 @@ class _AddWordPageState extends State<AddWordPage> {
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Row(
                                       children: [
-                                        Text('File selected: ${_selectedVariantVideosHD[index]!.name}'),
+                                        Expanded(
+                                          child: Text(
+                                            'File selected: ${_selectedVariantVideosHD[index]!.name}',
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                        ),
                                         const SizedBox(width: 8),
                                         TextButton(
                                       onPressed: () {
@@ -1862,7 +1927,13 @@ class _AddWordPageState extends State<AddWordPage> {
                                           padding: const EdgeInsets.only(top: 8.0),
                                           child: Row(
                                             children: [
-                                              Text('File selected: ${_selectedVariantThumbnails[index]!.name}'),
+                                              Expanded(
+                                                child: Text(
+                                                  'File selected: ${_selectedVariantThumbnails[index]!.name}',
+                                                  overflow: TextOverflow.ellipsis,
+                                                  maxLines: 1,
+                                                ),
+                                              ),
                                               const SizedBox(width: 8),
                                               TextButton(
                                             onPressed: () {
@@ -1910,7 +1981,13 @@ class _AddWordPageState extends State<AddWordPage> {
                                           padding: const EdgeInsets.only(top: 8.0),
                                           child: Row(
                                             children: [
-                                              Text('File selected: ${_selectedVariantThumbnailsSmall[index]!.name}'),
+                                              Expanded(
+                                                child: Text(
+                                                  'File selected: ${_selectedVariantThumbnailsSmall[index]!.name}',
+                                                  overflow: TextOverflow.ellipsis,
+                                                  maxLines: 1,
+                                                ),
+                                              ),
                                               const SizedBox(width: 8),
                                               TextButton(
                                             onPressed: () {
@@ -1957,12 +2034,22 @@ class _AddWordPageState extends State<AddWordPage> {
                   _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : ElevatedButton(onPressed: _saveWord, child: const Text('Save')),
-                ],
-              ),
+              ],
             ),
           ),
         ),
       ),
+    );
+
+    if (widget.embedded) return body;
+
+    return Scaffold(
+      appBar: isDashboard
+          ? null
+          : AppBar(
+              title: const Text('Add New Word'),
+            ),
+      body: body,
     );
   }
 }
