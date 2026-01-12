@@ -165,7 +165,7 @@ class _EditWordPageState extends State<EditWordPage> {
   // Use the default Storage bucket configured by Firebase.initializeApp(...)
   Reference _storageRoot() => FirebaseStorage.instance.ref();
 
-  late final WordsRepository _repo;
+  late WordsRepository _repo;
 
   bool get _canDelete {
     final override = widget.userRoleOverride?.toLowerCase().trim();
@@ -266,6 +266,48 @@ class _EditWordPageState extends State<EditWordPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadTenantUiLocales();
+      await _loadExistingWord();
+    });
+  }
+
+  void _resetTransientSelections() {
+    _isLoading = false;
+
+    _uploadVideo = false;
+    _selectedVideo = null;
+    _uploadVideoSD = false;
+    _selectedVideoSD = null;
+    _uploadVideoHD = false;
+    _selectedVideoHD = null;
+    _uploadVideoThumbnailSmall = false;
+    _selectedVideoThumbnailSmall = null;
+    _uploadimageFlashcard = false;
+    _selectedimageFlashcard = null;
+
+    _selectedCategory = null;
+    _selectedSubcategory = null;
+  }
+
+  @override
+  void didUpdateWidget(covariant EditWordPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final tenantChanged =
+        oldWidget.tenantId != widget.tenantId || oldWidget.signLangId != widget.signLangId;
+    final wordChanged = oldWidget.wordId != widget.wordId;
+    if (!tenantChanged && !wordChanged) return;
+
+    _repo = WordsRepository(tenantId: widget.tenantId, signLangId: widget.signLangId);
+    _resetTransientSelections();
+
+    setState(() => _isLoadingDoc = true);
+
+    // Re-load locales if tenant changed, then load the newly selected word.
+    Future<void>(() async {
+      if (tenantChanged) {
+        _applyUiLocales(_defaultUiLocalesForTenant(widget.tenantId), markLoaded: false);
+        await _loadTenantUiLocales();
+      }
       await _loadExistingWord();
     });
   }
@@ -452,12 +494,14 @@ class _EditWordPageState extends State<EditWordPage> {
   }
 
   Future<void> _loadExistingWord() async {
+    final requestedWordId = widget.wordId;
+    final requestedTenantId = widget.tenantId;
     setState(() => _isLoadingDoc = true);
     try {
       final snap = await TenantDb.conceptDoc(
         FirebaseFirestore.instance,
-        widget.wordId,
-        tenantId: widget.tenantId,
+        requestedWordId,
+        tenantId: requestedTenantId,
       ).get();
       final data = snap.data() ?? <String, dynamic>{};
 
@@ -542,9 +586,12 @@ class _EditWordPageState extends State<EditWordPage> {
       }
 
       if (!mounted) return;
+      // If user switched selection while loading, ignore stale completion.
+      if (widget.wordId != requestedWordId || widget.tenantId != requestedTenantId) return;
       setState(() => _isLoadingDoc = false);
     } catch (e) {
       if (!mounted) return;
+      if (widget.wordId != requestedWordId || widget.tenantId != requestedTenantId) return;
       setState(() => _isLoadingDoc = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load word: $e')));
     }
@@ -930,6 +977,8 @@ class _EditWordPageState extends State<EditWordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final body = _isLoadingDoc
         ? const Center(child: CircularProgressIndicator())
         : Stack(
@@ -942,14 +991,20 @@ class _EditWordPageState extends State<EditWordPage> {
                       Expanded(
                         child: Text(
                           'Edit Word',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
                       if (_canDelete)
                         TextButton.icon(
                           onPressed: _isLoading ? null : _deleteWord,
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('Delete'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: isDark ? Colors.white : theme.colorScheme.error,
+                          ),
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          label: Text(
+                            'Delete',
+                            style: TextStyle(color: isDark ? Colors.white : theme.colorScheme.error),
+                          ),
                         ),
                     ],
                   ),

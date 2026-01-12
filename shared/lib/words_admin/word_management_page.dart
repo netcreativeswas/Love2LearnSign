@@ -274,6 +274,7 @@ class _WordManagementPageState extends State<WordManagementPage> {
               },
             )
           : EditWordView(
+              key: ValueKey<String>('edit_${_selectedWordId!}'),
               wordId: _selectedWordId!,
               tenantId: widget.tenantId,
               signLangId: widget.signLangId,
@@ -363,9 +364,7 @@ class _RightPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isDashboard = L2LLayoutScope.maybeOf(context)?.isDashboard ?? false;
-    final title = mode == _WordMode.add ? 'Add Word' : 'Edit Word';
 
     return Column(
       children: [
@@ -373,27 +372,7 @@ class _RightPanel extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    if (mode == _WordMode.edit && (selectedWordId ?? '').isNotEmpty)
-                      Text(
-                        selectedWordId!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
+              const Spacer(),
               ElevatedButton.icon(
                 onPressed: onAddWord,
                 icon: const Icon(Icons.add),

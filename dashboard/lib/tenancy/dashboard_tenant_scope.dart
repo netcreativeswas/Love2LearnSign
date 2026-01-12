@@ -230,7 +230,7 @@ class DashboardTenantScope extends ChangeNotifier {
       ),
       textTheme: baseText.copyWith(
         titleLarge: TextStyle(
-          color: scheme.primary,
+          color: (brightness == Brightness.dark) ? scheme.onSurface : scheme.primary,
           fontWeight: FontWeight.w700,
         ),
         bodyMedium: TextStyle(color: scheme.onSurface),
