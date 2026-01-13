@@ -1292,6 +1292,90 @@ abstract class AppLocalizations {
   /// **'Read our privacy policy and data practices'**
   String get privacyPolicySubtitle;
 
+  /// No description provided for @manageAdConsentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage ad consent'**
+  String get manageAdConsentTitle;
+
+  /// No description provided for @manageAdConsentSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update your advertising privacy choices'**
+  String get manageAdConsentSubtitle;
+
+  /// No description provided for @manageAdConsentSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Ad consent settings opened.'**
+  String get manageAdConsentSuccess;
+
+  /// No description provided for @manageAdConsentFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open ad consent settings: {error}'**
+  String manageAdConsentFailed(String error);
+
+  /// No description provided for @deleteAccountSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get deleteAccountSectionTitle;
+
+  /// No description provided for @deleteAccountSectionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete your account and associated data from Love to Learn Sign.'**
+  String get deleteAccountSectionDescription;
+
+  /// No description provided for @deleteAccountButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get deleteAccountButton;
+
+  /// No description provided for @deleteAccountDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete your account?'**
+  String get deleteAccountDialogTitle;
+
+  /// No description provided for @deleteAccountDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete your account and associated data. This action cannot be undone.'**
+  String get deleteAccountDialogBody;
+
+  /// No description provided for @deleteAccountDialogHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type DELETE to confirm'**
+  String get deleteAccountDialogHint;
+
+  /// No description provided for @deleteAccountProcessingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting account…'**
+  String get deleteAccountProcessingTitle;
+
+  /// No description provided for @deleteAccountProcessingMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait while we delete your account and data.'**
+  String get deleteAccountProcessingMessage;
+
+  /// No description provided for @deleteAccountSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account has been deleted.'**
+  String get deleteAccountSuccess;
+
+  /// No description provided for @deleteAccountFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Account deletion failed: {error}'**
+  String deleteAccountFailed(String error);
+
   /// No description provided for @privacyDialogIntro.
   ///
   /// In en, this message translates to:
@@ -1345,6 +1429,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'• Track usage (video views, game sessions) to improve features'**
   String get privacyDialogPointTracking;
+
+  /// No description provided for @privacyDialogPointSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'• Prevent abuse and fraud (rate limiting) using device identifiers and IP address'**
+  String get privacyDialogPointSecurity;
 
   /// No description provided for @privacyDialogPointSearchAnalytics.
   ///
@@ -1415,7 +1505,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyDialogRightsDelete.
   ///
   /// In en, this message translates to:
-  /// **'• Request data deletion by contacting us'**
+  /// **'• Delete your account in the app settings or contact us for support'**
   String get privacyDialogRightsDelete;
 
   /// No description provided for @privacyDialogPremiumTitle.

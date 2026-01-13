@@ -1,6 +1,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:l2l_shared/tenancy/concept_media.dart';
@@ -9,6 +10,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:love_to_learn_sign/home_page.dart';
 import 'package:love_to_learn_sign/l10n/app_localizations.dart';
+
+String _redactUrlForLogs(String url) {
+  final raw = url.trim();
+  if (raw.isEmpty) return raw;
+  try {
+    final uri = Uri.parse(raw);
+    // Remove query params + fragments to avoid leaking tokens.
+    return uri.replace(query: '', fragment: '').toString();
+  } catch (_) {
+    return raw;
+  }
+}
+
+void _dlog(String message) {
+  if (kDebugMode) debugPrint(message);
+}
 
 class OnboardingVideoScreen extends StatefulWidget {
   const OnboardingVideoScreen({super.key});
@@ -46,7 +63,7 @@ class _OnboardingVideoScreenState extends State<OnboardingVideoScreen>
   Future<void> _init() async {
     try {
       // 1) Read Firestore doc meta/intro
-      print('🔍 Onboarding: Reading Firestore meta/intro document...');
+      _dlog('🔍 Onboarding: Reading Firestore meta/intro document...');
       final doc = await FirebaseFirestore.instance
           .collection('meta')
           .doc('intro')
@@ -55,15 +72,15 @@ class _OnboardingVideoScreenState extends State<OnboardingVideoScreen>
       final enabled = (data['enabled'] as bool?) ?? true;
       String url = ConceptMedia.video480FromConcept(Map<String, dynamic>.from(data));
       
-      print('🔍 Onboarding: Document data: $data');
-      print('🔍 Onboarding: enabled: $enabled, url: $url');
-      print('🔍 Onboarding: Document exists: ${doc.exists}');
-      print('🔍 Onboarding: Document ID: ${doc.id}');
-      print('🔍 Onboarding: Collection path: ${doc.reference.path}');
+      _dlog('🔍 Onboarding: Document data: $data');
+      _dlog('🔍 Onboarding: enabled: $enabled, url: ${_redactUrlForLogs(url)}');
+      _dlog('🔍 Onboarding: Document exists: ${doc.exists}');
+      _dlog('🔍 Onboarding: Document ID: ${doc.id}');
+      _dlog('🔍 Onboarding: Collection path: ${doc.reference.path}');
 
       if (!enabled || url.isEmpty) {
         // Nothing to show -> show placeholder instead of going home
-        print('🔍 Onboarding: Video disabled or URL empty, showing placeholder');
+        _dlog('🔍 Onboarding: Video disabled or URL empty, showing placeholder');
         _failed = true;
         setState(() {
           _loading = false;
@@ -74,15 +91,15 @@ class _OnboardingVideoScreenState extends State<OnboardingVideoScreen>
 
       // 2) Skip Firebase Storage conversion for local assets
       if (url.startsWith('assets/')) {
-        print('🔍 Onboarding: Using local asset, skipping Firebase Storage conversion');
+        _dlog('🔍 Onboarding: Using local asset, skipping Firebase Storage conversion');
       } else if (!url.startsWith('http')) {
         // Only convert to download URL for Firebase Storage paths (not assets)
         try {
-          print('🔍 Onboarding: Converting Firebase Storage path to download URL...');
+          _dlog('🔍 Onboarding: Converting Firebase Storage path to download URL...');
           url = await FirebaseStorage.instance.ref(url).getDownloadURL();
-          print('🔍 Onboarding: Got download URL: $url');
+          _dlog('🔍 Onboarding: Got download URL: ${_redactUrlForLogs(url)}');
         } catch (e) {
-          print('🔍 Onboarding: Error getting download URL: $e');
+          _dlog('🔍 Onboarding: Error getting download URL: $e');
           _failed = true;
           setState(() {
             _loading = false;
@@ -93,18 +110,18 @@ class _OnboardingVideoScreenState extends State<OnboardingVideoScreen>
 
       // 3) Initialize VideoPlayer for local asset
       try {
-        print('🔍 Onboarding: Initializing video player with asset URL: $url');
+        _dlog('🔍 Onboarding: Initializing video player with URL: ${_redactUrlForLogs(url)}');
         
         // Check if it's a local asset path
         if (url.startsWith('assets/')) {
-          print('🔍 Onboarding: Using VideoPlayerController.asset for local file');
+          _dlog('🔍 Onboarding: Using VideoPlayerController.asset for local file');
           _controller = VideoPlayerController.asset(url);
         } else {
-          print('🔍 Onboarding: Using VideoPlayerController.network for remote URL');
+          _dlog('🔍 Onboarding: Using VideoPlayerController.network for remote URL');
           _controller = VideoPlayerController.networkUrl(Uri.parse(url));
         }
         
-        print('🔍 Onboarding: Video controller created, initializing...');
+        _dlog('🔍 Onboarding: Video controller created, initializing...');
         
         // Wait for initialization with timeout
         await _controller!.initialize().timeout(
@@ -114,7 +131,7 @@ class _OnboardingVideoScreenState extends State<OnboardingVideoScreen>
           },
         );
         
-        print('🔍 Onboarding: Video initialized successfully, setting up playback...');
+        _dlog('🔍 Onboarding: Video initialized successfully, setting up playback...');
         
         _controller!.setLooping(false);
 
@@ -143,12 +160,12 @@ class _OnboardingVideoScreenState extends State<OnboardingVideoScreen>
         });
 
         // Start playback
-        print('🔍 Onboarding: Starting video playback...');
+        _dlog('🔍 Onboarding: Starting video playback...');
         await _controller!.play();
-        print('🔍 Onboarding: Video playback started successfully');
+        _dlog('🔍 Onboarding: Video playback started successfully');
         
       } catch (e) {
-        print('🔍 Onboarding: Error initializing video: $e');
+        _dlog('🔍 Onboarding: Error initializing video: $e');
         _failed = true;
         setState(() {
           _loading = false;

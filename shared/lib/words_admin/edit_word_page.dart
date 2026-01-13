@@ -123,6 +123,7 @@ class _EditWordPageState extends State<EditWordPage> {
   final TextEditingController _videoUrlSDController = TextEditingController();
   final TextEditingController _videoUrlHDController = TextEditingController();
   final TextEditingController _imageFlashcardUrlController = TextEditingController();
+  final TextEditingController _videoThumbnailUrlController = TextEditingController();
   final TextEditingController _videoThumbnailSmallUrlController = TextEditingController();
 
   // Variant controllers (AddWord-style)
@@ -139,6 +140,9 @@ class _EditWordPageState extends State<EditWordPage> {
   PlatformFile? _selectedVideoSD;
   bool _uploadVideoHD = false;
   PlatformFile? _selectedVideoHD;
+
+  bool _uploadVideoThumbnail = false;
+  PlatformFile? _selectedVideoThumbnail;
 
   bool _uploadVideoThumbnailSmall = false;
   PlatformFile? _selectedVideoThumbnailSmall;
@@ -279,6 +283,8 @@ class _EditWordPageState extends State<EditWordPage> {
     _selectedVideoSD = null;
     _uploadVideoHD = false;
     _selectedVideoHD = null;
+    _uploadVideoThumbnail = false;
+    _selectedVideoThumbnail = null;
     _uploadVideoThumbnailSmall = false;
     _selectedVideoThumbnailSmall = null;
     _uploadimageFlashcard = false;
@@ -402,6 +408,7 @@ class _EditWordPageState extends State<EditWordPage> {
     _videoUrlSDController.dispose();
     _videoUrlHDController.dispose();
     _imageFlashcardUrlController.dispose();
+    _videoThumbnailUrlController.dispose();
     _videoThumbnailSmallUrlController.dispose();
     for (final map in _variantFields) {
       for (final c in map.values) {
@@ -445,8 +452,8 @@ class _EditWordPageState extends State<EditWordPage> {
     v0['videoUrl']!.text = _videoUrlController.text.trim();
     v0['videoUrlSD']!.text = _videoUrlSDController.text.trim();
     v0['videoUrlHD']!.text = _videoUrlHDController.text.trim();
+    v0['thumbnailUrl']!.text = _videoThumbnailUrlController.text.trim();
     v0['thumbnailSmallUrl']!.text = _videoThumbnailSmallUrlController.text.trim();
-    // For thumbnailUrl we don't have a single controller in the UI; leave as-is.
   }
 
   void _copyVariant1ToSingle() {
@@ -455,6 +462,7 @@ class _EditWordPageState extends State<EditWordPage> {
     _videoUrlController.text = v0['videoUrl']!.text.trim();
     _videoUrlSDController.text = v0['videoUrlSD']!.text.trim();
     _videoUrlHDController.text = v0['videoUrlHD']!.text.trim();
+    _videoThumbnailUrlController.text = v0['thumbnailUrl']!.text.trim();
     _videoThumbnailSmallUrlController.text = v0['thumbnailSmallUrl']!.text.trim();
   }
 
@@ -581,6 +589,8 @@ class _EditWordPageState extends State<EditWordPage> {
         _videoUrlController.text = (first['videos_480'] ?? first['videoUrl'] ?? data['videos_480'] ?? data['videoUrl'] ?? '').toString();
         _videoUrlSDController.text = (first['videos_360'] ?? first['videoUrlSD'] ?? data['videos_360'] ?? data['videoUrlSD'] ?? '').toString();
         _videoUrlHDController.text = (first['videos_720'] ?? first['videoUrlHD'] ?? data['videos_720'] ?? data['videoUrlHD'] ?? '').toString();
+        _videoThumbnailUrlController.text =
+            (first['videoThumbnail'] ?? data['videoThumbnail'] ?? '').toString();
         _videoThumbnailSmallUrlController.text =
             (first['videoThumbnailSmall'] ?? data['videoThumbnailSmall'] ?? '').toString();
       }
@@ -653,6 +663,12 @@ class _EditWordPageState extends State<EditWordPage> {
     if (_selectedVideoHD != null) {
       uploadedUrls['videos_720'] =
           await _uploadFileToStorage(_selectedVideoHD!, storageDir: TenantStoragePaths.videosHdDir(conceptId: conceptId));
+    }
+    if (_selectedVideoThumbnail != null) {
+      uploadedUrls['videoThumbnail'] = await _uploadFileToStorage(
+        _selectedVideoThumbnail!,
+        storageDir: TenantStoragePaths.thumbnailsDir(conceptId: conceptId),
+      );
     }
     if (_selectedVideoThumbnailSmall != null) {
       uploadedUrls['videoThumbnailSmall'] = await _uploadFileToStorage(
@@ -772,8 +788,9 @@ class _EditWordPageState extends State<EditWordPage> {
       final videos480 = uploadedUrls['videos_480'] as String? ?? _videoUrlController.text.trim();
       final videos360 = uploadedUrls['videos_360'] as String? ?? _videoUrlSDController.text.trim();
       final videos720 = uploadedUrls['videos_720'] as String? ?? _videoUrlHDController.text.trim();
-      final videoThumbnailUrl =
-          uploadedUrls['videoThumbnail'] as String? ?? (beforeData['videoThumbnail'] ?? '').toString();
+      final enteredThumb = _videoThumbnailUrlController.text.trim();
+      final videoThumbnailUrl = uploadedUrls['videoThumbnail'] as String? ??
+          (enteredThumb.isNotEmpty ? enteredThumb : (beforeData['videoThumbnail'] ?? '').toString());
       final videoThumbnailSmallUrl =
           uploadedUrls['videoThumbnailSmall'] as String? ?? _videoThumbnailSmallUrlController.text.trim();
       final imageFlashcardUrl =
@@ -903,6 +920,9 @@ class _EditWordPageState extends State<EditWordPage> {
       if (uploadedUrls['videos_480'] is String) _videoUrlController.text = uploadedUrls['videos_480'] as String;
       if (uploadedUrls['videos_360'] is String) _videoUrlSDController.text = uploadedUrls['videos_360'] as String;
       if (uploadedUrls['videos_720'] is String) _videoUrlHDController.text = uploadedUrls['videos_720'] as String;
+      if (uploadedUrls['videoThumbnail'] is String) {
+        _videoThumbnailUrlController.text = uploadedUrls['videoThumbnail'] as String;
+      }
       if (uploadedUrls['videoThumbnailSmall'] is String) {
         _videoThumbnailSmallUrlController.text = uploadedUrls['videoThumbnailSmall'] as String;
       }
@@ -1313,6 +1333,44 @@ class _EditWordPageState extends State<EditWordPage> {
                                     onPressed: () => setState(() {
                                       _uploadVideoHD = false;
                                       _selectedVideoHD = null;
+                                    }),
+                                    child: const Text('Cancel'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+                          _inlineUrlWithFileButton(
+                            controller: _videoThumbnailUrlController,
+                            enabled: !_uploadVideoThumbnail,
+                            labelText: 'Video Thumbnail URL',
+                            onPick: () async {
+                              final file = await _pickImage();
+                              if (file != null) {
+                                setState(() {
+                                  _selectedVideoThumbnail = file;
+                                  _uploadVideoThumbnail = true;
+                                });
+                              }
+                            },
+                          ),
+                          if (_uploadVideoThumbnail && _selectedVideoThumbnail != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'File selected: ${_selectedVideoThumbnail!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton(
+                                    onPressed: () => setState(() {
+                                      _uploadVideoThumbnail = false;
+                                      _selectedVideoThumbnail = null;
                                     }),
                                     child: const Text('Cancel'),
                                   ),

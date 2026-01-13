@@ -24,6 +24,23 @@ import 'services/flashcard_notification_service.dart';
 
 // For flip animation, we use pi from dart:math above.
 
+String _redactUrlForLogs(String url) {
+  final raw = url.trim();
+  if (raw.isEmpty) return raw;
+  try {
+    final uri = Uri.parse(raw);
+    // Remove query params + fragments to avoid leaking tokens.
+    return uri.replace(query: '', fragment: '').toString();
+  } catch (_) {
+    // Best-effort fallback: redact token query param if present.
+    return raw.replaceAll(RegExp(r'([?&]token=)[^&]+'), r'$1<redacted>');
+  }
+}
+
+void _dlog(String message) {
+  if (kDebugMode) debugPrint(message);
+}
+
 class FlashcardPage extends StatefulWidget {
   final int numCards;
   final String contentChoice;   // 'random' ou nom de catégorie
@@ -140,7 +157,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         return c;
       }
     } catch (e) {
-      debugPrint('Flashcards: cache-only fetch failed: $e');
+      _dlog('Flashcards: cache-only fetch failed: $e');
     }
 
     // Prefer download-to-cache (respects Wi‑Fi-only setting) before falling back to streaming.
@@ -153,7 +170,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         return c;
       }
     } catch (e) {
-      debugPrint('Flashcards: cache download failed: $e');
+      _dlog('Flashcards: cache download failed: $e');
     }
 
     // Final fallback: progressive network stream
@@ -211,7 +228,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         _videoController = controller;
       }
     } catch (e) {
-      debugPrint('Flashcards: preload current video failed for index $index: $e');
+      _dlog('Flashcards: preload current video failed for index $index: $e');
     }
   }
 
@@ -444,7 +461,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
   Future<void> _initializeVideo(int index) async {
     // Safety check: ensure index is valid and not disposed
     if (_isDisposed || !mounted || index < 0 || index >= _cards.length) {
-      debugPrint('Flashcard: invalid index $index, cards length: ${_cards.length}');
+      _dlog('Flashcard: invalid index $index, cards length: ${_cards.length}');
       _videoController?.pause();
       _videoController = null;
       if (!mounted) return;
@@ -476,32 +493,38 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
           }
           _videoController = cachedController;
           _touchLRU(index);
-          // Toujours remettre au début et forcer la lecture
+          // Always reset to start, but do NOT autoplay (user must press Play).
           _videoController!.setLooping(true);
           await _videoController!.seekTo(Duration.zero);
-          await _videoController!.play();
+          try {
+            if (_videoController!.value.isPlaying) {
+              await _videoController!.pause();
+            }
+          } catch (_) {
+            // best-effort only
+          }
           if (!mounted) return;
           setState(() {
             _currentSpeed = _videoController?.value.playbackSpeed ?? 1.0;
           });
-          debugPrint('Flashcard: reused cached controller for index $index');
+          _dlog('Flashcard: reused cached controller for index $index');
           return;
         } else {
           // Controller exists but not initialized - remove it and rebuild
-          debugPrint('Flashcard: cached controller for index $index not initialized, rebuilding');
+          _dlog('Flashcard: cached controller for index $index not initialized, rebuilding');
           try { _videoControllers[index]?.dispose(); } catch (_) {}
           _videoControllers.remove(index);
           _controllerUrlByIndex.remove(index);
         }
       } else {
         // URL mismatch: dispose stale controller and rebuild
-        debugPrint('Flashcard: URL mismatch for index $index, rebuilding');
+        _dlog('Flashcard: URL mismatch for index $index, rebuilding');
         try { _videoControllers[index]?.dispose(); } catch (_) {}
         _videoControllers.remove(index);
         _controllerUrlByIndex.remove(index);
       }
     }
-    debugPrint('Flashcard: initializing video for index $index with URL: $url');
+    _dlog('Flashcard: initializing video for index $index with URL: ${_redactUrlForLogs(url)}');
 
     if (url.isNotEmpty) {
       try {
@@ -514,23 +537,29 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         
         // Double-check that we're still on the same index (user might have navigated away)
         if (!mounted || index != _currentIndex) {
-          debugPrint('Flashcard: index changed during initialization, disposing controller');
+          _dlog('Flashcard: index changed during initialization, disposing controller');
           controller.dispose();
           return;
         }
         
       _videoController = controller;
       _cachePut(index, controller, sourceUrl: url);
-      // Forcer la lecture depuis le début
+      // Reset to start, but do NOT autoplay (user must press Play).
       await _videoController!.seekTo(Duration.zero);
-      await _videoController!.play();
+      try {
+        if (_videoController!.value.isPlaying) {
+          await _videoController!.pause();
+        }
+      } catch (_) {
+        // best-effort only
+      }
       if (!mounted) return;
       setState(() {
         _currentSpeed = _videoController!.value.playbackSpeed;
       });
-      debugPrint('Flashcard: successfully initialized video for index $index');
+      _dlog('Flashcard: successfully initialized video for index $index');
       } catch (e) {
-        debugPrint('Flashcard: error initializing video for index $index: $e');
+        _dlog('Flashcard: error initializing video for index $index: $e');
         // Clear controller on error to avoid showing wrong video
         _videoController?.pause();
         _videoController = null;
@@ -550,7 +579,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
       }
     } else {
       // No video URL for this card - clear the controller to avoid showing wrong video
-      debugPrint('Flashcard: no video URL for index $index, clearing controller');
+      _dlog('Flashcard: no video URL for index $index, clearing controller');
       _videoController?.pause();
       _videoController = null;
       if (!mounted) return;
@@ -566,7 +595,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
   Future<void> _loadWords() async {
     try {
       if (widget.contentChoice == 'review_existing') {
-        debugPrint('Flashcards: loading words for review');
+        _dlog('Flashcards: loading words for review');
 
         // If caller passed explicit IDs (from Review Sessions), fetch exactly those and preserve order.
         final explicitIds = widget.reviewWordIds;
@@ -584,7 +613,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
           // Preserve the order provided by explicitIds
           docs.sort((a, b) => explicitIds.indexOf(a.id).compareTo(explicitIds.indexOf(b.id)));
           _allWords = docs;
-          debugPrint('Flashcards: loaded ${_allWords.length} words from explicit reviewWordIds');
+          _dlog('Flashcards: loaded ${_allWords.length} words from explicit reviewWordIds');
           return;
         }
 
@@ -598,7 +627,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
               status == 'à revoir';
         }).toList();
         if (wordsToReviewList.isEmpty) {
-          debugPrint('Flashcards: no words to review found');
+          _dlog('Flashcards: no words to review found');
           _allWords = [];
           return;
         }
@@ -611,7 +640,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         final docs = snapshot.docs;
         docs.sort((a, b) => wordIds.indexOf(a.id).compareTo(wordIds.indexOf(b.id)));
         _allWords = docs;
-        debugPrint('Flashcards: loaded ${_allWords.length} words for review from SpacedRepetitionService');
+        _dlog('Flashcards: loaded ${_allWords.length} words for review from SpacedRepetitionService');
         return;
       } else {
         // Cas normal : charger depuis Firestore selon la catégorie
@@ -627,11 +656,11 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         final snapshot = await q.get();
         _allWords = snapshot.docs;
 
-        debugPrint('Flashcards: fetched ${_allWords.length} docs '
+        _dlog('Flashcards: fetched ${_allWords.length} docs '
             'for choice="${widget.contentChoice}".');
       }
     } catch (e, st) {
-      debugPrint('Flashcards: error while loading words: $e\n$st');
+      _dlog('Flashcards: error while loading words: $e\n$st');
       _allWords = [];
     }
   }
@@ -675,11 +704,6 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
           controller.pause();
         }
       }
-    } else if (state == AppLifecycleState.resumed) {
-      // Reprend la vidéo actuelle quand l'app revient au premier plan
-      if (_videoController != null && _videoController!.value.isInitialized && !_videoController!.value.isPlaying) {
-        _videoController!.play();
-      }
     }
   }
 
@@ -707,22 +731,17 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         _isFlipping = false;
         return;
       }
-
-      // Post-frame to avoid timing with the flip animation / switcher.
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted || _isDisposed) return;
-        try {
-          if (_videoController != null && _videoController!.value.isInitialized) {
-            await _videoController!.seekTo(Duration.zero);
-            await _videoController!.play();
-          }
-        } catch (_) {
-          // best-effort only
-        }
-      });
-
-      // Force setState to refresh UI after video is ready
+      // No autoplay: just refresh UI after controller is ready.
       if (mounted && !_isDisposed) setState(() {});
+    } else {
+      // Flipping away from video side: ensure playback stops.
+      try {
+        if (_videoController != null && _videoController!.value.isInitialized && _videoController!.value.isPlaying) {
+          _videoController!.pause();
+        }
+      } catch (_) {
+        // best-effort only
+      }
     }
     
     _isFlipping = false;
@@ -756,7 +775,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         try {
           // Check if index is still valid before preloading
           if (preloadIndex >= _cards.length || !mounted || _isDisposed) {
-            debugPrint('Flashcards: skipping preload for index $preloadIndex (out of bounds or unmounted)');
+            _dlog('Flashcards: skipping preload for index $preloadIndex (out of bounds or unmounted)');
             return;
           }
           
@@ -765,7 +784,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
           
           // Double-check index is still valid after async operation
           if (preloadIndex >= _cards.length || !mounted || _isDisposed) {
-            debugPrint('Flashcards: skipping preload for index $preloadIndex (index changed during download)');
+            _dlog('Flashcards: skipping preload for index $preloadIndex (index changed during download)');
             return;
           }
           
@@ -775,15 +794,15 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
           // Final check before caching
           if (preloadIndex >= _cards.length || !mounted || _isDisposed) {
             controller.dispose();
-            debugPrint('Flashcards: disposing preloaded controller for index $preloadIndex (index changed)');
+            _dlog('Flashcards: disposing preloaded controller for index $preloadIndex (index changed)');
             return;
           }
           
           controller.setLooping(true);
           _cachePut(preloadIndex, controller, sourceUrl: preloadUrl);
-          debugPrint('Flashcards: successfully preloaded video for index $preloadIndex');
+          _dlog('Flashcards: successfully preloaded video for index $preloadIndex');
         } catch (e) {
-          debugPrint('Flashcards: preload failed for index $preloadIndex: $e');
+          _dlog('Flashcards: preload failed for index $preloadIndex: $e');
           // Clean up any partial state
           if (_videoControllers.containsKey(preloadIndex)) {
             try {
@@ -821,13 +840,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
       _initializeVideo(_currentIndex).then((_) {
         _isTransitioning = false;
         if (!mounted || _isDisposed) return;
-        // Ensure autoplay after transition (Mastered/Review/Prev) in sign-first mode.
-        try {
-          if (_videoController != null && _videoController!.value.isInitialized) {
-            _videoController!.seekTo(Duration.zero);
-            _videoController!.play();
-          }
-        } catch (_) {}
+        // No autoplay after transitions: user must press Play.
         setState(() {});
       });
     } else {
@@ -871,13 +884,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
         _initializeVideo(_currentIndex).then((_) {
           _isTransitioning = false;
           if (!mounted || _isDisposed) return;
-          // Ensure autoplay after transition (Mastered/Review/Next) in sign-first mode.
-          try {
-            if (_videoController != null && _videoController!.value.isInitialized) {
-              _videoController!.seekTo(Duration.zero);
-              _videoController!.play();
-            }
-          } catch (_) {}
+          // No autoplay after transitions: user must press Play.
           setState(() {});
         });
       } else {
@@ -917,7 +924,7 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
       _videoControllers.remove(key);
       _controllerUrlByIndex.remove(key);
       _lruOrder.remove(key);
-      debugPrint('Flashcard: cleaned up controller for distant index $key');
+      _dlog('Flashcard: cleaned up controller for distant index $key');
     }
   }
 
@@ -1263,59 +1270,114 @@ class _FlashcardPageState extends State<FlashcardPage> with WidgetsBindingObserv
           padding: const EdgeInsets.all(10),
           child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: _videoController!.value.isInitialized
-                  ? AspectRatio(
-                      aspectRatio: _videoController!.value.aspectRatio,
-              child: VideoPlayer(_videoController!),
-                    )
-                  : Container(
-                      color: Colors.black,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Theme.of(context).colorScheme.primary,
+        child: ValueListenableBuilder<VideoPlayerValue>(
+          valueListenable: _videoController!,
+          builder: (context, value, _) {
+            Future<void> togglePlayPause() async {
+              if (!mounted) return;
+              try {
+                final isPlayingNow = _videoController!.value.isPlaying;
+                if (isPlayingNow) {
+                  await _videoController!.pause();
+                } else {
+                  await _videoController!.play();
+                }
+              } catch (_) {
+                // best-effort only
+              }
+            }
+
+            final showCenterPlayOverlay = value.isInitialized && !value.isPlaying;
+
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: value.isInitialized
+                      ? AspectRatio(
+                          aspectRatio: value.aspectRatio,
+                          child: VideoPlayer(_videoController!),
+                        )
+                      : Container(
+                          color: Colors.black,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
                         ),
-            ),
-          ),
-        ),
-        Positioned(
-              left: 0,
-              right: 0,
-          bottom: 12,
-          child: _InlineVideoControls(
-            controller: _videoController!,
-            isPlaying: _videoController!.value.isPlaying,
-            currentSpeed: _currentSpeed,
-            onTogglePlayPause: () {
-              if (!mounted) return;
-              setState(() {
-                _videoController!.value.isPlaying
-                    ? _videoController!.pause()
-                    : _videoController!.play();
-              });
-            },
-            onSpeedChanged: (newSpeed) {
-              if (!mounted) return;
-              _videoController!.setPlaybackSpeed(newSpeed);
-              setState(() => _currentSpeed = newSpeed);
-            },
-          ),
-        ),
-        Positioned(
-          top: 10,
-          right: 10,
-          child: IconButton(
-            onPressed: _enterFullscreen,
-            icon: Icon(
-              Icons.fullscreen,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-                  size: 30,
-            ),
-          ),
-        ),
-      ],
+                ),
+
+                // Center play overlay (only when paused + initialized)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: !showCenterPlayOverlay,
+                    child: AnimatedOpacity(
+                      opacity: showCenterPlayOverlay ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Center(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: togglePlayPause,
+                            borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              width: 92,
+                              height: 92,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.45),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.play_arrow_rounded,
+                                  size: 56,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 12,
+                  child: _InlineVideoControls(
+                    controller: _videoController!,
+                    isPlaying: value.isPlaying,
+                    currentSpeed: _currentSpeed,
+                    onTogglePlayPause: () {
+                      unawaited(togglePlayPause());
+                    },
+                    onSpeedChanged: (newSpeed) {
+                      if (!mounted) return;
+                      _videoController!.setPlaybackSpeed(newSpeed);
+                      setState(() => _currentSpeed = newSpeed);
+                    },
+                  ),
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: IconButton(
+                    onPressed: _enterFullscreen,
+                    icon: Icon(
+                      Icons.fullscreen,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.8),
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

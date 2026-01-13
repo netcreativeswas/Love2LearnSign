@@ -313,7 +313,13 @@ class _GameMasterPageState extends State<GameMasterPage>
           category: category,
         ),
       ),
-    );
+    ).then((_) {
+      // Refresh tokens immediately when returning from quiz page
+      // This handles both completion (via QuizResultScreen) and cancellation (Back button)
+      if (mounted) {
+        _refreshSessionFutures();
+      }
+    });
   }
 
   Future<void> _showQuizRewardedAdDialog(
@@ -449,7 +455,13 @@ class _GameMasterPageState extends State<GameMasterPage>
           startingPoint: result['startingPoint'] as bool,
         ),
       ),
-    );
+    ).then((_) {
+      // Refresh tokens immediately when returning from flashcard page
+      // This handles both completion and cancellation (Back button)
+      if (mounted) {
+        _refreshSessionFutures();
+      }
+    });
   }
 
   Future<void> _showFlashcardRewardedAdDialog(BuildContext context) async {

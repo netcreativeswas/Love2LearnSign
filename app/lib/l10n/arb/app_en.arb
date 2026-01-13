@@ -207,6 +207,36 @@
   "privacySectionTitle": "Legal & Privacy",
   "privacyPolicyTitle": "Privacy Policy",
   "privacyPolicySubtitle": "Read our privacy policy and data practices",
+  "manageAdConsentTitle": "Manage ad consent",
+  "manageAdConsentSubtitle": "Update your advertising privacy choices",
+  "manageAdConsentSuccess": "Ad consent settings opened.",
+  "manageAdConsentFailed": "Could not open ad consent settings: {error}",
+  "@manageAdConsentFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "description": "Error message"
+      }
+    }
+  },
+  "deleteAccountSectionTitle": "Delete account",
+  "deleteAccountSectionDescription": "Permanently delete your account and associated data from Love to Learn Sign.",
+  "deleteAccountButton": "Delete account",
+  "deleteAccountDialogTitle": "Delete your account?",
+  "deleteAccountDialogBody": "This will permanently delete your account and associated data. This action cannot be undone.",
+  "deleteAccountDialogHint": "Type DELETE to confirm",
+  "deleteAccountProcessingTitle": "Deleting account…",
+  "deleteAccountProcessingMessage": "Please wait while we delete your account and data.",
+  "deleteAccountSuccess": "Your account has been deleted.",
+  "deleteAccountFailed": "Account deletion failed: {error}",
+  "@deleteAccountFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "description": "Error message"
+      }
+    }
+  },
   "privacyDialogIntro": "Love to Learn Sign respects your privacy and is committed to protecting your personal information.",
   "privacyDialogDataUsageTitle": "Our app collects and uses data to:",
   "privacyDialogPointPersonalized": "• Provide personalized learning experience",
@@ -216,6 +246,7 @@
   "privacyDialogPointReminders": "• Send daily reminder notifications",
   "privacyDialogPointCaching": "• Store video content locally for offline access",
   "privacyDialogPointTracking": "• Track usage (video views, game sessions) to improve features",
+  "privacyDialogPointSecurity": "• Prevent abuse and fraud (rate limiting) using device identifiers and IP address",
   "privacyDialogPointSearchAnalytics": "• Log anonymous dictionary search analytics (query text, category, result count, found/missing) to improve content — no user IDs are stored",
   "privacyDialogPointDemographic": "• Collect demographic information (hearing status) to understand our user base and improve content for both deaf and hearing learners",
   "privacyDialogPointImprove": "• Improve app performance and features",
@@ -227,7 +258,7 @@
   "privacyDialogRightsAccess": "• Access, modify, or delete your data through app settings",
   "privacyDialogRightsCancel": "• Cancel premium subscriptions through store settings",
   "privacyDialogRightsAds": "• Reset Advertising ID to opt-out of personalized ads",
-  "privacyDialogRightsDelete": "• Request data deletion by contacting us",
+  "privacyDialogRightsDelete": "• Delete your account in the app settings or contact us for support",
   "privacyDialogPremiumTitle": "Premium Users:",
   "privacyDialogPremiumNoAds": "• Premium subscriptions remove all advertisements",
   "privacyDialogPremiumPayment": "• Payment data is processed securely by store platforms",

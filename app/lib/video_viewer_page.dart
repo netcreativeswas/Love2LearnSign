@@ -1760,7 +1760,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
               .get();
           if (qs.docs.isNotEmpty) return qs.docs.first;
         } catch (e) {
-          print('Error querying English antonym $word: $e');
+          if (kDebugMode) debugPrint('Error querying English antonym $word: $e');
         }
       }
     }
@@ -1777,7 +1777,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
             return querySnapshot.docs.first;
           }
         } catch (e) {
-          print('Error querying Bengali word $word: $e');
+          if (kDebugMode) debugPrint('Error querying Bengali word $word: $e');
         }
       }
     }

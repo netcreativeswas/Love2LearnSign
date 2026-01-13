@@ -24,6 +24,7 @@ import 'services/history_repository.dart';
 import 'services/flashcard_notification_service.dart';
 import 'services/spaced_repetition_service.dart';
 import 'services/ad_service.dart';
+import 'services/ad_consent_service.dart';
 import 'services/subscription_service.dart';
 import 'services/notification_permission_service.dart';
 
@@ -134,8 +135,16 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
     // Ads SDK init + tenant-scoped ad unit config (deferred; non-critical for first paint).
     try {
+      // EU/UK consent must be handled before requesting ads.
+      final canRequestAds = await AdConsentService.instance.ensureConsent(
+        tagForUnderAgeOfConsent: false,
+      );
       await AdService().setTenant(_tenantScope.tenantId);
-      await AdService().initialize();
+      if (canRequestAds) {
+        await AdService().initialize();
+      } else {
+        debugPrint('UMP: ads not allowed yet (canRequestAds=false). Skipping ads init.');
+      }
     } catch (e) {
       debugPrint('Ads init failed (non-fatal): $e');
     }

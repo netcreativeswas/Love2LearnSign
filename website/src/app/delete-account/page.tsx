@@ -7,7 +7,7 @@ import { SectionCard } from "@/components/SectionCard";
 import { siteConfig } from "@/lib/site-config";
 import { StructuredData, BreadcrumbList } from "@/components/StructuredData";
 import { TranslationProvider, useTranslations } from "@/components/TranslationProvider";
-import { defaultLocale, getLocalizedPath } from "@/lib/i18n";
+import { defaultLocale } from "@/lib/i18n";
 
 const locale = defaultLocale;
 
@@ -55,6 +55,14 @@ function DeleteAccountPageContent() {
       >
         <div className="grid gap-6">
           <SectionCard title={t("deleteAccount.requestTitle")}>
+            <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-sm font-semibold text-foreground">
+                {t("deleteAccount.inAppOptionTitle")}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("deleteAccount.inAppOptionBody")}
+              </p>
+            </div>
             <ol className="list-inside list-decimal space-y-2 text-muted-foreground">
               <li>
                 {(() => {

@@ -22,8 +22,10 @@ import 'services/flashcard_notification_service.dart';
 import 'app_root.dart' show scheduleDailyTasks, flutterLocalNotificationsPlugin;
 import 'theme_provider.dart';
 import 'widgets/cupertino_sheet_container.dart';
+import 'widgets/critical_action_overlay.dart';
 import 'services/cache_service.dart';
 import 'services/prefetch_queue.dart';
+import 'services/ad_consent_service.dart';
 import 'services/android_intent_helper.dart';
 import 'services/ios_settings_helper.dart';
 import 'l10n/dynamic_l10n.dart';
@@ -32,6 +34,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'pages/premium_settings_page.dart';
 import 'pages/sign_language_settings_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'login_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -65,6 +69,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _refreshingCache = false;
   String _appVersion = 'Loading...';
   bool _dashboardPwdBusy = false;
+  bool _deletingAccount = false;
   
   String _prettyCategoryLabel(BuildContext context, String value) {
     if (value == 'Random') {
@@ -304,29 +309,147 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _confirmAndDeleteAccount() async {
+    final s = S.of(context)!;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.pleaseSignInFirst)),
+      );
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final controller = TextEditingController();
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            final ok = controller.text.trim().toUpperCase() == 'DELETE';
+            return AlertDialog(
+              title: Text(s.deleteAccountDialogTitle),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(s.deleteAccountDialogBody),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: s.deleteAccountDialogHint,
+                    ),
+                    onChanged: (_) => setLocal(() {}),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(s.cancel),
+                ),
+                FilledButton(
+                  onPressed: ok
+                      ? () async {
+                          Navigator.of(ctx).pop();
+                          await _deleteMyAccount();
+                        }
+                      : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(s.deleteAccountButton),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteMyAccount() async {
+    if (_deletingAccount) return;
+    final s = S.of(context)!;
+    setState(() => _deletingAccount = true);
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('deleteMyAccount');
+      await callable.call(<String, dynamic>{});
+
+      // Best-effort sign out (Auth user may already be deleted server-side).
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (_) {}
+
+      if (!mounted) return;
+      // Route to login so UI doesn’t show stale authenticated screens.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (r) => false,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.deleteAccountSuccess)),
+      );
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.deleteAccountFailed(e.message ?? e.code))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.deleteAccountFailed(e.toString()))),
+      );
+    } finally {
+      if (mounted) setState(() => _deletingAccount = false);
+    }
+  }
+
+  Future<void> _openAdConsentSettings() async {
+    final s = S.of(context)!;
+    try {
+      await AdConsentService.instance.showPrivacyOptionsForm();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.manageAdConsentSuccess)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.manageAdConsentFailed(e.toString()))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
       return const Center(child: CircularProgressIndicator());
     }
-    return Scaffold(
-      appBar: AppBar(
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primary),
-        title: Text(
-          S.of(context)!.settings,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-        ),
-      ),
-      body: ListView(
-        controller: _scrollController,
-        children: [
+    final s = S.of(context)!;
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primary),
+            title: Text(
+              s.settings,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ),
+          body: ListView(
+            controller: _scrollController,
+            children: [
           const Divider(),
           Padding(
             padding: EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
             child: Text(
-              S.of(context)!.general,
+              s.general,
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(fontSize: 18, color: Theme.of(context).colorScheme.primary),
             ),
@@ -1093,19 +1216,19 @@ class _SettingsPageState extends State<SettingsPage> {
           Padding(
             padding: EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
             child: Text(
-              S.of(context)!.privacySectionTitle,
+              s.privacySectionTitle,
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(fontSize: 18, color: Theme.of(context).colorScheme.primary),
             ),
           ),
           ListTile(
             title: Text(
-              S.of(context)!.privacyPolicyTitle,
+              s.privacyPolicyTitle,
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              S.of(context)!.privacyPolicySubtitle,
+              s.privacyPolicySubtitle,
               style: Theme.of(context).textTheme.bodySmall
                   ?.copyWith(color: Theme.of(context).colorScheme.primary),
             ),
@@ -1114,12 +1237,58 @@ class _SettingsPageState extends State<SettingsPage> {
               _showPrivacyPolicy(context);
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: Text(
+              s.manageAdConsentTitle,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            subtitle: Text(
+              s.manageAdConsentSubtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+            trailing: const Icon(Icons.open_in_new),
+            onTap: _openAdConsentSettings,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 6.0),
+            child: Text(
+              s.deleteAccountSectionTitle,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontSize: 16,
+                    color: Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+          ListTile(
+            leading: Icon(Icons.delete_forever, color: Theme.of(context).colorScheme.error),
+            title: Text(
+              s.deleteAccountButton,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            subtitle: Text(
+              s.deleteAccountSectionDescription,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+                  ),
+            ),
+            onTap: _confirmAndDeleteAccount,
+          ),
           // About Section
           const Divider(),
           Padding(
             padding: EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
             child: Text(
-              S.of(context)!.aboutSectionTitle,
+              s.aboutSectionTitle,
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(fontSize: 18, color: Theme.of(context).colorScheme.primary),
             ),
@@ -1142,8 +1311,18 @@ class _SettingsPageState extends State<SettingsPage> {
             isThreeLine: false,
           ),
           const SizedBox(height: 16), // Extra spacing at the bottom
-        ],
-      ),
+            ],
+          ),
+        ),
+        CriticalActionOverlay(
+          visible: _deletingAccount,
+          title: s.deleteAccountProcessingTitle,
+          message: s.deleteAccountProcessingMessage,
+          // Allow user to back out if it times out, but deletion is best-effort.
+          onCancel: () => setState(() => _deletingAccount = false),
+          showActionsWhileProcessing: false,
+        ),
+      ],
     );
   }
 
@@ -1352,6 +1531,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 _buildPolicyPoint(S.of(context)!.privacyDialogPointReminders),
                 _buildPolicyPoint(S.of(context)!.privacyDialogPointCaching),
                 _buildPolicyPoint(S.of(context)!.privacyDialogPointTracking),
+                _buildPolicyPoint(S.of(context)!.privacyDialogPointSecurity),
                 _buildPolicyPoint(S.of(context)!.privacyDialogPointSearchAnalytics),
                 _buildPolicyPoint(S.of(context)!.privacyDialogPointDemographic),
                 _buildPolicyPoint(S.of(context)!.privacyDialogPointImprove),

@@ -57,6 +57,13 @@ class SessionCounterService {
       return await _incrementVideoViewCountLocal();
     }
 
+    // Verify user is still authenticated before making Firestore request
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null || currentUser.uid != userId) {
+      debugPrint('⚠️ User no longer authenticated (userId changed or logged out). Using local storage fallback.');
+      return await _incrementVideoViewCountLocal();
+    }
+
     try {
       final counterRef = _firestore.collection('user_counters').doc(userId);
       final doc = await counterRef.get();
@@ -76,7 +83,16 @@ class SessionCounterService {
       debugPrint('📹 Video view count: $newCount');
       return newCount;
     } catch (e) {
-      debugPrint('❌ Error incrementing video view: $e');
+      final errorStr = e.toString();
+      final isPermissionError = errorStr.contains('permission-denied') || 
+                                 errorStr.contains('PERMISSION_DENIED') ||
+                                 errorStr.contains('permission_denied');
+      
+      if (isPermissionError) {
+        debugPrint('⚠️ Permission denied for user_counters videoViews (userId: $userId). Possible causes: App Check not initialized, token expired, or user logged out. Using local storage fallback.');
+      } else {
+        debugPrint('❌ Error incrementing video view: $e');
+      }
       return await _incrementVideoViewCountLocal();
     }
   }
@@ -89,6 +105,14 @@ class SessionCounterService {
       return;
     }
 
+    // Verify user is still authenticated before making Firestore request
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null || currentUser.uid != userId) {
+      debugPrint('⚠️ User no longer authenticated (userId changed or logged out). Using local storage fallback.');
+      await _resetVideoViewCountLocal();
+      return;
+    }
+
     try {
       final counterRef = _firestore.collection('user_counters').doc(userId);
         await counterRef.set({
@@ -96,7 +120,16 @@ class SessionCounterService {
           'lastUpdated': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('❌ Error resetting video view remotely: $e');
+      final errorStr = e.toString();
+      final isPermissionError = errorStr.contains('permission-denied') || 
+                                 errorStr.contains('PERMISSION_DENIED') ||
+                                 errorStr.contains('permission_denied');
+      
+      if (isPermissionError) {
+        debugPrint('⚠️ Permission denied for user_counters videoViews reset (userId: $userId). Possible causes: App Check not initialized, token expired, or user logged out. Using local storage fallback.');
+      } else {
+        debugPrint('❌ Error resetting video view remotely: $e');
+      }
       await _resetVideoViewCountLocal();
     }
   }
@@ -273,6 +306,14 @@ class SessionCounterService {
       return _ensureTokenStateLocal(type, userId: null);
     }
 
+    // Verify user is still authenticated before making Firestore request
+    // This prevents race conditions where user logs out between getting userId and making request
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null || currentUser.uid != userId) {
+      debugPrint('⚠️ User no longer authenticated (userId changed or logged out). Using local storage fallback.');
+      return _ensureTokenStateLocal(type, userId: userId);
+    }
+
     try {
       final counterRef = _firestore.collection('user_counters').doc(userId);
       final snapshot = await counterRef.get();
@@ -299,8 +340,17 @@ class SessionCounterService {
       await _cacheTokens(type, userId: userId, tokens: tokens, lastRefresh: lastRefresh);
       return _TokenState(tokens);
     } catch (e) {
-      debugPrint('❌ Error ensuring token state remotely: $e');
-      // Fallback to local storage if Firestore fails (e.g., App Check / network issues).
+      final errorStr = e.toString();
+      final isPermissionError = errorStr.contains('permission-denied') || 
+                                 errorStr.contains('PERMISSION_DENIED') ||
+                                 errorStr.contains('permission_denied');
+      
+      if (isPermissionError) {
+        debugPrint('⚠️ Permission denied for user_counters (userId: $userId). Possible causes: App Check not initialized, token expired, or user logged out. Using local storage fallback.');
+      } else {
+        debugPrint('❌ Error ensuring token state remotely: $e');
+      }
+      // Fallback to local storage if Firestore fails (e.g., permission denied, App Check / network issues).
       return _ensureTokenStateLocal(type, userId: userId);
     }
   }
@@ -313,6 +363,14 @@ class SessionCounterService {
       return;
     }
 
+    // Verify user is still authenticated before making Firestore request
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null || currentUser.uid != userId) {
+      debugPrint('⚠️ User no longer authenticated (userId changed or logged out). Using local storage fallback.');
+      await _setTokenCountLocal(type, clamped, userId: userId);
+      return;
+    }
+
     try {
       final counterRef = _firestore.collection('user_counters').doc(userId);
       await counterRef.set({
@@ -322,7 +380,16 @@ class SessionCounterService {
       // Keep cache in sync.
       await _cacheTokens(type, userId: userId, tokens: clamped, lastRefresh: _currentMonthKey);
     } catch (e) {
-      debugPrint('❌ Error setting token count remotely: $e');
+      final errorStr = e.toString();
+      final isPermissionError = errorStr.contains('permission-denied') || 
+                                 errorStr.contains('PERMISSION_DENIED') ||
+                                 errorStr.contains('permission_denied');
+      
+      if (isPermissionError) {
+        debugPrint('⚠️ Permission denied for user_counters write (userId: $userId). Possible causes: App Check not initialized, token expired, or user logged out. Using local storage fallback.');
+      } else {
+        debugPrint('❌ Error setting token count remotely: $e');
+      }
       // Fallback to local storage if Firestore fails (e.g., permission denied for freeUser)
       await _setTokenCountLocal(type, clamped, userId: userId);
     }

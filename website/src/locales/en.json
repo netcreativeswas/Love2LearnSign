@@ -260,6 +260,7 @@
             "title": "2.2 Information collected automatically",
             "items": [
               "Device information (operating system version, device model, app version)",
+              "Device identifiers and IP address for abuse prevention and rate limiting (including external IP lookup)",
               "App usage data (features used, time spent, video views)",
               "Performance and diagnostic data (app crashes, errors)",
               "Cache data (downloaded video content for offline viewing)",
@@ -382,7 +383,7 @@
               "Access and change some preferences in the app",
               "Control notification permissions in your device settings",
               "Cancel subscriptions via Google Play / App Store settings",
-              "Request deletion of your account (see the Delete Account page)",
+              "Delete your account in the app settings (or see the Delete Account page)",
               "Contact us to ask questions about your data"
             ]
           }
@@ -424,6 +425,8 @@
     "pageTitle": "Delete your account",
     "descriptionText": "This page explains how to request deletion of your {appName} account (by {developerName}) and what data is deleted or kept.",
     "requestTitle": "Request account deletion (steps)",
+    "inAppOptionTitle": "Option 1: Delete inside the app (recommended)",
+    "inAppOptionBody": "In the app: Settings → Delete account. You must type DELETE to confirm. If you cannot access the app, use the email steps below.",
     "mailSubject": "Delete my {appName} account",
     "requestStep1": "Send an email to {email}.",
     "requestStep2": "Use the subject: {subject}.",

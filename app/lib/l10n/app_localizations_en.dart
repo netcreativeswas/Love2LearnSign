@@ -680,6 +680,56 @@ class AppLocalizationsEn extends AppLocalizations {
       'Read our privacy policy and data practices';
 
   @override
+  String get manageAdConsentTitle => 'Manage ad consent';
+
+  @override
+  String get manageAdConsentSubtitle =>
+      'Update your advertising privacy choices';
+
+  @override
+  String get manageAdConsentSuccess => 'Ad consent settings opened.';
+
+  @override
+  String manageAdConsentFailed(String error) {
+    return 'Could not open ad consent settings: $error';
+  }
+
+  @override
+  String get deleteAccountSectionTitle => 'Delete account';
+
+  @override
+  String get deleteAccountSectionDescription =>
+      'Permanently delete your account and associated data from Love to Learn Sign.';
+
+  @override
+  String get deleteAccountButton => 'Delete account';
+
+  @override
+  String get deleteAccountDialogTitle => 'Delete your account?';
+
+  @override
+  String get deleteAccountDialogBody =>
+      'This will permanently delete your account and associated data. This action cannot be undone.';
+
+  @override
+  String get deleteAccountDialogHint => 'Type DELETE to confirm';
+
+  @override
+  String get deleteAccountProcessingTitle => 'Deleting account…';
+
+  @override
+  String get deleteAccountProcessingMessage =>
+      'Please wait while we delete your account and data.';
+
+  @override
+  String get deleteAccountSuccess => 'Your account has been deleted.';
+
+  @override
+  String deleteAccountFailed(String error) {
+    return 'Account deletion failed: $error';
+  }
+
+  @override
   String get privacyDialogIntro =>
       'Love to Learn Sign respects your privacy and is committed to protecting your personal information.';
 
@@ -714,6 +764,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get privacyDialogPointTracking =>
       '• Track usage (video views, game sessions) to improve features';
+
+  @override
+  String get privacyDialogPointSecurity =>
+      '• Prevent abuse and fraud (rate limiting) using device identifiers and IP address';
 
   @override
   String get privacyDialogPointSearchAnalytics =>
@@ -759,7 +813,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyDialogRightsDelete =>
-      '• Request data deletion by contacting us';
+      '• Delete your account in the app settings or contact us for support';
 
   @override
   String get privacyDialogPremiumTitle => 'Premium Users:';

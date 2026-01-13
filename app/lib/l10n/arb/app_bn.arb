@@ -207,6 +207,36 @@
 "privacySectionTitle": "Legal & Privacy",
 "privacyPolicyTitle": "Privacy Policy",
 "privacyPolicySubtitle": "Privacy Policy & Data Practices পড়ুন",
+"manageAdConsentTitle": "বিজ্ঞাপন সম্মতি পরিচালনা করুন",
+"manageAdConsentSubtitle": "বিজ্ঞাপন সংক্রান্ত গোপনীয়তা পছন্দ আপডেট করুন",
+"manageAdConsentSuccess": "বিজ্ঞাপন সম্মতি সেটিংস খোলা হয়েছে।",
+"manageAdConsentFailed": "বিজ্ঞাপন সম্মতি সেটিংস খুলতে পারেনি: {error}",
+"@manageAdConsentFailed": {
+  "placeholders": {
+    "error": {
+      "type": "String",
+      "description": "Error message"
+    }
+  }
+},
+"deleteAccountSectionTitle": "অ্যাকাউন্ট মুছে ফেলুন",
+"deleteAccountSectionDescription": "Love to Learn Sign থেকে আপনার অ্যাকাউন্ট এবং সংশ্লিষ্ট ডেটা স্থায়ীভাবে মুছে ফেলুন।",
+"deleteAccountButton": "অ্যাকাউন্ট মুছে ফেলুন",
+"deleteAccountDialogTitle": "আপনার অ্যাকাউন্ট মুছে ফেলবেন?",
+"deleteAccountDialogBody": "এটি আপনার অ্যাকাউন্ট এবং সংশ্লিষ্ট ডেটা স্থায়ীভাবে মুছে দেবে। এটি ফিরিয়ে আনা যাবে না।",
+"deleteAccountDialogHint": "নিশ্চিত করতে DELETE লিখুন",
+"deleteAccountProcessingTitle": "অ্যাকাউন্ট মুছে ফেলা হচ্ছে…",
+"deleteAccountProcessingMessage": "অনুগ্রহ করে অপেক্ষা করুন—আপনার অ্যাকাউন্ট ও ডেটা মুছে ফেলা হচ্ছে।",
+"deleteAccountSuccess": "আপনার অ্যাকাউন্ট মুছে ফেলা হয়েছে।",
+"deleteAccountFailed": "অ্যাকাউন্ট মুছে ফেলতে ব্যর্থ: {error}",
+"@deleteAccountFailed": {
+  "placeholders": {
+    "error": {
+      "type": "String",
+      "description": "Error message"
+    }
+  }
+},
 "privacyDialogIntro": "Love to Learn Sign আপনার ব্যক্তিগত তথ্য ও গোপনীয়তাকে সম্মান নিশ্চিত করে",
 "privacyDialogDataUsageTitle": "আমাদের অ্যাপ ডেটা সংগ্রহ এবং ব্যবহার করে:",
 "privacyDialogPointPersonalized": "• ব্যক্তিগত শিক্ষার সুযোগ প্রদান করা",
@@ -215,7 +245,8 @@
 "privacyDialogPointAds": "• বিজ্ঞাপন প্রদর্শন করা (Google AdMob এর মাধ্যমে নন-প্রিমিয়াম ব্যবহারকারীদের জন্য)",
 "privacyDialogPointReminders": "• প্রতিদিন রিমাইন্ডার পাঠান",
 "privacyDialogPointCaching": "• অফলাইনে দেখার জন্য ভিডিও কন্টেন্ট লোকালি সেভ করুন",
-"privacyDialogPointTracking": "ফিচার (ভিডিও ভিউ, গেম সেশন) উন্নত করতে অ্যাপ ব্যাবহার ট্র্যাক করুন",
+"privacyDialogPointTracking": "• ফিচার (ভিডিও ভিউ, গেম সেশন) উন্নত করতে অ্যাপ ব্যবহার ট্র্যাক করুন",
+"privacyDialogPointSecurity": "• অপব্যবহার ও জালিয়াতি প্রতিরোধ (রেট লিমিটিং) এর জন্য ডিভাইস আইডি এবং IP ঠিকানা ব্যবহার করা হয়",
 "privacyDialogPointSearchAnalytics": "• অভিধান সার্চের তথ্য নেওয়া হয় (শব্দ, বিভাগ, ফলাফলের সংখ্যা, পাওয়া/না-পাওয়া) যাতে নতুন কনটেন্ট উন্নত করা যায় — কোনো আইডি সংরক্ষণ করা হয় না",
 "privacyDialogPointDemographic": "• ডেমোগ্রাফিক তথ্য সংগ্রহ করা (শ্রবণ ক্ষমতা) যাতে আমাদের ব্যবহারকারীরা বেস বুঝতে পারে এবং বধির ও শ্রবণশক্তিসম্পন্ন উভয় শিক্ষার্থীদের জন্য কন্টেন্ট উন্নত করতে পারি",
 "privacyDialogPointImprove": "• অ্যাপ ও তার বৈশিষ্ট্য উন্নত করা",
@@ -227,7 +258,7 @@
 "privacyDialogRightsAccess": "• অ্যাপ সেটিংসের মাধ্যমে ডেটা অ্যাক্সেস, পরিবর্তন বা মুছে ফেলুন",
 "privacyDialogRightsCancel": "• স্টোর সেটিংসের মাধ্যমে প্রিমিয়াম সাবস্ক্রিপশন বাতিল করুন",
 "privacyDialogRightsAds": "• ব্যক্তিগত বিজ্ঞাপন এড়াতে Advertising ID রিসেট করুন",
-"privacyDialogRightsDelete": "যোগাযোগ করে ডেটা মুছে ফেলার আবেদন করুন",
+"privacyDialogRightsDelete": "• অ্যাপ সেটিংস থেকে অ্যাকাউন্ট মুছে ফেলুন অথবা সহায়তার জন্য আমাদের সাথে যোগাযোগ করুন",
 "privacyDialogPremiumTitle": "প্রিমিয়াম ব্যবহারকারী:",
 "privacyDialogPremiumNoAds": "• প্রিমিয়াম সাবস্ক্রিপশন সমস্ত বিজ্ঞাপন সরিয়ে দেয়",
 "privacyDialogPremiumPayment": "পেমেন্টের তথ্য প্ল্যাটফর্মে সুরক্ষিতভাবে প্রসেস করা হয়",

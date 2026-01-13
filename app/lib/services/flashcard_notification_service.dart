@@ -1,8 +1,13 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'spaced_repetition_service.dart';
+
+void _dlog(String message) {
+  if (kDebugMode) debugPrint(message);
+}
 
 class FlashcardNotificationService {
   static final FlashcardNotificationService _instance = FlashcardNotificationService._internal();
@@ -94,7 +99,7 @@ class FlashcardNotificationService {
       // Skip words that are already due or overdue
       if (scheduledDate.isBefore(now) || scheduledDate.isAtSameMomentAs(now)) {
         // Word is already due or overdue - don't schedule notification
-        print('Skipping notification for word ${word.wordId}: review date is not in the future (${word.nextReviewDate})');
+        _dlog('Skipping notification for word ${word.wordId}: review date is not in the future (${word.nextReviewDate})');
         return;
       }
 
@@ -129,7 +134,7 @@ class FlashcardNotificationService {
       );
     } catch (e) {
       // Log error but don't crash the app
-      print('Failed to schedule notification for word ${word.wordId}: $e');
+      _dlog('Failed to schedule notification for word ${word.wordId}: $e');
     }
   }
 
@@ -230,7 +235,7 @@ class FlashcardNotificationService {
       await _saveScheduledDayIds(<int>[id]);
     } catch (e) {
       // Log error but don't crash the app
-      print('Failed to schedule all review notifications: $e');
+      _dlog('Failed to schedule all review notifications: $e');
     }
   }
 
@@ -285,7 +290,7 @@ class FlashcardNotificationService {
         matchDateTimeComponents: DateTimeComponents.time,
       );
     } catch (e) {
-      print('Failed to schedule daily review reminder: $e');
+      _dlog('Failed to schedule daily review reminder: $e');
     }
   }
 

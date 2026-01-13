@@ -653,6 +653,56 @@ class AppLocalizationsBn extends AppLocalizations {
   String get privacyPolicySubtitle => 'Privacy Policy & Data Practices পড়ুন';
 
   @override
+  String get manageAdConsentTitle => 'বিজ্ঞাপন সম্মতি পরিচালনা করুন';
+
+  @override
+  String get manageAdConsentSubtitle =>
+      'বিজ্ঞাপন সংক্রান্ত গোপনীয়তা পছন্দ আপডেট করুন';
+
+  @override
+  String get manageAdConsentSuccess => 'বিজ্ঞাপন সম্মতি সেটিংস খোলা হয়েছে।';
+
+  @override
+  String manageAdConsentFailed(String error) {
+    return 'বিজ্ঞাপন সম্মতি সেটিংস খুলতে পারেনি: $error';
+  }
+
+  @override
+  String get deleteAccountSectionTitle => 'অ্যাকাউন্ট মুছে ফেলুন';
+
+  @override
+  String get deleteAccountSectionDescription =>
+      'Love to Learn Sign থেকে আপনার অ্যাকাউন্ট এবং সংশ্লিষ্ট ডেটা স্থায়ীভাবে মুছে ফেলুন।';
+
+  @override
+  String get deleteAccountButton => 'অ্যাকাউন্ট মুছে ফেলুন';
+
+  @override
+  String get deleteAccountDialogTitle => 'আপনার অ্যাকাউন্ট মুছে ফেলবেন?';
+
+  @override
+  String get deleteAccountDialogBody =>
+      'এটি আপনার অ্যাকাউন্ট এবং সংশ্লিষ্ট ডেটা স্থায়ীভাবে মুছে দেবে। এটি ফিরিয়ে আনা যাবে না।';
+
+  @override
+  String get deleteAccountDialogHint => 'নিশ্চিত করতে DELETE লিখুন';
+
+  @override
+  String get deleteAccountProcessingTitle => 'অ্যাকাউন্ট মুছে ফেলা হচ্ছে…';
+
+  @override
+  String get deleteAccountProcessingMessage =>
+      'অনুগ্রহ করে অপেক্ষা করুন—আপনার অ্যাকাউন্ট ও ডেটা মুছে ফেলা হচ্ছে।';
+
+  @override
+  String get deleteAccountSuccess => 'আপনার অ্যাকাউন্ট মুছে ফেলা হয়েছে।';
+
+  @override
+  String deleteAccountFailed(String error) {
+    return 'অ্যাকাউন্ট মুছে ফেলতে ব্যর্থ: $error';
+  }
+
+  @override
   String get privacyDialogIntro =>
       'Love to Learn Sign আপনার ব্যক্তিগত তথ্য ও গোপনীয়তাকে সম্মান নিশ্চিত করে';
 
@@ -685,7 +735,11 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get privacyDialogPointTracking =>
-      'ফিচার (ভিডিও ভিউ, গেম সেশন) উন্নত করতে অ্যাপ ব্যাবহার ট্র্যাক করুন';
+      '• ফিচার (ভিডিও ভিউ, গেম সেশন) উন্নত করতে অ্যাপ ব্যবহার ট্র্যাক করুন';
+
+  @override
+  String get privacyDialogPointSecurity =>
+      '• অপব্যবহার ও জালিয়াতি প্রতিরোধ (রেট লিমিটিং) এর জন্য ডিভাইস আইডি এবং IP ঠিকানা ব্যবহার করা হয়';
 
   @override
   String get privacyDialogPointSearchAnalytics =>
@@ -730,7 +784,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get privacyDialogRightsDelete =>
-      'যোগাযোগ করে ডেটা মুছে ফেলার আবেদন করুন';
+      '• অ্যাপ সেটিংস থেকে অ্যাকাউন্ট মুছে ফেলুন অথবা সহায়তার জন্য আমাদের সাথে যোগাযোগ করুন';
 
   @override
   String get privacyDialogPremiumTitle => 'প্রিমিয়াম ব্যবহারকারী:';

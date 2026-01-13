@@ -28,8 +28,11 @@ class AdService {
   bool _isInterstitialReady = false;
   bool _isRewardedReady = false;
   Completer<bool>? _interstitialLoadCompleter;
+  Completer<bool>? _rewardedLoadCompleter;
   DateTime? _lastInterstitialLoadAttemptAt;
   LoadAdError? _lastInterstitialLoadError;
+  DateTime? _lastRewardedLoadAttemptAt;
+  LoadAdError? _lastRewardedLoadError;
   Object? _lastInterstitialShowError;
   DateTime? _lastInterstitialShownAt;
   DateTime? _lastInterstitialShowAttemptAt;
@@ -114,7 +117,9 @@ class AdService {
       _adUnits = cfg.adUnits;
       _adConfigLoaded = true;
     } catch (e) {
-      debugPrint('⚠️ Failed to load tenant AdMob config (tenantId=$_tenantId): $e');
+      if (kDebugMode) {
+        debugPrint('⚠️ Failed to load tenant AdMob config (tenantId=$_tenantId): $e');
+      }
       _adUnits = const TenantAdUnits();
       _adConfigLoaded = true;
     }
@@ -127,7 +132,7 @@ class AdService {
     _lastInterstitialLoadAttemptAt = DateTime.now();
     _lastInterstitialLoadError = null;
     _interstitialLoadCompleter ??= Completer<bool>();
-    debugPrint('📦 Loading interstitial ad (unitId=$_interstitialAdUnitId)');
+    if (kDebugMode) debugPrint('📦 Loading interstitial ad');
     
     InterstitialAd.load(
       adUnitId: _interstitialAdUnitId,
@@ -139,13 +144,13 @@ class AdService {
           _isLoadingInterstitial = false;
           _interstitialRetryCount = 0; // Reset retry count on success
           _setInterstitialCallbacks(ad);
-          debugPrint('✅ Interstitial ad loaded');
+          if (kDebugMode) debugPrint('✅ Interstitial ad loaded');
           if (_interstitialLoadCompleter != null && !_interstitialLoadCompleter!.isCompleted) {
             _interstitialLoadCompleter!.complete(true);
           }
         },
         onAdFailedToLoad: (LoadAdError error) {
-          debugPrint('❌ Interstitial ad failed to load: $error');
+          if (kDebugMode) debugPrint('❌ Interstitial ad failed to load: $error');
           _lastInterstitialLoadError = error;
           _isInterstitialReady = false;
           _interstitialAd = null;
@@ -209,6 +214,9 @@ class AdService {
   void _loadRewardedAd() {
     if (_isLoadingRewarded) return; // Prevent duplicate loading
     _isLoadingRewarded = true;
+    _lastRewardedLoadAttemptAt = DateTime.now();
+    _lastRewardedLoadError = null;
+    _rewardedLoadCompleter ??= Completer<bool>();
     
     RewardedAd.load(
       adUnitId: _rewardedAdUnitId,
@@ -220,22 +228,35 @@ class AdService {
           _isLoadingRewarded = false;
           _rewardedRetryCount = 0; // Reset retry count on success
           _setRewardedCallbacks(ad);
-          debugPrint('✅ Rewarded ad loaded');
+          if (kDebugMode) debugPrint('✅ Rewarded ad loaded');
+          if (_rewardedLoadCompleter != null && !_rewardedLoadCompleter!.isCompleted) {
+            _rewardedLoadCompleter!.complete(true);
+          }
         },
         onAdFailedToLoad: (LoadAdError error) {
-          debugPrint('❌ Rewarded ad failed to load: $error');
+          _lastRewardedLoadError = error;
+          if (kDebugMode) debugPrint('❌ Rewarded ad failed to load: $error');
           _isRewardedReady = false;
           _rewardedAd = null;
           _isLoadingRewarded = false;
+          if (_rewardedLoadCompleter != null && !_rewardedLoadCompleter!.isCompleted) {
+            _rewardedLoadCompleter!.complete(false);
+          }
           
           // Retry with exponential backoff
           if (_rewardedRetryCount < _maxRetries) {
             _rewardedRetryCount++;
             final delay = Duration(seconds: 1 << _rewardedRetryCount); // 2, 4, 8, 16, 32s
-            debugPrint('🔄 Retrying rewarded ad in ${delay.inSeconds}s (attempt $_rewardedRetryCount/$_maxRetries)');
-            Future.delayed(delay, _loadRewardedAd);
+            if (kDebugMode) {
+              debugPrint('🔄 Retrying rewarded ad in ${delay.inSeconds}s (attempt $_rewardedRetryCount/$_maxRetries)');
+            }
+            Future.delayed(delay, () {
+              // reset completer for a fresh attempt
+              _rewardedLoadCompleter = Completer<bool>();
+              _loadRewardedAd();
+            });
           } else {
-            debugPrint('⚠️ Max retries reached for rewarded ad');
+            if (kDebugMode) debugPrint('⚠️ Max retries reached for rewarded ad');
           }
         },
       ),
@@ -255,7 +276,7 @@ class AdService {
         _loadRewardedAd(); // Load next ad
       },
       onAdFailedToShowFullScreenContent: (RewardedAd ad, AdError error) {
-        debugPrint('❌ Rewarded ad failed to show: $error');
+        if (kDebugMode) debugPrint('❌ Rewarded ad failed to show: $error');
         ad.dispose();
         _rewardedAd = null;
         _isRewardedReady = false;
@@ -338,7 +359,9 @@ class AdService {
 
     final afterWait = await showInterstitialAd();
     if (!afterWait && _lastInterstitialLoadError != null) {
-      debugPrint('⚠️ Interstitial still not shown. Last load error: $_lastInterstitialLoadError');
+      if (kDebugMode) {
+        debugPrint('⚠️ Interstitial still not shown. Last load error: $_lastInterstitialLoadError');
+      }
     }
     return afterWait;
   }
@@ -348,20 +371,41 @@ class AdService {
   Future<bool> showRewardedAd({
     required Function() onRewardEarned,
     Function(String)? onError,
+    Duration timeout = const Duration(seconds: 8),
   }) async {
     // Paid users should never see ads (including rewarded).
     if (await _adsSuppressedForTenant()) {
       onError?.call('Ads are disabled for premium users.');
-      debugPrint('ℹ️ Rewarded suppressed for paid/admin user');
+      if (kDebugMode) debugPrint('ℹ️ Rewarded suppressed for paid/admin user');
       return false;
     }
 
     if (!_isRewardedReady || _rewardedAd == null) {
-      debugPrint('⚠️ Rewarded ad not ready');
-      onError?.call('Ad not ready. Please try again later.');
-      // Trigger ad reload for next attempt
+      // Trigger ad load and wait briefly so we don't miss the first click.
       ensureAdsLoaded();
-      return false;
+      final completer = _rewardedLoadCompleter;
+      if (completer != null) {
+        try {
+          await completer.future.timeout(timeout);
+        } catch (_) {
+          // timeout or other issue; continue
+        }
+      } else {
+        // No pending load; force a new attempt.
+        _rewardedLoadCompleter = Completer<bool>();
+        _loadRewardedAd();
+        try {
+          await _rewardedLoadCompleter!.future.timeout(timeout);
+        } catch (_) {}
+      }
+
+      if (!_isRewardedReady || _rewardedAd == null) {
+        if (kDebugMode) {
+          debugPrint('⚠️ Rewarded ad still not ready after waiting. Last load error: $_lastRewardedLoadError');
+        }
+        onError?.call('Ad not ready. Please try again later.');
+        return false;
+      }
     }
 
     final completer = Completer<bool>();
@@ -373,7 +417,7 @@ class AdService {
     try {
       await ad.show(
         onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
-          debugPrint('✅ User earned reward: ${reward.amount} ${reward.type}');
+          if (kDebugMode) debugPrint('✅ User earned reward: ${reward.amount} ${reward.type}');
           onRewardEarned();
           if (!completer.isCompleted) {
             completer.complete(true);
@@ -384,7 +428,7 @@ class AdService {
       // Wait for the completer to resolve (either reward earned or ad dismissed)
       return await completer.future;
     } catch (e) {
-      debugPrint('❌ Error showing rewarded ad: $e');
+      if (kDebugMode) debugPrint('❌ Error showing rewarded ad: $e');
       onError?.call('Failed to show ad. Please try again.');
       if (!completer.isCompleted) {
         completer.complete(false);
@@ -442,14 +486,15 @@ class AdService {
   /// Call this when user tries to watch an ad but it's not available
   void ensureAdsLoaded() {
     if (!_isInterstitialReady && !_isLoadingInterstitial) {
-      debugPrint('🔄 Force reloading interstitial ad');
+      if (kDebugMode) debugPrint('🔄 Force reloading interstitial ad');
       _interstitialRetryCount = 0;
       _interstitialLoadCompleter = Completer<bool>();
       _loadInterstitialAd();
     }
     if (!_isRewardedReady && !_isLoadingRewarded) {
-      debugPrint('🔄 Force reloading rewarded ad');
+      if (kDebugMode) debugPrint('🔄 Force reloading rewarded ad');
       _rewardedRetryCount = 0;
+      _rewardedLoadCompleter = Completer<bool>();
       _loadRewardedAd();
     }
   }

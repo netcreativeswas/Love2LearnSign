@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:love_to_learn_sign/home_page.dart'; // remplace par ta page d’accueil
 import 'package:love_to_learn_sign/splashScreen/onboarding_video_screen.dart';
@@ -12,6 +13,11 @@ import 'package:love_to_learn_sign/startup_timing.dart';
 /// Feature flag: keep the onboarding code but disable showing it at install-time.
 /// Set to `true` to re-enable the onboarding video screen.
 const bool kEnableOnboardingIntro = false;
+
+void _dlog(String message) {
+  // Avoid spamming release logs.
+  if (kDebugMode) debugPrint(message);
+}
 
 class SplashGate extends StatefulWidget {
   const SplashGate({super.key});
@@ -35,7 +41,7 @@ class _SplashGateState extends State<SplashGate> {
     final hasTenantSelection = (prefs.getString('selected_app_id') ?? '').trim().isNotEmpty ||
         (prefs.getString('selected_tenant_id') ?? '').trim().isNotEmpty;
     
-    print('🔍 SplashGate: hasSeenIntro = $hasSeenIntro');
+    _dlog('🔍 SplashGate: hasSeenIntro = $hasSeenIntro');
 
     // Tiny yield so the first frame can paint before navigation work.
     await Future.delayed(const Duration(milliseconds: 50));
@@ -46,9 +52,9 @@ class _SplashGateState extends State<SplashGate> {
     if (!kEnableOnboardingIntro) {
       if (!hasSeenIntro) {
         await prefs.setBool('hasSeenIntro', true);
-        print('🔍 SplashGate: Onboarding disabled -> marking hasSeenIntro=true');
+        _dlog('🔍 SplashGate: Onboarding disabled -> marking hasSeenIntro=true');
       } else {
-        print('🔍 SplashGate: Onboarding disabled (already marked as seen)');
+        _dlog('🔍 SplashGate: Onboarding disabled (already marked as seen)');
       }
       if (!mounted) return;
 
@@ -80,12 +86,12 @@ class _SplashGateState extends State<SplashGate> {
     }
 
     if (!hasSeenIntro) {
-      print('🔍 SplashGate: Navigating to OnboardingVideoScreen');
+      _dlog('🔍 SplashGate: Navigating to OnboardingVideoScreen');
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const OnboardingVideoScreen()),
       );
     } else {
-      print('🔍 SplashGate: Navigating to HomePage (intro already seen)');
+      _dlog('🔍 SplashGate: Navigating to HomePage (intro already seen)');
       Navigator.of(context).pushReplacementNamed('/home');
     }
   }

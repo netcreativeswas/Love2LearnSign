@@ -35,7 +35,9 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        // Explicit target SDK for Play Store compliance.
+        // NOTE: Keep this aligned with current Google Play target API requirements.
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -46,16 +48,21 @@ android {
         keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
     }
     def hasReleaseKeystore = keystorePropertiesFile.exists() && keystoreProperties['storeFile']
+    def isReleaseTask = gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") }
+    if (isReleaseTask && !hasReleaseKeystore) {
+        throw new GradleException(
+            "Release build requires android/key.properties (not committed). " +
+            "Copy android/key.properties.example to android/key.properties and set storeFile/passwords."
+        )
+    }
 
     signingConfigs {
         release {
-            // Allow debug builds (and local CI) to run even when key.properties is absent.
-            // For Play Store releases, ensure key.properties exists and includes storeFile/passwords.
             if (hasReleaseKeystore) {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile file(keystoreProperties['storeFile'])
-            storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
             }
         }
     }
@@ -65,8 +72,7 @@ android {
             shrinkResources true
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // If no release keystore is configured, fall back to debug signing so local builds still work.
-            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
+            signingConfig signingConfigs.release
         }
     }
 }

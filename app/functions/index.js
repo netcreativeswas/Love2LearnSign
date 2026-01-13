@@ -2819,6 +2819,20 @@ exports.deleteDictionaryEntry = onCall(
       }
     }
 
+    // Delete the sign document (subcollection) before deleting the concept document.
+    // In Firestore, deleting a parent document does NOT automatically delete its subcollections.
+    const signRef = ref.collection("signs").doc(signLangId);
+    try {
+      await signRef.delete();
+    } catch (e) {
+      // Ignore if sign document doesn't exist (idempotent delete)
+      const code = e?.code || e?.statusCode;
+      if (code !== 404) {
+        console.warn("Sign document delete failed:", signRef.path, e?.message || e);
+        // Continue; we still attempt to delete the concept doc.
+      }
+    }
+
     await ref.delete();
 
     return { success: true, summary };
@@ -2921,6 +2935,157 @@ exports.deleteUserAndData = onCall(
       if (error.code !== "auth/user-not-found") {
         console.error("Error deleting auth user:", error);
         throw new HttpsError("internal", `Failed to delete auth user: ${error.message}`);
+      }
+    }
+
+    return { success: true, summary };
+  }
+);
+
+/**
+ * Self-serve callable: deleteMyAccount
+ *
+ * Allows an authenticated user to delete their own account and associated data.
+ * This complements the Play Console "account deletion" requirement.
+ *
+ * Notes:
+ * - This callable intentionally does NOT accept a userId parameter.
+ * - It deletes Firestore profile/docs + per-user collections and then deletes the Auth user.
+ */
+exports.deleteMyAccount = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const userId = request.auth.uid;
+
+    const summary = {
+      userId,
+      profileDocsDeleted: 0,
+      counterDocsDeleted: 0,
+      roleLogsDeleted: 0,
+      userTenantsDeleted: 0,
+      tenantMemberDocsDeleted: 0,
+      customCollectionsDeleted: {},
+    };
+
+    // 1) Delete user profile docs (both canonical users/{uid} and any legacy docs with uid field).
+    const profileDocs = await db.collection("users").where("uid", "==", userId).get();
+    for (const doc of profileDocs.docs) {
+      await deleteDocumentRecursive(doc.ref);
+      summary.profileDocsDeleted++;
+    }
+
+    const directUserRef = db.collection("users").doc(userId);
+    const directUserDoc = await directUserRef.get();
+    if (directUserDoc.exists) {
+      await deleteDocumentRecursive(directUserRef);
+      summary.profileDocsDeleted++;
+    }
+
+    // 2) Delete user counters
+    const countersRef = db.collection("user_counters").doc(userId);
+    if ((await countersRef.get()).exists) {
+      await deleteDocumentRecursive(countersRef);
+      summary.counterDocsDeleted++;
+    }
+
+    // 3) Delete per-user collections (best-effort).
+    const perUserCollections = [
+      { name: "favorites", field: "userId" },
+      { name: "quizHistory", field: "userId" },
+      { name: "reminders", field: "userId" },
+      { name: "reviewLists", field: "userId" },
+      { name: "sessionCounters", field: "userId" },
+    ];
+
+    for (const collection of perUserCollections) {
+      try {
+        const snapshot = await db.collection(collection.name).where(collection.field, "==", userId).get();
+        if (!snapshot.empty) {
+          for (const doc of snapshot.docs) {
+            await deleteDocumentRecursive(doc.ref);
+          }
+          summary.customCollectionsDeleted[collection.name] = snapshot.size;
+        }
+      } catch (error) {
+        console.warn(`deleteMyAccount: warning while cleaning ${collection.name}:`, error?.message || error);
+      }
+    }
+
+    // 4) Delete role logs
+    const roleLogsSnap = await db.collection("roleLogs").where("userId", "==", userId).get();
+    for (const log of roleLogsSnap.docs) {
+      await log.ref.delete();
+      summary.roleLogsDeleted++;
+    }
+
+    // 5) Delete tenant membership docs + userTenants index doc.
+    //
+    // Prefer userTenants/{uid}.tenants keys, but also fall back to a collectionGroup query
+    // to ensure we don’t leave dangling members if the index doc is missing.
+    let tenantIds = [];
+    const userTenantsRef = db.collection("userTenants").doc(userId);
+    try {
+      const ut = await userTenantsRef.get();
+      if (ut.exists) {
+        const data = ut.data() || {};
+        const tenants = data.tenants;
+        if (tenants && typeof tenants === "object") {
+          tenantIds = Object.keys(tenants).map((t) => String(t).trim()).filter((t) => t);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    for (const tenantId of tenantIds.slice(0, 200)) {
+      try {
+        const memberRef = db.collection("tenants").doc(tenantId).collection("members").doc(userId);
+        if ((await memberRef.get()).exists) {
+          await deleteDocumentRecursive(memberRef);
+          summary.tenantMemberDocsDeleted++;
+        }
+      } catch (e) {
+        console.warn("deleteMyAccount: member delete failed:", tenantId, e?.message || e);
+      }
+    }
+
+    try {
+      const members = await db
+        .collectionGroup("members")
+        .where(FieldPath.documentId(), "==", userId)
+        .get();
+      for (const doc of members.docs) {
+        await deleteDocumentRecursive(doc.ref);
+        summary.tenantMemberDocsDeleted++;
+      }
+    } catch (e) {
+      // non-fatal; membership docs are not always present
+      console.warn("deleteMyAccount: collectionGroup(members) cleanup failed:", e?.message || e);
+    }
+
+    try {
+      if ((await userTenantsRef.get()).exists) {
+        await deleteDocumentRecursive(userTenantsRef);
+        summary.userTenantsDeleted++;
+      }
+    } catch (e) {
+      console.warn("deleteMyAccount: userTenants delete failed:", e?.message || e);
+    }
+
+    // 6) Finally delete the Auth user.
+    try {
+      await auth.deleteUser(userId);
+    } catch (error) {
+      if (error?.code !== "auth/user-not-found") {
+        console.error("deleteMyAccount: error deleting auth user:", error);
+        throw new HttpsError("internal", `Failed to delete auth user: ${error?.message || error}`);
       }
     }
 
