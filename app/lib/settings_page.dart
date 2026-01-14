@@ -26,6 +26,8 @@ import 'widgets/critical_action_overlay.dart';
 import 'services/cache_service.dart';
 import 'services/prefetch_queue.dart';
 import 'services/ad_consent_service.dart';
+import 'services/ad_service.dart';
+import 'services/premium_service.dart';
 import 'services/android_intent_helper.dart';
 import 'services/ios_settings_helper.dart';
 import 'l10n/dynamic_l10n.dart';
@@ -412,6 +414,19 @@ class _SettingsPageState extends State<SettingsPage> {
     final s = S.of(context)!;
     try {
       await AdConsentService.instance.showPrivacyOptionsForm();
+
+      // If the user updated consent, re-evaluate and (re)initialize ads if allowed.
+      final tenantId = context.read<TenantScope>().tenantId;
+      final isPremium = await PremiumService().isPremiumForTenant(tenantId);
+      if (!isPremium) {
+        final consent = await AdConsentService.instance.ensureConsent(tagForUnderAgeOfConsent: false);
+        await AdService().setTenant(tenantId);
+        AdService().setConsentMode(nonPersonalizedAds: consent.shouldUseNonPersonalizedAds);
+        if (consent.canRequestAds) {
+          await AdService().initialize(nonPersonalizedAds: consent.shouldUseNonPersonalizedAds);
+        }
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(s.manageAdConsentSuccess)),

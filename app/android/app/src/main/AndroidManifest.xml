@@ -91,7 +91,7 @@
         <!-- AdMob App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-8517443606450525~9382552065"/>
+            android:value="ca-app-pub-8517443606450525~1986151386"/>
         <!-- Nécessaire pour que zonedSchedule fonctionne même après redémarrage -->
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"

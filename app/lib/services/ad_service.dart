@@ -18,6 +18,9 @@ class AdService {
   factory AdService() => _instance;
   AdService._internal();
 
+  bool _sdkInitialized = false;
+  bool _nonPersonalizedAds = false;
+
   // Current tenant context (Option A: per-tenant ad units + per-tenant premium suppression).
   String _tenantId = TenantDb.defaultTenantId;
   TenantAdUnits _adUnits = const TenantAdUnits();
@@ -51,8 +54,8 @@ class AdService {
   static const String _testRewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
   
   // Production ad unit IDs - Android
-  static const String _prodInterstitialAdUnitIdAndroid = 'ca-app-pub-8517443606450525/4756911342';
-  static const String _prodRewardedAdUnitIdAndroid = 'ca-app-pub-8517443606450525/3663321522';
+  static const String _prodInterstitialAdUnitIdAndroid = 'ca-app-pub-8517443606450525/7539868574';
+  static const String _prodRewardedAdUnitIdAndroid = 'ca-app-pub-8517443606450525/7747768045';
   
   // Production ad unit IDs - iOS
   static const String _prodInterstitialAdUnitIdIOS = 'ca-app-pub-8517443606450525/8829765480';
@@ -80,12 +83,17 @@ class AdService {
     return Platform.isAndroid ? _prodRewardedAdUnitIdAndroid : _prodRewardedAdUnitIdIOS;
   }
 
+  AdRequest _adRequest() => AdRequest(nonPersonalizedAds: _nonPersonalizedAds);
+
   /// Initialize Mobile Ads SDK
-  Future<void> initialize() async {
-    await MobileAds.instance.initialize();
+  Future<void> initialize({bool nonPersonalizedAds = false}) async {
+    _nonPersonalizedAds = nonPersonalizedAds;
+    if (!_sdkInitialized) {
+      await MobileAds.instance.initialize();
+      _sdkInitialized = true;
+    }
     await _loadTenantAdConfig();
-    _loadInterstitialAd();
-    _loadRewardedAd();
+    ensureAdsLoaded();
   }
 
   /// Set current tenant context (Option A). Should be called when tenant changes.
@@ -96,10 +104,22 @@ class AdService {
     _tenantId = next;
     _adConfigLoaded = false;
     await _loadTenantAdConfig();
-    // Reload ads so the next requests use the correct ad unit IDs.
+    // Reload ads so the next requests use the correct ad unit IDs (only if SDK is initialized).
+    if (_sdkInitialized) {
+      dispose();
+      ensureAdsLoaded();
+    }
+  }
+
+  /// Update consent mode for ad requests.
+  ///
+  /// When enabled, ads are requested with `nonPersonalizedAds: true`.
+  void setConsentMode({required bool nonPersonalizedAds}) {
+    if (_nonPersonalizedAds == nonPersonalizedAds) return;
+    _nonPersonalizedAds = nonPersonalizedAds;
+    if (!_sdkInitialized) return;
     dispose();
-    _loadInterstitialAd();
-    _loadRewardedAd();
+    ensureAdsLoaded();
   }
 
   Future<void> _loadTenantAdConfig() async {
@@ -136,7 +156,7 @@ class AdService {
     
     InterstitialAd.load(
       adUnitId: _interstitialAdUnitId,
-      request: const AdRequest(),
+      request: _adRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (InterstitialAd ad) {
           _interstitialAd = ad;
@@ -220,7 +240,7 @@ class AdService {
     
     RewardedAd.load(
       adUnitId: _rewardedAdUnitId,
-      request: const AdRequest(),
+      request: _adRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (RewardedAd ad) {
           _rewardedAd = ad;
@@ -295,6 +315,12 @@ class AdService {
     if (await _adsSuppressedForTenant()) {
       debugPrint('ℹ️ Interstitial suppressed for paid/admin user');
       _lastInterstitialShowError = 'suppressed_by_role';
+      return false;
+    }
+
+    if (!_sdkInitialized) {
+      debugPrint('⚠️ Interstitial requested before ads SDK initialization');
+      _lastInterstitialShowError = 'sdk_not_initialized';
       return false;
     }
 
@@ -377,6 +403,12 @@ class AdService {
     if (await _adsSuppressedForTenant()) {
       onError?.call('Ads are disabled for premium users.');
       if (kDebugMode) debugPrint('ℹ️ Rewarded suppressed for paid/admin user');
+      return false;
+    }
+
+    if (!_sdkInitialized) {
+      onError?.call('Ads are not available right now.');
+      if (kDebugMode) debugPrint('⚠️ Rewarded requested before ads SDK initialization');
       return false;
     }
 
@@ -485,6 +517,12 @@ class AdService {
   /// Force reload ads if they're not ready
   /// Call this when user tries to watch an ad but it's not available
   void ensureAdsLoaded() {
+    // Never request ads unless the SDK is initialized (which should only happen
+    // after UMP allows requesting ads).
+    if (!_sdkInitialized) {
+      if (kDebugMode) debugPrint('ℹ️ Ads SDK not initialized yet; skipping ad loads');
+      return;
+    }
     if (!_isInterstitialReady && !_isLoadingInterstitial) {
       if (kDebugMode) debugPrint('🔄 Force reloading interstitial ad');
       _interstitialRetryCount = 0;

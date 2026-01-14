@@ -27,6 +27,7 @@ import 'services/ad_service.dart';
 import 'services/ad_consent_service.dart';
 import 'services/subscription_service.dart';
 import 'services/notification_permission_service.dart';
+import 'services/premium_service.dart';
 
 import 'tenancy/tenant_scope.dart';
 import 'tenancy/tenant_member_access_provider.dart';
@@ -135,15 +136,27 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
     // Ads SDK init + tenant-scoped ad unit config (deferred; non-critical for first paint).
     try {
-      // EU/UK consent must be handled before requesting ads.
-      final canRequestAds = await AdConsentService.instance.ensureConsent(
-        tagForUnderAgeOfConsent: false,
-      );
-      await AdService().setTenant(_tenantScope.tenantId);
-      if (canRequestAds) {
-        await AdService().initialize();
+      final tenantId = _tenantScope.tenantId;
+
+      // Premium/admin users should not see ads, and should not be forced through ad consent.
+      final isPremium = await PremiumService().isPremiumForTenant(tenantId);
+      if (isPremium) {
+        debugPrint('Premium: skipping UMP + ads init (tenantId=$tenantId)');
       } else {
-        debugPrint('UMP: ads not allowed yet (canRequestAds=false). Skipping ads init.');
+        // EU/UK consent must be handled before requesting ads.
+        final consent = await AdConsentService.instance.ensureConsent(
+          tagForUnderAgeOfConsent: false,
+        );
+
+        // Load tenant ad config (safe) but do not load ads unless consent allows.
+        await AdService().setTenant(tenantId);
+        AdService().setConsentMode(nonPersonalizedAds: consent.shouldUseNonPersonalizedAds);
+
+        if (consent.canRequestAds) {
+          await AdService().initialize(nonPersonalizedAds: consent.shouldUseNonPersonalizedAds);
+        } else {
+          debugPrint('UMP: ads not allowed (canRequestAds=false). Skipping ads init.');
+        }
       }
     } catch (e) {
       debugPrint('Ads init failed (non-fatal): $e');
