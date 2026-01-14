@@ -11,6 +11,7 @@
   "play": "Play",
   "pause": "Pause",
   "share": "Share",
+  "shareFailed": "Share failed. Please try again.",
   "favorite": "Add to Favorite",
   "unfavorite": "Remove from Favorite",
   "tabHome": "Home",

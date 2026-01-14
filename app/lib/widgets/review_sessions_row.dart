@@ -284,22 +284,30 @@ class _ReviewSessionsRowState extends State<ReviewSessionsRow> {
                                     setState(() { _favRepo.toggle(d.id); });
                                   },
                                 ),
-                                IconButton(
-                                  tooltip: S.of(context)!.share,
-                                  icon: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
-                                  onPressed: () async {
-                                    final scope = context.read<TenantScope>();
-                                    final uiLocale = context.read<LocaleProvider>().locale.languageCode;
-                                    await ShareService.shareVideo(
-                                      d.id,
-                                      english: english,
-                                      bengali: bengali,
-                                      tenantId: scope.tenantId,
-                                      signLangId: scope.signLangId,
-                                      uiLocale: uiLocale,
-                                      context: context,
-                                    );
-                                  },
+                                Builder(
+                                  builder: (buttonContext) => IconButton(
+                                    tooltip: S.of(context)!.share,
+                                    icon: Icon(Icons.ios_share, color: Theme.of(context).colorScheme.primary),
+                                    onPressed: () async {
+                                      try {
+                                        final scope = context.read<TenantScope>();
+                                        final uiLocale = context.read<LocaleProvider>().locale.languageCode;
+                                        await ShareService.shareVideo(
+                                          d.id,
+                                          english: english,
+                                          bengali: bengali,
+                                          tenantId: scope.tenantId,
+                                          signLangId: scope.signLangId,
+                                          uiLocale: uiLocale,
+                                          context: buttonContext,
+                                        );
+                                      } catch (_) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text(S.of(context)!.shareFailed)),
+                                        );
+                                      }
+                                    },
+                                  ),
                                 ),
                               ],
                             ),

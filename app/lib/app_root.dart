@@ -159,7 +159,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         final uri = await _appLinks.getInitialLink();
         if (uri != null) {
           debugPrint('🔍 DeepLink Debug: initialLink uri=$uri');
-          _navigateToUri(uri);
+          // Important: use pushAndRemoveUntil to override SplashGate/Home routing
+          _navigateToUri(uri, isInitial: true);
         }
       } catch (_) {
         // ignore
@@ -316,18 +317,31 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  void _navigateToUri(Uri uri) {
+  void _navigateToUri(Uri uri, {bool isInitial = false}) {
     final segments = uri.pathSegments;
+
+    // Apply tenant/app selection from query params (fast)
+    if (uri.queryParameters.containsKey('tenant') ||
+        uri.queryParameters.containsKey('app') ||
+        uri.queryParameters.containsKey('ui')) {
+      try {
+        final scope = context.read<TenantScope>();
+        scope.applyInstallLinkFast(uri);
+      } catch (_) {
+        // ignore
+      }
+    }
 
     // Co-brand install link: /install?tenant=...&app=...&ui=...
     if (segments.isNotEmpty && segments.first == 'install') {
-      try {
-        final scope = context.read<TenantScope>();
-        scope.applyInstallLink(uri);
-      } catch (_) {
-        // ignore if provider not ready
-      }
-      return;
+       // already handled by applyInstallLinkFast above, but we might want to show Home
+       if (isInitial) {
+         navigatorKey.currentState?.pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => HomePage(countryCode: _countryCode)),
+            (route) => false,
+          );
+       }
+       return;
     }
 
     if (segments.length == 2 && segments.first == 'word') {
@@ -335,12 +349,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Skip if this ID was just handled
       if (id == _lastDeepLinkId) return;
       _lastDeepLinkId = id;
-      navigatorKey.currentState?.push(
-        MaterialPageRoute(
-          settings: RouteSettings(name: '/word/$id'),
-          builder: (_) => VideoViewerPage(wordId: id),
-        ),
+
+      final route = MaterialPageRoute(
+        settings: RouteSettings(name: '/word/$id'),
+        builder: (_) => VideoViewerPage(wordId: id),
       );
+
+      if (isInitial) {
+        // Force replacement of the entire stack (SplashGate -> Home)
+        navigatorKey.currentState?.pushAndRemoveUntil(route, (r) => false);
+      } else {
+        navigatorKey.currentState?.push(route);
+      }
     }
   }
 

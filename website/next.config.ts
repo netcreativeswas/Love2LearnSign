@@ -27,13 +27,22 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: [...securityHeaders],
       },
+      {
+        source: "/.well-known/apple-app-site-association",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/json",
+          },
+        ],
+      },
     ];
   },
   async redirects() {
     return [
-      // Canonical host: redirect non-www to www
+      // Canonical host: redirect non-www to www (EXCEPT /.well-known/* to allow deep link verification)
       {
-        source: "/:path*",
+        source: "/:path((?!\\.well-known/).*)",
         has: [{ type: "host", value: "love2learnsign.com" }],
         destination: "https://www.love2learnsign.com/:path*",
         permanent: true,

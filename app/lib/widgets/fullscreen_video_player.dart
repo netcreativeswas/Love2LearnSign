@@ -522,28 +522,36 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> with Widg
                   ),
                   const SizedBox(width: 20),
                   if (widget.showShareButton)
-                    ElevatedButton.icon(
+                    Builder(
+                      builder: (buttonContext) => ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                         foregroundColor: Theme.of(context).colorScheme.primary,
                       ),
                       onPressed: () async {
-                        final scope = context.read<TenantScope>();
-                        final uiLocale = context.read<LocaleProvider>().locale.languageCode;
-                        // Share a deep link to this word; falls back to the system share sheet
-                        await ShareService.shareVideo(
-                          widget.wordId,
-                          english: widget.english,
-                          bengali: widget.bengali,
-                          tenantId: scope.tenantId,
-                          signLangId: scope.signLangId,
-                          uiLocale: uiLocale,
-                          context: context,
-                        );
+                        try {
+                          final scope = context.read<TenantScope>();
+                          final uiLocale = context.read<LocaleProvider>().locale.languageCode;
+                          // Share a deep link to this word; falls back to the system share sheet
+                          await ShareService.shareVideo(
+                            widget.wordId,
+                            english: widget.english,
+                            bengali: widget.bengali,
+                            tenantId: scope.tenantId,
+                            signLangId: scope.signLangId,
+                            uiLocale: uiLocale,
+                            context: buttonContext,
+                          );
+                        } catch (_) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(S.of(context)!.shareFailed)),
+                          );
+                        }
                       },
-                      icon: Icon(IconlyLight.send),
+                      icon: const Icon(Icons.ios_share),
                       label: Text(S.of(context)!.share),
                     ),
+                  ),
                 ],
               ),
             ),

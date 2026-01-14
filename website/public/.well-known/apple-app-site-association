@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "53U5G3SRT8.com.love2learnsign.app",
+        "paths": ["/word/*", "/install*"]
+      }
+    ]
+  }
+}

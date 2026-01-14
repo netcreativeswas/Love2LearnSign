@@ -1170,17 +1170,23 @@ class _MiniatureMenu extends StatelessWidget {
       onSelected: (value) async {
         switch (value) {
           case _MiniAction.share:
-            final scope = context.read<TenantScope>();
-            final uiLocale = context.read<LocaleProvider>().locale.languageCode;
-            await ShareService.shareVideo(
-              wordId,
-              english: english,
-              bengali: bengali,
-              tenantId: scope.tenantId,
-              signLangId: scope.signLangId,
-              uiLocale: uiLocale,
-              context: context,
-            );
+            try {
+              final scope = context.read<TenantScope>();
+              final uiLocale = context.read<LocaleProvider>().locale.languageCode;
+              await ShareService.shareVideo(
+                wordId,
+                english: english,
+                bengali: bengali,
+                tenantId: scope.tenantId,
+                signLangId: scope.signLangId,
+                uiLocale: uiLocale,
+                context: context,
+              );
+            } catch (_) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(S.of(context)!.shareFailed)),
+              );
+            }
             break;
           case _MiniAction.toggleFavorite:
             final repo = context.read<FavoritesRepository>();
@@ -1206,7 +1212,7 @@ class _MiniatureMenu extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.share, size: 18, color: Theme.of(context).colorScheme.primary),
+                Icon(Icons.ios_share, size: 18, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(

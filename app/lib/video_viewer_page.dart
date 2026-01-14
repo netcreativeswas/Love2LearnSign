@@ -663,21 +663,30 @@ class _VideoViewerPageState extends State<VideoViewerPage> with WidgetsBindingOb
                 );
               },
             ),
-          IconButton(
-            icon: Icon(Icons.share, color: Theme.of(context).colorScheme.secondary, size: 28,),
-            onPressed: () async {
-              final scope = context.read<TenantScope>();
-              final uiLocale = context.read<LocaleProvider>().locale.languageCode;
-              await ShareService.shareVideo(
-                widget.wordId,
-                english: _english,
-                bengali: _bengali,
-                tenantId: scope.tenantId,
-                signLangId: scope.signLangId,
-                uiLocale: uiLocale,
-                context: context,
-              );
-            },
+          Builder(
+            builder: (buttonContext) => IconButton(
+              icon: Icon(Icons.ios_share, color: Theme.of(context).colorScheme.secondary, size: 28,),
+              onPressed: () async {
+                try {
+                  final scope = context.read<TenantScope>();
+                  final uiLocale = context.read<LocaleProvider>().locale.languageCode;
+                  await ShareService.shareVideo(
+                    widget.wordId,
+                    english: _english,
+                    bengali: _bengali,
+                    tenantId: scope.tenantId,
+                    signLangId: scope.signLangId,
+                    uiLocale: uiLocale,
+                    context: buttonContext,
+                  );
+                } catch (_) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(S.of(context)!.shareFailed)),
+                  );
+                }
+              },
+            ),
           ),
         ],
         elevation: 0,

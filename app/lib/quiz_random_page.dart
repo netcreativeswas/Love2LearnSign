@@ -929,13 +929,19 @@ class QuizResultScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                   IconButton(
-                    icon: Icon(Icons.share,
+                    icon: Icon(Icons.ios_share,
                         size: 30, color: Theme.of(context).colorScheme.primary),
-                    onPressed: () {
-                      final shareText =
-                          S.of(context)!.shareText(score, maxQuestions);
-                      debugPrint('📤 Share tapped: universal share');
-                      SharePlus.instance.share(ShareParams(text: shareText));
+                    onPressed: () async {
+                      try {
+                        final shareText =
+                            S.of(context)!.shareText(score, maxQuestions);
+                        debugPrint('📤 Share tapped: universal share');
+                        await SharePlus.instance.share(ShareParams(text: shareText));
+                      } catch (_) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(S.of(context)!.shareFailed)),
+                        );
+                      }
                     },
                   ),
                 ],

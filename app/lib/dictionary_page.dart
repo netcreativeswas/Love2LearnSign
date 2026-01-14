@@ -1228,7 +1228,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                           );
                         },
                       ),
-                      const SizedBox(width: 12), // Add spacing between buttons
+                      const SizedBox(width: 6), // Tighter spacing between buttons
                       Consumer<FavoritesRepository>(
                         builder: (context, repo, _) {
                           final fav = repo.contains(wordId);
@@ -1243,24 +1243,33 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                           );
                         },
                       ),
-                      const SizedBox(width: 12), // Add spacing between buttons
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
-                        onPressed: () async {
-                          final scope = context.read<TenantScope>();
-                          final uiLocale = context.read<LocaleProvider>().locale.languageCode;
-                          await ShareService.shareVideo(
-                            wordId,
-                            english: english,
-                            bengali: localWord,
-                            tenantId: scope.tenantId,
-                            signLangId: scope.signLangId,
-                            uiLocale: uiLocale,
-                            context: context,
-                          );
-                        },
+                      const SizedBox(width: 6), // Tighter spacing between buttons
+                      Builder(
+                        builder: (buttonContext) => IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(Icons.ios_share, color: Theme.of(context).colorScheme.primary),
+                          onPressed: () async {
+                            try {
+                              final scope = context.read<TenantScope>();
+                              final uiLocale = context.read<LocaleProvider>().locale.languageCode;
+                              await ShareService.shareVideo(
+                                wordId,
+                                english: english,
+                                bengali: localWord,
+                                tenantId: scope.tenantId,
+                                signLangId: scope.signLangId,
+                                uiLocale: uiLocale,
+                                context: buttonContext,
+                              );
+                            } catch (_) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(S.of(context)!.shareFailed)),
+                              );
+                            }
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -1476,7 +1485,7 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                           );
                         },
                       ),
-                           const SizedBox(width: 12),
+                      const SizedBox(width: 6),
                       Consumer<FavoritesRepository>(
                         builder: (context, repo, _) {
                                final fav = repo.contains(wordId);
@@ -1491,24 +1500,33 @@ class _DictionaryScrollableSectionState extends State<_DictionaryScrollableSecti
                           );
                         },
                       ),
-                           const SizedBox(width: 12),
-                      IconButton(
-                             padding: EdgeInsets.zero,
-                             constraints: const BoxConstraints(),
-                        icon: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
-                        onPressed: () async {
-                          final scope = context.read<TenantScope>();
-                          final uiLocale = context.read<LocaleProvider>().locale.languageCode;
-                          await ShareService.shareVideo(
-                            wordId,
-                            english: english,
-                            bengali: localWord,
-                            tenantId: scope.tenantId,
-                            signLangId: scope.signLangId,
-                            uiLocale: uiLocale,
-                            context: context,
-                          );
-                        },
+                      const SizedBox(width: 6),
+                      Builder(
+                        builder: (buttonContext) => IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(Icons.ios_share, color: Theme.of(context).colorScheme.primary),
+                          onPressed: () async {
+                            try {
+                              final scope = context.read<TenantScope>();
+                              final uiLocale = context.read<LocaleProvider>().locale.languageCode;
+                              await ShareService.shareVideo(
+                                wordId,
+                                english: english,
+                                bengali: localWord,
+                                tenantId: scope.tenantId,
+                                signLangId: scope.signLangId,
+                                uiLocale: uiLocale,
+                                context: buttonContext,
+                              );
+                            } catch (_) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(S.of(context)!.shareFailed)),
+                              );
+                            }
+                          },
+                        ),
                       ),
                   ],
                 ),

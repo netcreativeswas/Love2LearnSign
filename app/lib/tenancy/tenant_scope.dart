@@ -175,6 +175,28 @@ class TenantScope extends ChangeNotifier {
     }
   }
 
+  /// Fast version of applyInstallLink that doesn't wait for Firestore refresh.
+  /// Used for seamless deep-linking to avoid blocking UI.
+  Future<void> applyInstallLinkFast(Uri uri) async {
+    final qp = uri.queryParameters;
+    final tenant = (qp['tenant'] ?? qp['tenantId'] ?? '').trim();
+    final app = (qp['app'] ?? qp['appId'] ?? '').trim();
+    final ui = (qp['ui'] ?? qp['locale'] ?? '').trim();
+
+    if (tenant.isEmpty && app.isEmpty) return;
+
+    if (app.isNotEmpty) _appId = app;
+    if (tenant.isNotEmpty) _tenantId = tenant;
+
+    // 1. Persist synchronously-ish (fire and forget persistence)
+    unawaited(persistSelection(tenantId: _tenantId, appId: _appId, uiLocale: ui));
+
+    // 2. Trigger background refresh & notify immediately so UI can render with new IDs
+    notifyListeners();
+    unawaited(refreshFromFirestore().then((_) => notifyListeners()));
+    unawaited(ensureTenantMembership());
+  }
+
   /// Apply an install link (QR code) selection and refresh config.
   ///
   /// Supports:

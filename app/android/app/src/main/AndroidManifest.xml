@@ -81,6 +81,15 @@
                     android:scheme="https"
                     android:host="love2learnsign.com"
                     android:pathPattern="/word/.*"/>
+                <!-- Also support www subdomain -->
+                <data
+                    android:scheme="https"
+                    android:host="www.love2learnsign.com"
+                    android:pathPrefix="/word"/>
+                <data
+                    android:scheme="https"
+                    android:host="www.love2learnsign.com"
+                    android:pathPattern="/word/.*"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
